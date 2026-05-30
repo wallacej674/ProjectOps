@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: projectops-db
+    environment:
+      POSTGRES_USER: projectops
+      POSTGRES_PASSWORD: projectops
+      POSTGRES_DB: projectops
+    ports:
+      - "55432:5432"
+    volumes:
+      - projectops_postgres_data:/var/lib/postgresql/data
+      - ./docker/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U projectops -d projectops"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  projectops_postgres_data:
