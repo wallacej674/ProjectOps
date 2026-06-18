@@ -16,7 +16,8 @@ Implemented:
 - Archive-on-delete behavior for Projects.
 - Project Dashboard API.
 - GitHub repo intake for public GitHub repository URLs.
-- Pytest coverage for health, Project CRUD, archive behavior, and dashboard output.
+- CodeMap Lite rule-based repository path analysis.
+- Pytest coverage for health, Project CRUD, archive behavior, dashboard output, repo intake, and CodeMap Lite analyzer behavior.
 - Milestone documentation in `docs/`.
 
 Not implemented yet:
@@ -24,7 +25,7 @@ Not implemented yet:
 - Frontend application.
 - Authentication or user ownership.
 - GitHub OAuth, GitHub Apps, or private repository support.
-- Repository analysis, file tree fetching, language detection, or CodeMap Lite.
+- Deep repository analysis, file content fetching, language detection, or AST parsing.
 - User project health checks.
 - Production readiness scoring.
 - Background jobs, webhooks, or AI summaries.
@@ -121,11 +122,15 @@ GET    /api/v1/projects/{project_id}/dashboard
 POST   /api/v1/projects/{project_id}/repo
 GET    /api/v1/projects/{project_id}/repo
 DELETE /api/v1/projects/{project_id}/repo
+POST   /api/v1/projects/{project_id}/analyses/run
+GET    /api/v1/projects/{project_id}/analyses/latest
+GET    /api/v1/projects/{project_id}/analyses
 ```
 
 Deleting a project archives it by setting `status` to `archived`; rows are not hard deleted.
 
 The dashboard endpoint returns real Project metadata, real Repo Integration data when a repo is attached, and explicit placeholder sections for future ProjectOps modules.
+The dashboard also returns the latest attempted Repo Analysis when CodeMap Lite has run.
 
 ## Milestones
 
@@ -208,6 +213,34 @@ Milestone 3 exclusions:
 
 See `docs/milestone-3-github-repo-intake.md`.
 
+### Milestone 4: CodeMap Lite
+
+Milestone 4 added rule-based repository path analysis for attached public GitHub repositories.
+
+What was built:
+
+- `RepoAnalysis` database model.
+- Alembic migration for `repo_analyses`.
+- Public GitHub tree fetcher.
+- CodeMap Lite analyzer for path-based stack and architecture signals.
+- Repo Analysis routes under `/api/v1/projects/{project_id}/analyses`.
+- Dashboard `latest_repo_analysis` backed by the latest attempted analysis snapshot.
+- Tests for analyzer rules, service behavior, route behavior, and dashboard analysis output.
+- Documentation for the CodeMap Lite design.
+
+Milestone 4 exclusions:
+
+- AI summaries or OpenAI calls.
+- Production readiness scoring.
+- Background jobs.
+- Frontend pages.
+- GitHub OAuth, private repos, GitHub tokens, or webhooks.
+- Repository cloning.
+- File content fetching.
+- Deep static analysis, AST parsing, dependency graph analysis, or language percentage calculation.
+
+See `docs/milestone-4-codemap-lite.md`.
+
 ## Project Vocabulary
 
 ProjectOps uses a small domain glossary in `CONTEXT.md`.
@@ -220,5 +253,7 @@ Important current terms:
 - `Project Dashboard`: a command-center view for one Project.
 - `Repo Integration`: a connection record between one Project and an external code repository.
 - `GitHub Repo Intake`: the workflow that attaches, normalizes, retrieves, or removes a public GitHub repository connection.
+- `Repo Analysis`: a stored snapshot of rule-based observations about an attached repository.
+- `CodeMap Lite`: the workflow that fetches public GitHub repository paths and turns those paths into a Repo Analysis.
 
 When adding new features, use those terms consistently in code, tests, and documentation.

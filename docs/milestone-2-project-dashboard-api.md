@@ -48,3 +48,5 @@ Milestone 2 does not include GitHub API calls, repository validation, file tree 
 ## Later Changes
 
 Milestone 3 replaces the placeholder repo section with Repo Integration data when a GitHub repository is attached to a Project. Repo analysis, health checks, and readiness scoring remain placeholders.
+
+Milestone 4 replaces the placeholder `latest_repo_analysis` section with the latest attempted Repo Analysis snapshot when CodeMap Lite has run. Health checks and readiness scoring remain placeholders.

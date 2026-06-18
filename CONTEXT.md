@@ -27,3 +27,11 @@ _Avoid_: Repo metadata, Project repo URL, GitHub link
 **GitHub Repo Intake**:
 The workflow that attaches, normalizes, retrieves, or removes a public GitHub repository connection for a Project. GitHub Repo Intake records connection metadata only; it does not analyze repository contents.
 _Avoid_: Repo analysis, CodeMap, GitHub sync
+
+**Repo Analysis**:
+A stored snapshot of rule-based observations about an attached repository. A Repo Analysis records detected stack, files, folders, signals, warnings, status, and summary at a point in time.
+_Avoid_: Readiness score, AI summary, live repo state
+
+**CodeMap Lite**:
+The rule-based workflow that fetches public GitHub repository paths and turns those paths into a Repo Analysis. CodeMap Lite uses file and folder paths only; it does not clone repositories or inspect file contents.
+_Avoid_: Deep static analysis, AST analysis, production readiness scoring

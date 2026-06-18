@@ -6,10 +6,12 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.dashboard import ProjectDashboardRead
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
+from app.schemas.repo_analysis import RepoAnalysisRead
 from app.schemas.repo_integration import RepoIntegrationCreate, RepoIntegrationRead
 from app.services.dashboard import dashboard_service
 from app.services.github_repo_parser import InvalidGitHubRepoUrlError
 from app.services.projects import ProjectNotFoundError, project_service
+from app.services.repo_analyses import RepoAnalysisNotFoundError, repo_analysis_service
 from app.services.repo_integrations import RepoIntegrationNotFoundError, repo_integration_service
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
@@ -20,6 +22,10 @@ def _not_found(error: ProjectNotFoundError) -> HTTPException:
 
 
 def _repo_not_found(error: RepoIntegrationNotFoundError) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
+
+
+def _analysis_not_found(error: RepoAnalysisNotFoundError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
 
 
@@ -88,6 +94,34 @@ def remove_project_repo(project_id: int, db: Annotated[Session, Depends(get_db)]
         raise _not_found(error) from error
     except RepoIntegrationNotFoundError as error:
         raise _repo_not_found(error) from error
+
+
+@router.post("/{project_id}/analyses/run", response_model=RepoAnalysisRead, status_code=status.HTTP_201_CREATED)
+def run_project_repo_analysis(project_id: int, db: Annotated[Session, Depends(get_db)]) -> RepoAnalysisRead:
+    try:
+        return repo_analysis_service.run_analysis(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+    except RepoIntegrationNotFoundError as error:
+        raise _repo_not_found(error) from error
+
+
+@router.get("/{project_id}/analyses/latest", response_model=RepoAnalysisRead)
+def get_latest_project_repo_analysis(project_id: int, db: Annotated[Session, Depends(get_db)]) -> RepoAnalysisRead:
+    try:
+        return repo_analysis_service.get_latest_project_analysis(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+    except RepoAnalysisNotFoundError as error:
+        raise _analysis_not_found(error) from error
+
+
+@router.get("/{project_id}/analyses", response_model=list[RepoAnalysisRead])
+def list_project_repo_analyses(project_id: int, db: Annotated[Session, Depends(get_db)]) -> list[RepoAnalysisRead]:
+    try:
+        return repo_analysis_service.list_project_analyses(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
 
 
 @router.patch("/{project_id}", response_model=ProjectRead)

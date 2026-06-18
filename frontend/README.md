@@ -49,6 +49,18 @@ DELETE /api/v1/projects/{project_id}/repo
 
 A Project can attach, read, replace, and remove one public GitHub repository connection. The dashboard repo section now reflects that connection when present.
 
+### Milestone 4: CodeMap Lite
+
+The backend now supports CodeMap Lite:
+
+```text
+POST /api/v1/projects/{project_id}/analyses/run
+GET  /api/v1/projects/{project_id}/analyses/latest
+GET  /api/v1/projects/{project_id}/analyses
+```
+
+CodeMap Lite fetches public GitHub repository paths for an attached repo, detects simple rule-based stack and architecture signals, stores Repo Analysis snapshots, and exposes the latest attempted analysis on the Project Dashboard API.
+
 ## Planned Frontend Direction
 
 The first frontend should likely focus on the Project command-center workflow:
@@ -57,9 +69,10 @@ The first frontend should likely focus on the Project command-center workflow:
 - Create and update a Project.
 - View one Project Dashboard.
 - Attach or remove a GitHub repository connection.
-- Show repo, analysis, health, and readiness sections as backend milestones fill them in.
+- Run CodeMap Lite analysis and show latest Repo Analysis output.
+- Show health and readiness sections as backend milestones fill them in.
 
-GitHub Repo Intake is backend-only for now. A future frontend can add screens on top of the implemented repo routes.
+GitHub Repo Intake and CodeMap Lite are backend-only for now. A future frontend can add screens on top of the implemented repo and analysis routes.
 
 ## Not Implemented Yet
 

@@ -93,3 +93,7 @@ Milestone 3 does not include GitHub API calls, GitHub OAuth, private repository 
 - `last_verified_at` is always `null`.
 - Only public GitHub repository URL formats are supported.
 - Only one Repo Integration per Project is supported.
+
+## Later Changes
+
+Milestone 4 builds on Repo Integration by adding CodeMap Lite. CodeMap Lite uses the attached public GitHub repository connection to fetch repository paths and store Repo Analysis snapshots.

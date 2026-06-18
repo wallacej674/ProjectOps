@@ -1,3 +1,16 @@
+from app.services.repo_analyses import repo_analysis_service
+
+
+class FakeTreeFetcher:
+    def fetch_tree_paths(self, repo_owner: str, repo_name: str) -> list[str]:
+        return [
+            "README.md",
+            "backend/pyproject.toml",
+            "backend/app/main.py",
+            "backend/tests/test_health.py",
+        ]
+
+
 def create_project(client):
     response = client.post(
         "/api/v1/projects",
@@ -96,3 +109,25 @@ def test_project_dashboard_repo_section_uses_attached_repo(client):
         "Add a health endpoint check in a future milestone.",
         "Complete the production readiness checklist in a future milestone.",
     ]
+
+
+def test_project_dashboard_latest_repo_analysis_uses_latest_attempt(client, monkeypatch):
+    monkeypatch.setattr(repo_analysis_service, "tree_fetcher", FakeTreeFetcher())
+    project = create_project(client)
+    attach_response = client.post(
+        f"/api/v1/projects/{project['id']}/repo",
+        json={"repo_url": "https://github.com/openai/codex.git"},
+    )
+    assert attach_response.status_code == 201
+    analysis_response = client.post(f"/api/v1/projects/{project['id']}/analyses/run")
+    assert analysis_response.status_code == 201
+
+    response = client.get(f"/api/v1/projects/{project['id']}/dashboard")
+
+    assert response.status_code == 200
+    dashboard = response.json()
+    assert dashboard["latest_repo_analysis"]["id"] == analysis_response.json()["id"]
+    assert dashboard["latest_repo_analysis"]["status"] == "completed"
+    assert dashboard["latest_repo_analysis"]["signals"]["has_backend"] is True
+    assert dashboard["latest_repo_analysis"]["signals"]["has_python"] is True
+    assert "Python backend" in dashboard["latest_repo_analysis"]["summary"]

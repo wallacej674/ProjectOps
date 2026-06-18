@@ -1,10 +1,13 @@
 from sqlalchemy.orm import Session
 
 from app.models.project import Project
+from app.models.repo_analysis import RepoAnalysis
 from app.models.repo_integration import RepoIntegration
+from app.repositories.repo_analyses import repo_analysis_repository
 from app.repositories.repo_integrations import repo_integration_repository
 from app.schemas.dashboard import DashboardReadiness, DashboardRepoStatus, ProjectDashboardRead
 from app.schemas.project import ProjectRead
+from app.schemas.repo_analysis import RepoAnalysisRead
 from app.services.projects import project_service
 
 
@@ -12,17 +15,19 @@ class DashboardService:
     def get_project_dashboard(self, db: Session, project_id: int) -> ProjectDashboardRead:
         project = project_service.get_project(db, project_id)
         repo_integration = repo_integration_repository.get_by_project_id(db, project_id)
-        return self.build_project_dashboard(project, repo_integration)
+        latest_repo_analysis = repo_analysis_repository.get_latest_by_project_id(db, project_id)
+        return self.build_project_dashboard(project, repo_integration, latest_repo_analysis)
 
     def build_project_dashboard(
         self,
         project: Project,
         repo_integration: RepoIntegration | None = None,
+        latest_repo_analysis: RepoAnalysis | None = None,
     ) -> ProjectDashboardRead:
         return ProjectDashboardRead(
             project=ProjectRead.model_validate(project),
             repo=self.build_repo_status(repo_integration),
-            latest_repo_analysis=None,
+            latest_repo_analysis=self.build_latest_repo_analysis(latest_repo_analysis),
             latest_health_check=None,
             readiness=DashboardReadiness(
                 score=None,
@@ -31,6 +36,11 @@ class DashboardService:
             ),
             next_steps=self.build_next_steps(repo_integration),
         )
+
+    def build_latest_repo_analysis(self, latest_repo_analysis: RepoAnalysis | None) -> RepoAnalysisRead | None:
+        if latest_repo_analysis is None:
+            return None
+        return RepoAnalysisRead.model_validate(latest_repo_analysis)
 
     def build_repo_status(self, repo_integration: RepoIntegration | None) -> DashboardRepoStatus:
         if repo_integration is None:

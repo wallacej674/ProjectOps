@@ -4,6 +4,7 @@ from pydantic import BaseModel
 
 from app.models.repo_integration import RepoProvider
 from app.schemas.project import ProjectRead
+from app.schemas.repo_analysis import RepoAnalysisRead
 
 
 class DashboardRepoStatus(BaseModel):
@@ -26,7 +27,7 @@ class DashboardReadiness(BaseModel):
 class ProjectDashboardRead(BaseModel):
     project: ProjectRead
     repo: DashboardRepoStatus
-    latest_repo_analysis: None
+    latest_repo_analysis: RepoAnalysisRead | None
     latest_health_check: None
     readiness: DashboardReadiness
     next_steps: list[str]
