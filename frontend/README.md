@@ -37,6 +37,18 @@ GET /api/v1/projects/{project_id}/dashboard
 
 It returns real Project metadata plus placeholder sections for future repo, repo analysis, health check, readiness, and next-step data.
 
+### Milestone 3: GitHub Repo Intake
+
+The backend now supports GitHub Repo Intake:
+
+```text
+POST   /api/v1/projects/{project_id}/repo
+GET    /api/v1/projects/{project_id}/repo
+DELETE /api/v1/projects/{project_id}/repo
+```
+
+A Project can attach, read, replace, and remove one public GitHub repository connection. The dashboard repo section now reflects that connection when present.
+
 ## Planned Frontend Direction
 
 The first frontend should likely focus on the Project command-center workflow:
@@ -44,9 +56,10 @@ The first frontend should likely focus on the Project command-center workflow:
 - List Projects.
 - Create and update a Project.
 - View one Project Dashboard.
+- Attach or remove a GitHub repository connection.
 - Show repo, analysis, health, and readiness sections as backend milestones fill them in.
 
-Milestone 3 is still backend work. It is planned to add GitHub repo intake before any frontend screens are built.
+GitHub Repo Intake is backend-only for now. A future frontend can add screens on top of the implemented repo routes.
 
 ## Not Implemented Yet
 

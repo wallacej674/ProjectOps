@@ -26,9 +26,14 @@ def test_project_dashboard_returns_project_metadata_and_placeholders(client):
     assert dashboard["project"]["production_url"] == "https://launchbudget.example.com"
     assert dashboard["project"]["status"] == "development"
     assert dashboard["repo"] == {
-        "repo_url": "https://github.com/example/launch-budget",
+        "repo_url": None,
         "connected": False,
-        "message": "GitHub repo intake has not been implemented yet.",
+        "provider": None,
+        "repo_owner": None,
+        "repo_name": None,
+        "default_branch": None,
+        "last_verified_at": None,
+        "message": "No GitHub repository has been attached yet.",
     }
     assert dashboard["latest_repo_analysis"] is None
     assert dashboard["latest_health_check"] is None
@@ -38,7 +43,7 @@ def test_project_dashboard_returns_project_metadata_and_placeholders(client):
         "message": "Production readiness scoring has not been implemented yet.",
     }
     assert dashboard["next_steps"] == [
-        "Connect a GitHub repository in a future milestone.",
+        "Attach a GitHub repository to start repo intake.",
         "Run CodeMap Lite analysis in a future milestone.",
         "Add a health endpoint check in a future milestone.",
         "Complete the production readiness checklist in a future milestone.",
@@ -61,3 +66,33 @@ def test_project_dashboard_can_be_read_for_archived_project(client):
 
     assert response.status_code == 200
     assert response.json()["project"]["status"] == "archived"
+
+
+def test_project_dashboard_repo_section_uses_attached_repo(client):
+    project = create_project(client)
+    attach_response = client.post(
+        f"/api/v1/projects/{project['id']}/repo",
+        json={"repo_url": "https://github.com/openai/codex.git"},
+    )
+    assert attach_response.status_code == 201
+
+    response = client.get(f"/api/v1/projects/{project['id']}/dashboard")
+
+    assert response.status_code == 200
+    dashboard = response.json()
+    assert dashboard["repo"] == {
+        "repo_url": "https://github.com/openai/codex",
+        "connected": True,
+        "provider": "github",
+        "repo_owner": "openai",
+        "repo_name": "codex",
+        "default_branch": None,
+        "last_verified_at": None,
+        "message": "GitHub repository attached. Repository analysis has not been implemented yet.",
+    }
+    assert dashboard["latest_repo_analysis"] is None
+    assert dashboard["next_steps"] == [
+        "Run CodeMap Lite analysis in a future milestone.",
+        "Add a health endpoint check in a future milestone.",
+        "Complete the production readiness checklist in a future milestone.",
+    ]

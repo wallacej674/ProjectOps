@@ -3,6 +3,7 @@ from collections.abc import Generator
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy.orm import Session
 
 TEST_DATABASE_URL = os.getenv(
     "PROJECTOPS_TEST_DATABASE_URL",
@@ -12,13 +13,17 @@ TEST_DATABASE_URL = os.getenv(
 os.environ["PROJECTOPS_DATABASE_URL"] = TEST_DATABASE_URL
 os.environ.setdefault("PROJECTOPS_ENVIRONMENT", "test")
 
-from app.core.database import Base, engine  # noqa: E402
+from app.core.database import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Project  # noqa: F401, E402
 
 
 @pytest.fixture(autouse=True)
-def reset_database() -> Generator[None, None, None]:
+def reset_database(request: pytest.FixtureRequest) -> Generator[None, None, None]:
+    if "client" not in request.fixturenames and "db" not in request.fixturenames:
+        yield
+        return
+
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield
@@ -29,3 +34,12 @@ def reset_database() -> Generator[None, None, None]:
 def client() -> Generator[TestClient, None, None]:
     with TestClient(app) as test_client:
         yield test_client
+
+
+@pytest.fixture
+def db() -> Generator[Session, None, None]:
+    database = SessionLocal()
+    try:
+        yield database
+    finally:
+        database.close()

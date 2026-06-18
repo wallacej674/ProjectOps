@@ -17,7 +17,7 @@ The endpoint gives clients one command-center response for a Project. It returns
 
 ## Why The Response Has Placeholder Sections
 
-The dashboard is meant to become the place where CodeMap, SignalWatch, readiness scoring, and future project-preparation modules meet.
+The dashboard is meant to become the place where repo analysis, health checks, readiness scoring, and future project-preparation modules meet.
 
 Those modules do not exist yet, so Milestone 2 does not invent fake data. Instead, the response exposes stable sections with honest placeholder values:
 
@@ -40,7 +40,11 @@ Milestone 2 does not include GitHub API calls, repository validation, file tree 
 
 ## Known Limitations
 
-- Placeholder text is static.
-- `repo.connected` is always `false`.
+- At the end of Milestone 2, placeholder text was static.
+- At the end of Milestone 2, `repo.connected` was always `false`.
 - Analysis and health sections are always `null`.
 - Readiness scoring is not calculated.
+
+## Later Changes
+
+Milestone 3 replaces the placeholder repo section with Repo Integration data when a GitHub repository is attached to a Project. Repo analysis, health checks, and readiness scoring remain placeholders.

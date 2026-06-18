@@ -15,6 +15,7 @@ Implemented:
 - Project CRUD routes.
 - Archive-on-delete behavior for Projects.
 - Project Dashboard API.
+- GitHub repo intake for public GitHub repository URLs.
 - Pytest coverage for health, Project CRUD, archive behavior, and dashboard output.
 - Milestone documentation in `docs/`.
 
@@ -22,7 +23,6 @@ Not implemented yet:
 
 - Frontend application.
 - Authentication or user ownership.
-- GitHub repo intake.
 - GitHub OAuth, GitHub Apps, or private repository support.
 - Repository analysis, file tree fetching, language detection, or CodeMap Lite.
 - User project health checks.
@@ -118,11 +118,14 @@ GET    /api/v1/projects/{project_id}
 PATCH  /api/v1/projects/{project_id}
 DELETE /api/v1/projects/{project_id}
 GET    /api/v1/projects/{project_id}/dashboard
+POST   /api/v1/projects/{project_id}/repo
+GET    /api/v1/projects/{project_id}/repo
+DELETE /api/v1/projects/{project_id}/repo
 ```
 
 Deleting a project archives it by setting `status` to `archived`; rows are not hard deleted.
 
-The dashboard endpoint returns real Project metadata plus explicit placeholder sections for future ProjectOps modules.
+The dashboard endpoint returns real Project metadata, real Repo Integration data when a repo is attached, and explicit placeholder sections for future ProjectOps modules.
 
 ## Milestones
 
@@ -165,9 +168,9 @@ See `docs/milestone-2-project-dashboard-api.md`.
 
 ### Milestone 3: GitHub Repo Intake
 
-Milestone 3 is planned next. The goal is to let a Project attach one public GitHub repository as connection metadata.
+Milestone 3 added GitHub Repo Intake. A Project can attach, read, replace, and remove one public GitHub repository connection.
 
-Planned scope:
+What was built:
 
 - `RepoIntegration` database model.
 - Alembic migration for `repo_integrations`.
@@ -177,7 +180,21 @@ Planned scope:
 - Tests for parsing, intake behavior, and dashboard repo output.
 - Documentation for the repo intake design.
 
-Planned exclusions:
+The supported GitHub URL formats are:
+
+```text
+https://github.com/owner/repo
+https://github.com/owner/repo.git
+git@github.com:owner/repo.git
+```
+
+Supported URLs normalize to:
+
+```text
+https://github.com/owner/repo
+```
+
+Milestone 3 exclusions:
 
 - GitHub OAuth.
 - Private repositories.
@@ -189,6 +206,8 @@ Planned exclusions:
 - Frontend implementation.
 - Authentication.
 
+See `docs/milestone-3-github-repo-intake.md`.
+
 ## Project Vocabulary
 
 ProjectOps uses a small domain glossary in `CONTEXT.md`.
@@ -199,5 +218,7 @@ Important current terms:
 - `Project Status`: the lifecycle label for a Project.
 - `Archived Project`: a Project kept for history but hidden from normal active lists.
 - `Project Dashboard`: a command-center view for one Project.
+- `Repo Integration`: a connection record between one Project and an external code repository.
+- `GitHub Repo Intake`: the workflow that attaches, normalizes, retrieves, or removes a public GitHub repository connection.
 
 When adding new features, use those terms consistently in code, tests, and documentation.
