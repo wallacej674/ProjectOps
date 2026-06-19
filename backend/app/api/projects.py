@@ -16,6 +16,7 @@ from app.services.health_checks import (
     HealthCheckTargetUrlMissingError,
     health_check_service,
 )
+from app.services.url_validator import HealthCheckUrlSafetyError
 from app.services.projects import ProjectNotFoundError, project_service
 from app.services.repo_analyses import RepoAnalysisNotFoundError, repo_analysis_service
 from app.services.repo_integrations import RepoIntegrationNotFoundError, repo_integration_service
@@ -44,7 +45,7 @@ def _bad_request(error: HealthCheckTargetUrlMissingError) -> HTTPException:
 
 
 def _invalid_repo_url(error: InvalidGitHubRepoUrlError) -> HTTPException:
-    return HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(error))
+    return HTTPException(status_code=422, detail=str(error))
 
 
 @router.post("", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
@@ -150,6 +151,8 @@ def run_project_health_check(
         raise _not_found(error) from error
     except HealthCheckTargetUrlMissingError as error:
         raise _bad_request(error) from error
+    except HealthCheckUrlSafetyError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 @router.get("/{project_id}/health-checks/latest", response_model=HealthCheckRead)

@@ -1,98 +1,15 @@
-from datetime import datetime, timezone
+from datetime import datetime
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session
 
 from app.models.readiness import ProjectReadinessItem, ReadinessItem
-
-_DEFAULT_READINESS_ITEMS = [
-    {
-        "key": "readme_present",
-        "label": "README Present",
-        "description": "The repository has a README.md at its root.",
-        "category": "documentation",
-        "evaluation_type": "automatic",
-        "sort_order": 10,
-        "is_active": True,
-    },
-    {
-        "key": "tests_present",
-        "label": "Tests Present",
-        "description": "The repository contains a tests directory.",
-        "category": "testing",
-        "evaluation_type": "automatic",
-        "sort_order": 20,
-        "is_active": True,
-    },
-    {
-        "key": "ci_configured",
-        "label": "CI Configured",
-        "description": "The repository has GitHub Actions workflows configured.",
-        "category": "testing",
-        "evaluation_type": "automatic",
-        "sort_order": 30,
-        "is_active": True,
-    },
-    {
-        "key": "env_example_present",
-        "label": "Environment Example Present",
-        "description": "The repository has a .env.example file documenting required environment variables.",
-        "category": "documentation",
-        "evaluation_type": "automatic",
-        "sort_order": 40,
-        "is_active": True,
-    },
-    {
-        "key": "production_url_configured",
-        "label": "Production URL Configured",
-        "description": "The project has a production_url set.",
-        "category": "observability",
-        "evaluation_type": "automatic",
-        "sort_order": 50,
-        "is_active": True,
-    },
-    {
-        "key": "latest_health_check_healthy",
-        "label": "Latest Health Check Healthy",
-        "description": "The most recent health check returned a healthy status.",
-        "category": "observability",
-        "evaluation_type": "automatic",
-        "sort_order": 60,
-        "is_active": True,
-    },
-    {
-        "key": "deployment_docs_reviewed",
-        "label": "Deployment Docs Reviewed",
-        "description": "An engineer has reviewed and confirmed the deployment documentation.",
-        "category": "engineering_review",
-        "evaluation_type": "manual",
-        "sort_order": 70,
-        "is_active": True,
-    },
-    {
-        "key": "logging_error_handling_reviewed",
-        "label": "Logging and Error Handling Reviewed",
-        "description": "An engineer has reviewed logging and error handling for production suitability.",
-        "category": "engineering_review",
-        "evaluation_type": "manual",
-        "sort_order": 80,
-        "is_active": True,
-    },
-    {
-        "key": "secrets_management_reviewed",
-        "label": "Secrets Management Reviewed",
-        "description": "An engineer has reviewed how secrets and credentials are managed.",
-        "category": "engineering_review",
-        "evaluation_type": "manual",
-        "sort_order": 90,
-        "is_active": True,
-    },
-]
+from app.readiness_catalog import DEFAULT_READINESS_CATALOG
 
 
 def seed_default_readiness_items(db: Session) -> None:
-    stmt = pg_insert(ReadinessItem).values(_DEFAULT_READINESS_ITEMS)
+    stmt = pg_insert(ReadinessItem).values(DEFAULT_READINESS_CATALOG)
     stmt = stmt.on_conflict_do_nothing(index_elements=["key"])
     db.execute(stmt)
     db.commit()
@@ -140,22 +57,11 @@ class ReadinessRepository:
         source: str,
         evidence: dict | None,
         evaluated_at: datetime,
-    ) -> ProjectReadinessItem:
-        existing = db.scalar(
-            select(ProjectReadinessItem).where(
-                ProjectReadinessItem.project_id == project_id,
-                ProjectReadinessItem.readiness_item_id == readiness_item_id,
-            )
-        )
-        if existing is not None:
-            existing.status = status
-            existing.source = source
-            existing.evidence = evidence
-            existing.evaluated_at = evaluated_at
-            db.flush()
-            return existing
-
-        item = ProjectReadinessItem(
+    ) -> None:
+        # Atomic INSERT ... ON CONFLICT DO UPDATE — safe under concurrent evaluate calls.
+        # notes is intentionally excluded from set_ so manual engineer notes survive
+        # re-evaluation. This method is only called for automatic items.
+        stmt = pg_insert(ProjectReadinessItem).values(
             project_id=project_id,
             readiness_item_id=readiness_item_id,
             status=status,
@@ -163,9 +69,21 @@ class ReadinessRepository:
             evidence=evidence,
             evaluated_at=evaluated_at,
         )
-        db.add(item)
+        stmt = stmt.on_conflict_do_update(
+            constraint="uq_project_readiness_items",
+            set_={
+                "status": stmt.excluded.status,
+                "source": stmt.excluded.source,
+                "evidence": stmt.excluded.evidence,
+                "evaluated_at": stmt.excluded.evaluated_at,
+                # ORM onupdate does not fire for raw execute — set explicitly.
+                "updated_at": func.now(),
+            },
+        )
+        db.execute(stmt)
+        # Expire any cached ProjectReadinessItem objects so subsequent ORM reads
+        # re-query the DB rather than serving stale identity-map state.
         db.flush()
-        return item
 
     def update_project_assessment(
         self,

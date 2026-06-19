@@ -31,6 +31,35 @@ class ReadinessItemNotFoundError(Exception):
     pass
 
 
+_UNKNOWN_SORT_ORDER = 10_000
+
+
+def compute_top_gaps(
+    assessments: list[ProjectReadinessItem],
+    catalog: list[ReadinessItem],
+    max_gaps: int = 3,
+) -> list[str]:
+    catalog_by_id = {item.id: item for item in catalog}
+
+    def _sort_key(a: ProjectReadinessItem) -> tuple[int, int]:
+        status_priority = 0 if a.status == "failed" else 1
+        sort_order = catalog_by_id[a.readiness_item_id].sort_order if a.readiness_item_id in catalog_by_id else _UNKNOWN_SORT_ORDER
+        return (status_priority, sort_order)
+
+    gaps = sorted(
+        [a for a in assessments if a.status in ("failed", "unknown")],
+        key=_sort_key,
+    )
+    # Filter orphaned items (deactivated catalog entries) before slicing so
+    # a missing catalog item doesn't silently reduce the returned count.
+    resolved = [
+        catalog_by_id[a.readiness_item_id].label
+        for a in gaps
+        if a.readiness_item_id in catalog_by_id
+    ]
+    return resolved[:max_gaps]
+
+
 def calculate_readiness_score(statuses: list[str]) -> ReadinessScore:
     if not statuses:
         return ReadinessScore(
@@ -110,13 +139,18 @@ class ReadinessService:
         readiness_repository.commit(db)
         assessments = readiness_repository.get_project_assessments(db, project_id)
         statuses = [a.status for a in assessments]
-        return assessments, calculate_readiness_score(statuses)
+        score = calculate_readiness_score(statuses)
+        score.top_gaps = compute_top_gaps(assessments, catalog)
+        return assessments, score
 
     def get_project_readiness(self, db: Session, project_id: int) -> tuple[list[ProjectReadinessItem], ReadinessScore]:
         project_service.get_project(db, project_id)
         assessments = readiness_repository.get_project_assessments(db, project_id)
+        catalog = readiness_repository.get_all_active_items(db)
         statuses = [a.status for a in assessments]
-        return assessments, calculate_readiness_score(statuses)
+        score = calculate_readiness_score(statuses)
+        score.top_gaps = compute_top_gaps(assessments, catalog)
+        return assessments, score
 
     def update_manual_item(
         self,

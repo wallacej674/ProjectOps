@@ -7,6 +7,19 @@ from app.services.health_checks import HealthCheckTargetUrlMissingError, health_
 from app.services.projects import project_service
 
 
+@pytest.fixture(autouse=True)
+def _patch_dns_resolver(monkeypatch):
+    """Prevent real DNS lookups in health check service tests.
+
+    Tests that use FakeHttpClient work with a fake domain (launchbudget.example.com)
+    that may not resolve publicly. This fixture makes the module-level resolver
+    return a safe public IP for any hostname so SSRF validation passes in normal tests.
+    Individual SSRF tests override this to inject private IPs.
+    """
+    from app.services import health_checks as hc_module
+    monkeypatch.setattr(hc_module, "_resolve_url_addresses", lambda hostname: ["93.184.216.34"])
+
+
 class FakeResponse:
     def __init__(self, status_code: int, text: str = "") -> None:
         self.status_code = status_code
@@ -158,3 +171,90 @@ def test_health_check_service_truncates_response_preview(db):
     )
 
     assert len(health_check.response_preview) == 500
+
+
+# ---------------------------------------------------------------------------
+# SSRF validation integration
+# ---------------------------------------------------------------------------
+
+class TrackingHttpClient:
+    """HTTP client that records whether it was called."""
+    def __init__(self, response: FakeResponse) -> None:
+        self.response = response
+        self.called = False
+
+    def get(self, url: str) -> FakeResponse:
+        self.called = True
+        return self.response
+
+
+def test_response_body_is_bounded_at_max_bytes(db):
+    from app.services.health_checks import MAX_RESPONSE_BODY_BYTES, RESPONSE_PREVIEW_MAX_LENGTH
+
+    large_body = "a" * (MAX_RESPONSE_BODY_BYTES + 5_000)
+    project = create_project(db)
+
+    health_check = health_check_service.run_health_check(
+        db,
+        project.id,
+        HealthCheckRunRequest(),
+        http_client=FakeHttpClient(FakeResponse(200, large_body)),
+    )
+
+    assert health_check.response_preview is not None
+    assert len(health_check.response_preview) <= RESPONSE_PREVIEW_MAX_LENGTH
+
+
+def test_blocked_ssrf_url_raises_error_and_never_calls_http_client(db):
+    from app.services.url_validator import HealthCheckUrlSafetyError
+
+    project = create_project(db)
+    tracking_client = TrackingHttpClient(FakeResponse(200, "ok"))
+
+    with pytest.raises(HealthCheckUrlSafetyError):
+        health_check_service.run_health_check(
+            db,
+            project.id,
+            HealthCheckRunRequest(url="http://127.0.0.1"),
+            http_client=tracking_client,
+        )
+
+    assert not tracking_client.called
+
+
+def test_public_url_is_allowed_when_resolver_returns_public_ip(db, monkeypatch):
+    from app.services import health_checks as hc_module
+
+    monkeypatch.setattr(hc_module, "_resolve_url_addresses", lambda hostname: ["93.184.216.34"])
+    tracking_client = TrackingHttpClient(FakeResponse(200, "ok"))
+
+    project = create_project(db)
+    health_check = health_check_service.run_health_check(
+        db,
+        project.id,
+        HealthCheckRunRequest(url="https://public.example.com"),
+        http_client=tracking_client,
+    )
+
+    assert tracking_client.called
+    assert health_check.status == "healthy"
+
+
+def test_private_url_via_hostname_is_blocked(db, monkeypatch):
+    from app.services import health_checks as hc_module
+    from app.services.url_validator import HealthCheckUrlSafetyError
+
+    monkeypatch.setattr(hc_module, "_resolve_url_addresses", lambda hostname: ["10.0.0.1"])
+    tracking_client = TrackingHttpClient(FakeResponse(200, "ok"))
+
+    project = create_project(db)
+
+    with pytest.raises(HealthCheckUrlSafetyError):
+        health_check_service.run_health_check(
+            db,
+            project.id,
+            HealthCheckRunRequest(url="http://internal.corp.example.com"),
+            http_client=tracking_client,
+        )
+
+    assert not tracking_client.called

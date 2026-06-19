@@ -106,3 +106,48 @@ def test_patch_project_not_found_returns_404(client):
     )
 
     assert response.status_code == 404
+
+
+def test_readiness_and_dashboard_top_gaps_match(client):
+    project = create_project(client, production_url=None)
+    client.post(f"/api/v1/projects/{project['id']}/readiness/evaluate")
+
+    readiness_response = client.get(f"/api/v1/projects/{project['id']}/readiness")
+    dashboard_response = client.get(f"/api/v1/projects/{project['id']}/dashboard")
+
+    readiness_gaps = readiness_response.json()["top_gaps"]
+    dashboard_gaps = dashboard_response.json()["readiness"]["top_gaps"]
+    assert readiness_gaps == dashboard_gaps
+
+
+def test_patch_invalid_status_returns_422(client):
+    project = create_project(client)
+    client.post(f"/api/v1/projects/{project['id']}/readiness/evaluate")
+
+    response = client.patch(
+        f"/api/v1/projects/{project['id']}/readiness/items/secrets_management_reviewed",
+        json={"status": "approved"},
+    )
+
+    assert response.status_code == 422
+
+
+def test_patch_invalid_status_does_not_modify_db(client):
+    project = create_project(client)
+    client.post(f"/api/v1/projects/{project['id']}/readiness/evaluate")
+    good_response = client.patch(
+        f"/api/v1/projects/{project['id']}/readiness/items/secrets_management_reviewed",
+        json={"status": "passed", "notes": "Legitimate update."},
+    )
+    assert good_response.status_code == 200
+    item_id = good_response.json()["id"]
+
+    client.patch(
+        f"/api/v1/projects/{project['id']}/readiness/items/secrets_management_reviewed",
+        json={"status": "approved"},
+    )
+
+    response = client.get(f"/api/v1/projects/{project['id']}/readiness")
+    stored = next(i for i in response.json()["items"] if i["id"] == item_id)
+    assert stored["status"] == "passed"
+    assert stored["notes"] == "Legitimate update."

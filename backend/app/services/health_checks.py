@@ -1,3 +1,4 @@
+import socket
 from datetime import datetime, timezone
 from time import perf_counter
 from typing import Protocol
@@ -10,8 +11,10 @@ from app.models.health_check import HealthCheck, HealthCheckStatus
 from app.repositories.health_checks import health_check_repository
 from app.schemas.health_check import HealthCheckRunRequest
 from app.services.projects import project_service
+from app.services.url_validator import HealthCheckUrlSafetyError, validate_health_check_url
 
 RESPONSE_PREVIEW_MAX_LENGTH = 500
+MAX_RESPONSE_BODY_BYTES = 16_384  # 16 KB — limits what is read from the response body
 
 
 class HealthCheckNotFoundError(Exception):
@@ -20,6 +23,24 @@ class HealthCheckNotFoundError(Exception):
 
 class HealthCheckTargetUrlMissingError(Exception):
     pass
+
+
+# Re-export for route-layer error handling.
+__all__ = [
+    "HealthCheckNotFoundError",
+    "HealthCheckTargetUrlMissingError",
+    "HealthCheckUrlSafetyError",
+    "health_check_service",
+]
+
+
+def _resolve_url_addresses(hostname: str) -> list[str]:
+    """Resolve *hostname* to IP address strings. Monkeypatched in tests."""
+    try:
+        results = socket.getaddrinfo(hostname, None)
+        return [r[4][0] for r in results]
+    except socket.gaierror:
+        return []
 
 
 class HealthCheckHttpClient(Protocol):
@@ -43,12 +64,17 @@ class HealthCheckService:
         if not target_url:
             raise HealthCheckTargetUrlMissingError("Provide a URL or set production_url on the Project.")
 
+        validate_health_check_url(target_url, resolver=_resolve_url_addresses)
+
         active_http_client = http_client or self.http_client
         if active_http_client is not None:
             return self._run_with_client(db, project_id, target_url, active_http_client)
 
         settings = get_settings()
-        with httpx.Client(timeout=settings.health_check_timeout_seconds) as client:
+        with httpx.Client(
+            timeout=settings.health_check_timeout_seconds,
+            follow_redirects=False,
+        ) as client:
             return self._run_with_client(db, project_id, target_url, client)
 
     def get_latest_project_health_check(self, db: Session, project_id: int) -> HealthCheck:
@@ -85,7 +111,7 @@ class HealthCheckService:
                 response_time_ms=response_time_ms,
                 checked_at=checked_at,
                 error_message=None,
-                response_preview=_preview_response(response.text),
+                response_preview=_preview_response(response.text[:MAX_RESPONSE_BODY_BYTES]),
             )
         except httpx.TimeoutException as error:
             return self._store_health_check(

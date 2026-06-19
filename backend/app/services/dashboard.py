@@ -14,7 +14,7 @@ from app.schemas.health_check import HealthCheckRead
 from app.schemas.project import ProjectRead
 from app.schemas.repo_analysis import RepoAnalysisRead
 from app.services.projects import project_service
-from app.services.readiness import calculate_readiness_score
+from app.services.readiness import calculate_readiness_score, compute_top_gaps
 
 
 class DashboardService:
@@ -54,12 +54,6 @@ class DashboardService:
     ) -> DashboardReadiness:
         statuses = [a.status for a in assessments]
         score = calculate_readiness_score(statuses)
-        catalog_by_id = {item.id: item for item in catalog}
-        gap_assessments = sorted(
-            [a for a in assessments if a.status in ("failed", "unknown")],
-            key=lambda a: catalog_by_id[a.readiness_item_id].sort_order if a.readiness_item_id in catalog_by_id else 999,
-        )
-        top_gaps = [catalog_by_id[a.readiness_item_id].label for a in gap_assessments[:3] if a.readiness_item_id in catalog_by_id]
         return DashboardReadiness(
             score=score.score,
             status=score.status,
@@ -68,7 +62,7 @@ class DashboardService:
             unknown=score.unknown,
             not_applicable=score.not_applicable,
             total_applicable=score.total_applicable,
-            top_gaps=top_gaps,
+            top_gaps=compute_top_gaps(assessments, catalog),
         )
 
     def build_latest_repo_analysis(self, latest_repo_analysis: RepoAnalysis | None) -> RepoAnalysisRead | None:

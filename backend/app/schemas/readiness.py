@@ -1,7 +1,9 @@
 from datetime import datetime
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
+
+ReadinessStatus = Literal["passed", "failed", "unknown", "not_applicable"]
 
 
 class ReadinessItemRead(BaseModel):
@@ -21,7 +23,7 @@ class ProjectReadinessItemRead(BaseModel):
     id: int
     project_id: int
     readiness_item_id: int
-    status: str
+    status: ReadinessStatus
     source: str
     evidence: dict[str, Any] | None
     notes: str | None
@@ -31,7 +33,7 @@ class ProjectReadinessItemRead(BaseModel):
 
 
 class ReadinessItemUpdate(BaseModel):
-    status: str
+    status: ReadinessStatus
     notes: str | None = None
 
 

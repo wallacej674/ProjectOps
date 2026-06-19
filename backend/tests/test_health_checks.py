@@ -1,4 +1,15 @@
+import pytest
+
 from app.services.health_checks import health_check_service
+
+
+@pytest.fixture(autouse=True)
+def _patch_dns_resolver(monkeypatch):
+    """Prevent real DNS lookups. Route-level health check tests use fake domains
+    that may not resolve publicly. This fixture makes the resolver return a safe
+    public IP so SSRF validation passes for all test URLs."""
+    from app.services import health_checks as hc_module
+    monkeypatch.setattr(hc_module, "_resolve_url_addresses", lambda hostname: ["93.184.216.34"])
 
 
 class FakeResponse:

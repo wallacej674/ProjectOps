@@ -1,5 +1,6 @@
 import pytest
 
+from app.readiness_catalog import DEFAULT_READINESS_CATALOG
 from app.schemas.project import ProjectCreate
 from app.services.health_checks import health_check_service
 from app.services.projects import project_service
@@ -62,6 +63,25 @@ def test_score_all_unknown_returns_needs_work():
     assert score.score == 0
     assert score.status == "needs_work"
     assert score.unknown == 6
+
+
+def test_runtime_catalog_keys_match_migration_0005_keys():
+    # Migration 0005 is a frozen snapshot. This test ensures the runtime catalog
+    # stays in sync. When you add a new item, add a new migration AND update
+    # DEFAULT_READINESS_CATALOG — this test will catch any drift.
+    _MIGRATION_0005_KEYS = {
+        "readme_present",
+        "tests_present",
+        "ci_configured",
+        "env_example_present",
+        "production_url_configured",
+        "latest_health_check_healthy",
+        "deployment_docs_reviewed",
+        "logging_error_handling_reviewed",
+        "secrets_management_reviewed",
+    }
+    runtime_keys = {item["key"] for item in DEFAULT_READINESS_CATALOG}
+    assert runtime_keys == _MIGRATION_0005_KEYS
 
 
 # ---------------------------------------------------------------------------
@@ -143,10 +163,6 @@ def _create_health_check(db, project_id, status="healthy"):
             response_preview=None,
         ),
     )
-
-
-def _find_item(assessments, key):
-    return next((a for a in assessments if True), None)
 
 
 # ---------------------------------------------------------------------------
@@ -291,13 +307,78 @@ def test_evaluate_preserves_manual_item_status(db):
     assert item.notes == "Done."
 
 
+def test_failed_items_appear_before_unknown_items_in_top_gaps(db):
+    from app.services.readiness import compute_top_gaps
+    from app.repositories.readiness import readiness_repository
+
+    project = _create_project(db, production_url=None)
+    repo = _create_repo_integration(db, project.id)
+    # has_readme=False → failed, ci_configured=False → failed; others unknown
+    _create_completed_analysis(db, project.id, repo.id, {"has_readme": False, "has_ci": False})
+
+    assessments, _ = readiness_service.evaluate_project(db, project.id)
+    catalog = readiness_repository.get_all_active_items(db)
+
+    gaps = compute_top_gaps(assessments, catalog)
+
+    assert len(gaps) <= 3
+    failed_labels = {"README Present", "CI Configured", "Production URL Configured"}
+    first_gap = gaps[0]
+    assert first_gap in failed_labels, f"Expected a failed item first, got: {first_gap!r}"
+
+
+def test_top_gaps_returns_at_most_3_items(db):
+    from app.services.readiness import compute_top_gaps
+    from app.repositories.readiness import readiness_repository
+
+    project = _create_project(db, production_url=None)
+    assessments, _ = readiness_service.evaluate_project(db, project.id)
+    catalog = readiness_repository.get_all_active_items(db)
+
+    gaps = compute_top_gaps(assessments, catalog)
+
+    assert len(gaps) <= 3
+
+
+def test_evaluate_is_idempotent(db):
+    project = _create_project(db)
+
+    assessments_first, _ = readiness_service.evaluate_project(db, project.id)
+    assessments_second, _ = readiness_service.evaluate_project(db, project.id)
+
+    assert len(assessments_second) == len(assessments_first)
+    statuses_first = {_item_key(db, a): a.status for a in assessments_first}
+    statuses_second = {_item_key(db, a): a.status for a in assessments_second}
+    assert statuses_second == statuses_first
+
+
+def test_upsert_does_not_raise_on_duplicate(db):
+    from datetime import datetime, timezone
+    from app.repositories.readiness import readiness_repository
+
+    project = _create_project(db)
+    catalog = readiness_repository.get_all_active_items(db)
+    automatic_item = next(i for i in catalog if i.evaluation_type == "automatic")
+    now = datetime.now(timezone.utc)
+
+    readiness_repository.upsert_project_assessment(
+        db, project.id, automatic_item.id, "passed", "project", None, now
+    )
+    readiness_repository.upsert_project_assessment(
+        db, project.id, automatic_item.id, "failed", "project", None, now
+    )
+    db.commit()
+
+    assessments = readiness_repository.get_project_assessments(db, project.id)
+    item = next(a for a in assessments if a.readiness_item_id == automatic_item.id)
+    assert item.status == "failed"
+
+
 # ---------------------------------------------------------------------------
 # Helper to look up catalog key from an assessment row
 # ---------------------------------------------------------------------------
 
 def _item_key(db, assessment) -> str:
     from app.models.readiness import ReadinessItem
-    from sqlalchemy import select
-    from app.core.database import SessionLocal
     item = db.get(ReadinessItem, assessment.readiness_item_id)
     return item.key if item else ""

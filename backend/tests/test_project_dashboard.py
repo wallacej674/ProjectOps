@@ -1,5 +1,14 @@
+import pytest
+
 from app.services.repo_analyses import repo_analysis_service
 from app.services.health_checks import health_check_service
+
+
+@pytest.fixture(autouse=True)
+def _patch_dns_resolver(monkeypatch):
+    """Prevent real DNS lookups in dashboard tests that trigger health checks."""
+    from app.services import health_checks as hc_module
+    monkeypatch.setattr(hc_module, "_resolve_url_addresses", lambda hostname: ["93.184.216.34"])
 
 
 class FakeTreeFetcher:
