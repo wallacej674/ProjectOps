@@ -17,7 +17,8 @@ Implemented:
 - Project Dashboard API.
 - GitHub repo intake for public GitHub repository URLs.
 - CodeMap Lite rule-based repository path analysis.
-- Pytest coverage for health, Project CRUD, archive behavior, dashboard output, repo intake, and CodeMap Lite analyzer behavior.
+- Manual Health Monitor for on-demand Project URL checks.
+- Pytest coverage for health, Project CRUD, archive behavior, dashboard output, repo intake, CodeMap Lite, and Manual Health Monitor behavior.
 - Milestone documentation in `docs/`.
 
 Not implemented yet:
@@ -28,7 +29,7 @@ Not implemented yet:
 - Deep repository analysis, file content fetching, language detection, or AST parsing.
 - User project health checks.
 - Production readiness scoring.
-- Background jobs, webhooks, or AI summaries.
+- Scheduled monitoring, background jobs, webhooks, alerts, or AI summaries.
 
 ## Repository Layout
 
@@ -125,12 +126,16 @@ DELETE /api/v1/projects/{project_id}/repo
 POST   /api/v1/projects/{project_id}/analyses/run
 GET    /api/v1/projects/{project_id}/analyses/latest
 GET    /api/v1/projects/{project_id}/analyses
+POST   /api/v1/projects/{project_id}/health-checks/run
+GET    /api/v1/projects/{project_id}/health-checks/latest
+GET    /api/v1/projects/{project_id}/health-checks
 ```
 
 Deleting a project archives it by setting `status` to `archived`; rows are not hard deleted.
 
 The dashboard endpoint returns real Project metadata, real Repo Integration data when a repo is attached, and explicit placeholder sections for future ProjectOps modules.
 The dashboard also returns the latest attempted Repo Analysis when CodeMap Lite has run.
+The dashboard also returns the latest attempted Health Check when Manual Health Monitor has run.
 
 ## Milestones
 
@@ -241,6 +246,33 @@ Milestone 4 exclusions:
 
 See `docs/milestone-4-codemap-lite.md`.
 
+### Milestone 5: Manual Health Monitor
+
+Milestone 5 added on-demand Health Checks for Project URLs.
+
+What was built:
+
+- `HealthCheck` database model.
+- Alembic migration for `health_checks`.
+- Health Check repository and service using `httpx`.
+- Routes under `/api/v1/projects/{project_id}/health-checks`.
+- Dashboard `latest_health_check` backed by the latest attempted Health Check.
+- Tests for service behavior, route behavior, error handling, and dashboard health output.
+- Documentation for the Manual Health Monitor design.
+
+Milestone 5 exclusions:
+
+- Scheduled uptime monitoring.
+- Background jobs, Celery/RQ, or Redis.
+- Email, SMS, Slack, or other alerts.
+- Incident management or status pages.
+- Uptime percentage calculations or health trend charts.
+- Frontend implementation.
+- Readiness scoring.
+- Authentication.
+
+See `docs/milestone-5-manual-health-monitor.md`.
+
 ## Project Vocabulary
 
 ProjectOps uses a small domain glossary in `CONTEXT.md`.
@@ -255,5 +287,7 @@ Important current terms:
 - `GitHub Repo Intake`: the workflow that attaches, normalizes, retrieves, or removes a public GitHub repository connection.
 - `Repo Analysis`: a stored snapshot of rule-based observations about an attached repository.
 - `CodeMap Lite`: the workflow that fetches public GitHub repository paths and turns those paths into a Repo Analysis.
+- `Health Check`: a stored result of one manual reachability check against a Project URL.
+- `Manual Health Monitor`: the workflow that runs and stores an on-demand Health Check for a Project.
 
 When adding new features, use those terms consistently in code, tests, and documentation.

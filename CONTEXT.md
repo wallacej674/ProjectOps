@@ -35,3 +35,11 @@ _Avoid_: Readiness score, AI summary, live repo state
 **CodeMap Lite**:
 The rule-based workflow that fetches public GitHub repository paths and turns those paths into a Repo Analysis. CodeMap Lite uses file and folder paths only; it does not clone repositories or inspect file contents.
 _Avoid_: Deep static analysis, AST analysis, production readiness scoring
+
+**Health Check**:
+A stored result of one manual reachability check against a Project URL. A Health Check records target URL, outcome status, HTTP status, response time, error message, and a short response preview.
+_Avoid_: Uptime metric, incident, readiness score
+
+**Manual Health Monitor**:
+The workflow that runs and stores an on-demand Health Check for a Project. Manual Health Monitor is not scheduled monitoring.
+_Avoid_: Scheduled uptime monitoring, alerting, status page

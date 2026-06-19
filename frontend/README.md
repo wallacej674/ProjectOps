@@ -61,6 +61,18 @@ GET  /api/v1/projects/{project_id}/analyses
 
 CodeMap Lite fetches public GitHub repository paths for an attached repo, detects simple rule-based stack and architecture signals, stores Repo Analysis snapshots, and exposes the latest attempted analysis on the Project Dashboard API.
 
+### Milestone 5: Manual Health Monitor
+
+The backend now supports Manual Health Monitor:
+
+```text
+POST /api/v1/projects/{project_id}/health-checks/run
+GET  /api/v1/projects/{project_id}/health-checks/latest
+GET  /api/v1/projects/{project_id}/health-checks
+```
+
+Manual Health Monitor runs on-demand checks against a Project URL, stores every Health Check attempt, and exposes the latest attempted Health Check on the Project Dashboard API.
+
 ## Planned Frontend Direction
 
 The first frontend should likely focus on the Project command-center workflow:
@@ -70,9 +82,10 @@ The first frontend should likely focus on the Project command-center workflow:
 - View one Project Dashboard.
 - Attach or remove a GitHub repository connection.
 - Run CodeMap Lite analysis and show latest Repo Analysis output.
-- Show health and readiness sections as backend milestones fill them in.
+- Run a manual Health Check and show latest health output.
+- Show readiness sections as backend milestones fill them in.
 
-GitHub Repo Intake and CodeMap Lite are backend-only for now. A future frontend can add screens on top of the implemented repo and analysis routes.
+GitHub Repo Intake, CodeMap Lite, and Manual Health Monitor are backend-only for now. A future frontend can add screens on top of the implemented repo, analysis, and health-check routes.
 
 ## Not Implemented Yet
 

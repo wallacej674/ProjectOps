@@ -1,11 +1,14 @@
 from sqlalchemy.orm import Session
 
+from app.models.health_check import HealthCheck
 from app.models.project import Project
 from app.models.repo_analysis import RepoAnalysis
 from app.models.repo_integration import RepoIntegration
+from app.repositories.health_checks import health_check_repository
 from app.repositories.repo_analyses import repo_analysis_repository
 from app.repositories.repo_integrations import repo_integration_repository
 from app.schemas.dashboard import DashboardReadiness, DashboardRepoStatus, ProjectDashboardRead
+from app.schemas.health_check import HealthCheckRead
 from app.schemas.project import ProjectRead
 from app.schemas.repo_analysis import RepoAnalysisRead
 from app.services.projects import project_service
@@ -16,31 +19,38 @@ class DashboardService:
         project = project_service.get_project(db, project_id)
         repo_integration = repo_integration_repository.get_by_project_id(db, project_id)
         latest_repo_analysis = repo_analysis_repository.get_latest_by_project_id(db, project_id)
-        return self.build_project_dashboard(project, repo_integration, latest_repo_analysis)
+        latest_health_check = health_check_repository.get_latest_by_project_id(db, project_id)
+        return self.build_project_dashboard(project, repo_integration, latest_repo_analysis, latest_health_check)
 
     def build_project_dashboard(
         self,
         project: Project,
         repo_integration: RepoIntegration | None = None,
         latest_repo_analysis: RepoAnalysis | None = None,
+        latest_health_check: HealthCheck | None = None,
     ) -> ProjectDashboardRead:
         return ProjectDashboardRead(
             project=ProjectRead.model_validate(project),
             repo=self.build_repo_status(repo_integration),
             latest_repo_analysis=self.build_latest_repo_analysis(latest_repo_analysis),
-            latest_health_check=None,
+            latest_health_check=self.build_latest_health_check(latest_health_check),
             readiness=DashboardReadiness(
                 score=None,
                 status="not_started",
                 message="Production readiness scoring has not been implemented yet.",
             ),
-            next_steps=self.build_next_steps(repo_integration),
+            next_steps=self.build_next_steps(repo_integration, latest_repo_analysis, latest_health_check),
         )
 
     def build_latest_repo_analysis(self, latest_repo_analysis: RepoAnalysis | None) -> RepoAnalysisRead | None:
         if latest_repo_analysis is None:
             return None
         return RepoAnalysisRead.model_validate(latest_repo_analysis)
+
+    def build_latest_health_check(self, latest_health_check: HealthCheck | None) -> HealthCheckRead | None:
+        if latest_health_check is None:
+            return None
+        return HealthCheckRead.model_validate(latest_health_check)
 
     def build_repo_status(self, repo_integration: RepoIntegration | None) -> DashboardRepoStatus:
         if repo_integration is None:
@@ -66,14 +76,20 @@ class DashboardService:
             message="GitHub repository attached. Repository analysis has not been implemented yet.",
         )
 
-    def build_next_steps(self, repo_integration: RepoIntegration | None) -> list[str]:
-        next_steps = [
-            "Run CodeMap Lite analysis in a future milestone.",
-            "Add a health endpoint check in a future milestone.",
-            "Complete the production readiness checklist in a future milestone.",
-        ]
+    def build_next_steps(
+        self,
+        repo_integration: RepoIntegration | None,
+        latest_repo_analysis: RepoAnalysis | None,
+        latest_health_check: HealthCheck | None,
+    ) -> list[str]:
+        next_steps = ["Complete the production readiness checklist in a future milestone."]
         if repo_integration is None:
-            return ["Attach a GitHub repository to start repo intake.", *next_steps]
+            next_steps.insert(0, "Attach a GitHub repository to start repo intake.")
+        elif latest_repo_analysis is None:
+            next_steps.insert(0, "Run CodeMap Lite analysis for the attached repo.")
+        if latest_health_check is None:
+            insert_at = max(0, len(next_steps) - 1)
+            next_steps.insert(insert_at, "Run a manual health check for the Project.")
         return next_steps
 
 

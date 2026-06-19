@@ -5,11 +5,17 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.schemas.dashboard import ProjectDashboardRead
+from app.schemas.health_check import HealthCheckRead, HealthCheckRunRequest
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
 from app.schemas.repo_analysis import RepoAnalysisRead
 from app.schemas.repo_integration import RepoIntegrationCreate, RepoIntegrationRead
 from app.services.dashboard import dashboard_service
 from app.services.github_repo_parser import InvalidGitHubRepoUrlError
+from app.services.health_checks import (
+    HealthCheckNotFoundError,
+    HealthCheckTargetUrlMissingError,
+    health_check_service,
+)
 from app.services.projects import ProjectNotFoundError, project_service
 from app.services.repo_analyses import RepoAnalysisNotFoundError, repo_analysis_service
 from app.services.repo_integrations import RepoIntegrationNotFoundError, repo_integration_service
@@ -27,6 +33,14 @@ def _repo_not_found(error: RepoIntegrationNotFoundError) -> HTTPException:
 
 def _analysis_not_found(error: RepoAnalysisNotFoundError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
+
+
+def _health_check_not_found(error: HealthCheckNotFoundError) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
+
+
+def _bad_request(error: HealthCheckTargetUrlMissingError) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error))
 
 
 def _invalid_repo_url(error: InvalidGitHubRepoUrlError) -> HTTPException:
@@ -120,6 +134,38 @@ def get_latest_project_repo_analysis(project_id: int, db: Annotated[Session, Dep
 def list_project_repo_analyses(project_id: int, db: Annotated[Session, Depends(get_db)]) -> list[RepoAnalysisRead]:
     try:
         return repo_analysis_service.list_project_analyses(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+
+
+@router.post("/{project_id}/health-checks/run", response_model=HealthCheckRead, status_code=status.HTTP_201_CREATED)
+def run_project_health_check(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    health_check_in: HealthCheckRunRequest | None = None,
+) -> HealthCheckRead:
+    try:
+        return health_check_service.run_health_check(db, project_id, health_check_in or HealthCheckRunRequest())
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+    except HealthCheckTargetUrlMissingError as error:
+        raise _bad_request(error) from error
+
+
+@router.get("/{project_id}/health-checks/latest", response_model=HealthCheckRead)
+def get_latest_project_health_check(project_id: int, db: Annotated[Session, Depends(get_db)]) -> HealthCheckRead:
+    try:
+        return health_check_service.get_latest_project_health_check(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+    except HealthCheckNotFoundError as error:
+        raise _health_check_not_found(error) from error
+
+
+@router.get("/{project_id}/health-checks", response_model=list[HealthCheckRead])
+def list_project_health_checks(project_id: int, db: Annotated[Session, Depends(get_db)]) -> list[HealthCheckRead]:
+    try:
+        return health_check_service.list_project_health_checks(db, project_id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
 

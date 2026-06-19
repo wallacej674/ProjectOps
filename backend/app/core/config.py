@@ -7,6 +7,7 @@ class Settings(BaseSettings):
     app_name: str = "ProjectOps Backend"
     environment: str = "local"
     database_url: str = "postgresql+psycopg://projectops:projectops@localhost:55432/projectops"
+    health_check_timeout_seconds: float = 5.0
 
     model_config = SettingsConfigDict(
         env_file=(".env", "../.env"),

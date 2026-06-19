@@ -1,4 +1,5 @@
 from app.services.repo_analyses import repo_analysis_service
+from app.services.health_checks import health_check_service
 
 
 class FakeTreeFetcher:
@@ -9,6 +10,16 @@ class FakeTreeFetcher:
             "backend/app/main.py",
             "backend/tests/test_health.py",
         ]
+
+
+class FakeHealthResponse:
+    status_code = 200
+    text = "ok"
+
+
+class FakeHealthClient:
+    def get(self, url: str) -> FakeHealthResponse:
+        return FakeHealthResponse()
 
 
 def create_project(client):
@@ -57,8 +68,7 @@ def test_project_dashboard_returns_project_metadata_and_placeholders(client):
     }
     assert dashboard["next_steps"] == [
         "Attach a GitHub repository to start repo intake.",
-        "Run CodeMap Lite analysis in a future milestone.",
-        "Add a health endpoint check in a future milestone.",
+        "Run a manual health check for the Project.",
         "Complete the production readiness checklist in a future milestone.",
     ]
 
@@ -105,8 +115,8 @@ def test_project_dashboard_repo_section_uses_attached_repo(client):
     }
     assert dashboard["latest_repo_analysis"] is None
     assert dashboard["next_steps"] == [
-        "Run CodeMap Lite analysis in a future milestone.",
-        "Add a health endpoint check in a future milestone.",
+        "Run CodeMap Lite analysis for the attached repo.",
+        "Run a manual health check for the Project.",
         "Complete the production readiness checklist in a future milestone.",
     ]
 
@@ -131,3 +141,19 @@ def test_project_dashboard_latest_repo_analysis_uses_latest_attempt(client, monk
     assert dashboard["latest_repo_analysis"]["signals"]["has_backend"] is True
     assert dashboard["latest_repo_analysis"]["signals"]["has_python"] is True
     assert "Python backend" in dashboard["latest_repo_analysis"]["summary"]
+
+
+def test_project_dashboard_latest_health_check_uses_latest_attempt(client, monkeypatch):
+    monkeypatch.setattr(health_check_service, "http_client", FakeHealthClient())
+    project = create_project(client)
+    health_response = client.post(f"/api/v1/projects/{project['id']}/health-checks/run")
+    assert health_response.status_code == 201
+
+    response = client.get(f"/api/v1/projects/{project['id']}/dashboard")
+
+    assert response.status_code == 200
+    dashboard = response.json()
+    assert dashboard["latest_health_check"]["id"] == health_response.json()["id"]
+    assert dashboard["latest_health_check"]["status"] == "healthy"
+    assert dashboard["latest_health_check"]["http_status_code"] == 200
+    assert dashboard["latest_health_check"]["response_preview"] == "ok"

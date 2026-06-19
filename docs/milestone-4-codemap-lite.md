@@ -82,3 +82,7 @@ Milestone 4 does not include AI summaries, OpenAI calls, production readiness sc
 - Large repositories can return truncated tree responses, which CodeMap Lite treats as failed analysis attempts.
 - Detection is path-based and intentionally conservative.
 - `GET /analyses` does not have pagination yet.
+
+## Later Changes
+
+Milestone 5 adds Manual Health Monitor. Health Checks are separate from Repo Analyses: CodeMap Lite inspects repository paths, while Manual Health Monitor checks Project URL reachability.
