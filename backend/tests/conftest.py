@@ -16,6 +16,8 @@ os.environ.setdefault("PROJECTOPS_ENVIRONMENT", "test")
 from app.core.database import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Project  # noqa: F401, E402
+from app.models import ReadinessItem, ProjectReadinessItem  # noqa: F401, E402
+from app.repositories.readiness import seed_default_readiness_items  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
@@ -26,6 +28,8 @@ def reset_database(request: pytest.FixtureRequest) -> Generator[None, None, None
 
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+    with SessionLocal() as db:
+        seed_default_readiness_items(db)
     yield
     Base.metadata.drop_all(bind=engine)
 

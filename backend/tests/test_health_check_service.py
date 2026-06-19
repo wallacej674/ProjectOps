@@ -119,6 +119,34 @@ def test_health_check_service_requires_url_or_project_production_url(db):
         health_check_service.run_health_check(db, project.id, HealthCheckRunRequest())
 
 
+def test_health_check_service_stores_healthy_result_for_3xx(db):
+    project = create_project(db)
+
+    health_check = health_check_service.run_health_check(
+        db,
+        project.id,
+        HealthCheckRunRequest(),
+        http_client=FakeHttpClient(FakeResponse(302, "")),
+    )
+
+    assert health_check.status == "healthy"
+    assert health_check.http_status_code == 302
+
+
+def test_health_check_service_stores_unhealthy_result_for_4xx(db):
+    project = create_project(db)
+
+    health_check = health_check_service.run_health_check(
+        db,
+        project.id,
+        HealthCheckRunRequest(),
+        http_client=FakeHttpClient(FakeResponse(404, "not found")),
+    )
+
+    assert health_check.status == "unhealthy"
+    assert health_check.http_status_code == 404
+
+
 def test_health_check_service_truncates_response_preview(db):
     project = create_project(db)
 

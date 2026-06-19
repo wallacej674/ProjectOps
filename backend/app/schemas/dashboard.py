@@ -22,7 +22,12 @@ class DashboardRepoStatus(BaseModel):
 class DashboardReadiness(BaseModel):
     score: int | None
     status: str
-    message: str
+    passed: int
+    failed: int
+    unknown: int
+    not_applicable: int
+    total_applicable: int
+    top_gaps: list[str]
 
 
 class ProjectDashboardRead(BaseModel):

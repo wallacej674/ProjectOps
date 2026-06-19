@@ -16,6 +16,19 @@ class RepoAnalysisRepository:
             select(RepoAnalysis)
             .where(RepoAnalysis.project_id == project_id)
             .order_by(RepoAnalysis.created_at.desc(), RepoAnalysis.id.desc())
+            .limit(1)
+        )
+        return db.scalar(statement)
+
+    def get_latest_completed_by_project_id(self, db: Session, project_id: int) -> RepoAnalysis | None:
+        statement = (
+            select(RepoAnalysis)
+            .where(
+                RepoAnalysis.project_id == project_id,
+                RepoAnalysis.status == "completed",
+            )
+            .order_by(RepoAnalysis.created_at.desc(), RepoAnalysis.id.desc())
+            .limit(1)
         )
         return db.scalar(statement)
 

@@ -16,6 +16,7 @@ class HealthCheckRepository:
             select(HealthCheck)
             .where(HealthCheck.project_id == project_id)
             .order_by(HealthCheck.checked_at.desc(), HealthCheck.id.desc())
+            .limit(1)
         )
         return db.scalar(statement)
 
