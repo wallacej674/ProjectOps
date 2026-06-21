@@ -19,3 +19,12 @@
 .system-status { gap:9px; min-height:30px; padding:0; border:0; border-radius:0; background:transparent; color:var(--success); }
 .system-status-orb { width:28px; height:28px; border:1px solid var(--success); border-radius:50%; display:grid; place-items:center; background:color-mix(in srgb,var(--success) 5%,transparent); box-shadow:0 0 0 1px color-mix(in srgb,var(--success) 14%,transparent); }
 .system-status-dot { width:6px; height:6px; box-shadow:0 0 0 2px color-mix(in srgb,var(--success) 16%,transparent); }
+/* Form alignment: helper text must not displace adjacent controls. */
+.form { width:min(100%, 760px); margin-inline:auto; }
+.form-grid > .field { align-content:start; }
+/* Explicit destructive action for Project cards. */
+.archive-card-action { min-height:32px; padding:6px 10px; border-color:color-mix(in srgb,var(--danger) 42%,var(--border)); color:var(--danger); background:transparent; font-size:12px; }
+.archive-card-action:hover { border-color:var(--danger); background:color-mix(in srgb,var(--danger) 8%,transparent); }
+/* Center the Create Project introduction on the same axis as its form. */
+.form-page .page-head { width:min(100%, 760px); margin-inline:auto; align-items:center; text-align:center; }
+.form-page .page-head p { margin-inline:auto; }
