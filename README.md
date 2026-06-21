@@ -19,11 +19,12 @@ Implemented:
 - CodeMap Lite rule-based repository path analysis.
 - Manual Health Monitor for on-demand Project URL checks.
 - Pytest coverage for health, Project CRUD, archive behavior, dashboard output, repo intake, CodeMap Lite, and Manual Health Monitor behavior.
+- React + TypeScript frontend: marketing landing page and a Project Registry that creates, reads, updates, lists, archives, sorts, and searches Projects against the Project API (see `frontend/README.md`).
 - Milestone documentation in `docs/`.
 
 Not implemented yet:
 
-- Frontend application.
+- Frontend screens for GitHub repo intake, repository analysis, health monitoring, or readiness (backend-only for now; surfaced in the UI as labeled future-state previews).
 - Authentication or user ownership.
 - GitHub OAuth, GitHub Apps, or private repository support.
 - Deep repository analysis, file content fetching, language detection, or AST parsing.
@@ -36,7 +37,7 @@ Not implemented yet:
 ```text
 ProjectOps/
   backend/      FastAPI backend
-  frontend/     Placeholder for a future frontend
+  frontend/     React + TypeScript web client (Project Registry UI)
   docs/         Project documentation
   .github/      Placeholder for future GitHub workflows
 ```
@@ -52,6 +53,28 @@ The backend uses a small route, service, repository, model, and schema structure
 - Schemas define API input and output contracts.
 
 This structure is deliberately small. New modules should earn their place by hiding real behavior behind a clear interface.
+
+## Frontend
+
+The web client lives in `frontend/` (React + TypeScript + Vite, dark-first
+semantic-token design system). It is organized by feature, with a shared
+application shell, a collapsible desktop sidebar, a real mobile navigation
+drawer, client-side Project sorting, and dark/light themes.
+
+```bash
+# backend must be running and migrated first (see Local Setup)
+cd frontend
+npm install
+npm run dev      # http://localhost:5173
+npm run test     # Vitest + React Testing Library (API mocked, never hits the backend)
+npm run build    # tsc -b && vite build
+npm run lint
+```
+
+Only the Project Registry (`/api/v1/projects`) is wired to the backend. GitHub
+repo intake, repository analysis, health monitoring, and readiness are surfaced
+as clearly labeled future-state previews. See `frontend/README.md` for the route
+map, architecture, theme/navigation/sorting behavior, and known limitations.
 
 ## Requirements
 
