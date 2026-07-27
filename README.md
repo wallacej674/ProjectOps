@@ -2,7 +2,7 @@
 
 ProjectOps is a software project command center for understanding, monitoring, and preparing projects for production.
 
-The current backend lets developers create, read, update, list, archive, and view dashboard summaries for Project workspace records. It is intentionally backend-first: ProjectOps is building the command-center data model before adding frontend screens, repository analysis, health monitoring, readiness scoring, or AI features.
+ProjectOps currently lets developers create, read, update, list, archive, view dashboard summaries, attach public GitHub repository connections, run CodeMap Lite repository path analysis, run manual health checks, and view an advisory production-readiness checklist from Project detail pages. It is still intentionally staged: ProjectOps is building the command-center data model and the first frontend workflows before adding artifacts, authentication, scheduled monitoring, alerts, or AI features.
 
 ## Current Status
 
@@ -19,17 +19,15 @@ Implemented:
 - CodeMap Lite rule-based repository path analysis.
 - Manual Health Monitor for on-demand Project URL checks.
 - Pytest coverage for health, Project CRUD, archive behavior, dashboard output, repo intake, CodeMap Lite, and Manual Health Monitor behavior.
-- React + TypeScript frontend: marketing landing page and a Project Registry that creates, reads, updates, lists, archives, sorts, and searches Projects against the Project API (see `frontend/README.md`).
+- React + TypeScript frontend: marketing landing page, Project Registry, Project create/edit/archive flows, sorting, mobile navigation, Project detail GitHub repository attach/replace/remove UI, Project detail CodeMap Lite analysis UI, Project detail Manual Health Monitoring UI, and Project detail Production Readiness UI (see `frontend/README.md`).
 - Milestone documentation in `docs/`.
 
 Not implemented yet:
 
-- Frontend screens for GitHub repo intake, repository analysis, health monitoring, or readiness (backend-only for now; surfaced in the UI as labeled future-state previews).
+- Frontend screens for artifacts.
 - Authentication or user ownership.
 - GitHub OAuth, GitHub Apps, or private repository support.
 - Deep repository analysis, file content fetching, language detection, or AST parsing.
-- User project health checks.
-- Production readiness scoring.
 - Scheduled monitoring, background jobs, webhooks, alerts, or AI summaries.
 
 ## Repository Layout
@@ -71,10 +69,16 @@ npm run build    # tsc -b && vite build
 npm run lint
 ```
 
-Only the Project Registry (`/api/v1/projects`) is wired to the backend. GitHub
-repo intake, repository analysis, health monitoring, and readiness are surfaced
-as clearly labeled future-state previews. See `frontend/README.md` for the route
-map, architecture, theme/navigation/sorting behavior, and known limitations.
+The Project Registry (`/api/v1/projects`), Project detail repository
+connection UI (`/api/v1/projects/{project_id}/repo`), Project detail CodeMap
+Lite analysis UI (`/api/v1/projects/{project_id}/analyses`), and Project detail
+Manual Health Monitoring UI (`/api/v1/projects/{project_id}/health-checks`),
+and Project detail Production Readiness UI
+(`/api/v1/projects/{project_id}/readiness`) are wired to the backend. Artifacts
+remain clearly labeled future-state previews. See `frontend/README.md` for the
+route map, architecture, theme/navigation/sorting behavior, repo-intake
+behavior, CodeMap behavior, manual health-check behavior, readiness behavior,
+and known limitations.
 
 ## Requirements
 
@@ -152,6 +156,9 @@ GET    /api/v1/projects/{project_id}/analyses
 POST   /api/v1/projects/{project_id}/health-checks/run
 GET    /api/v1/projects/{project_id}/health-checks/latest
 GET    /api/v1/projects/{project_id}/health-checks
+POST   /api/v1/projects/{project_id}/readiness/evaluate
+GET    /api/v1/projects/{project_id}/readiness
+PATCH  /api/v1/projects/{project_id}/readiness/items/{item_key}
 ```
 
 Deleting a project archives it by setting `status` to `archived`; rows are not hard deleted.
@@ -159,6 +166,7 @@ Deleting a project archives it by setting `status` to `archived`; rows are not h
 The dashboard endpoint returns real Project metadata, real Repo Integration data when a repo is attached, and explicit placeholder sections for future ProjectOps modules.
 The dashboard also returns the latest attempted Repo Analysis when CodeMap Lite has run.
 The dashboard also returns the latest attempted Health Check when Manual Health Monitor has run.
+The dashboard also returns a readiness summary when readiness has been evaluated.
 
 ## Milestones
 
@@ -296,6 +304,62 @@ Milestone 5 exclusions:
 
 See `docs/milestone-5-manual-health-monitor.md`.
 
+### Milestone 12: Manual Health Monitoring Frontend
+
+Milestone 12 connected the Manual Health Monitor backend to the Project detail
+frontend.
+
+What was built:
+
+- Project detail Health Monitoring section.
+- No-production-URL and ready-to-check states.
+- Manual Run Health Check and Run Again controls.
+- Optional one-time override URL checks.
+- Latest Health Check result display.
+- Healthy, unhealthy, timeout, and error status meanings.
+- Response time, HTTP status, target URL, response preview, timestamp, and
+  error-message display where available.
+- Health-check history display.
+- SSRF-blocked URL safety messaging.
+- Frontend tests and learning notes.
+
+Milestone 12 exclusions:
+
+- Scheduled uptime monitoring.
+- Alerts or notifications.
+- Uptime percentages, charts, incidents, or status pages.
+- Readiness frontend.
+- Artifacts frontend.
+- Authentication.
+
+See `docs/milestone-12-manual-health-monitoring-frontend.md`.
+
+### Milestone 13: Production Readiness Frontend
+
+Milestone 13 connected the Production Readiness backend to Project detail.
+
+What was built:
+
+- Production Readiness section on Project detail.
+- Advisory readiness score, status, counts, and top gaps.
+- Checklist rows with source and evidence details.
+- Manual review item status and notes editing.
+- Automatic item protection in the UI.
+- Frontend readiness API helpers, types, tests, and learning notes.
+
+Readiness is advisory. It is not a deployment approval, security audit,
+certification, or uptime guarantee.
+
+Milestone 13 exclusions:
+
+- Artifacts frontend.
+- Standalone readiness route.
+- Readiness history.
+- AI-generated recommendations.
+- Security scanning or deployment automation.
+
+See `docs/milestone-13-production-readiness-frontend.md`.
+
 ## Project Vocabulary
 
 ProjectOps uses a small domain glossary in `CONTEXT.md`.
@@ -312,5 +376,6 @@ Important current terms:
 - `CodeMap Lite`: the workflow that fetches public GitHub repository paths and turns those paths into a Repo Analysis.
 - `Health Check`: a stored result of one manual reachability check against a Project URL.
 - `Manual Health Monitor`: the workflow that runs and stores an on-demand Health Check for a Project.
+- `Readiness`: an advisory checklist combining available ProjectOps evidence and manual review.
 
 When adding new features, use those terms consistently in code, tests, and documentation.

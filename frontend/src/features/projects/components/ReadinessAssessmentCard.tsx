@@ -1,0 +1,318 @@
+import { useEffect, useRef, useState } from "react";
+import { readinessStatuses, type ProjectReadinessItem, type ProjectReadinessSummary, type ReadinessStatus } from "../../../types/readiness";
+
+const evidenceSources = [
+  "Project metadata",
+  "Repository connection",
+  "CodeMap Lite analysis",
+  "Manual health check",
+  "Manual review items",
+];
+
+const statusLabels: Record<string, string> = {
+  not_started: "Not started",
+  needs_work: "Needs work",
+  in_progress: "In progress",
+  strong: "Strong evidence",
+};
+
+const itemStatusLabels: Record<ReadinessStatus, string> = {
+  passed: "Passed",
+  failed: "Failed",
+  unknown: "Unknown",
+  not_applicable: "Not applicable",
+};
+
+const sourceDescriptions: Record<string, string> = {
+  codemap: "ProjectOps evaluated this item from the latest CodeMap Lite analysis.",
+  health_check: "ProjectOps evaluated this item from the latest manual health check.",
+  project: "ProjectOps evaluated this item from Project metadata.",
+  manual: "This item requires manual review.",
+};
+
+function displayStatus(status?: string) {
+  if (!status) return "Not started";
+  return statusLabels[status] || status.replaceAll("_", " ");
+}
+
+function ReadinessScoreSummary({ readiness }: { readiness: ProjectReadinessSummary }) {
+  const scoreLabel = readiness.score === null ? "No score yet" : `${readiness.score}`;
+  const progressValue = readiness.score ?? 0;
+
+  return (
+    <section className="readiness-section" aria-labelledby="readiness-score-title">
+      <div className="readiness-score-grid">
+        <div>
+          <h3 id="readiness-score-title">Advisory Score</h3>
+          <div className="readiness-score" aria-label={`Advisory readiness score: ${scoreLabel} out of 100`}>
+            {scoreLabel}
+          </div>
+          <div className="readiness-progress" aria-hidden="true">
+            <span style={{ width: `${progressValue}%` }} />
+          </div>
+        </div>
+        <div>
+          <div className="badge readiness-status">{displayStatus(readiness.status)}</div>
+          <ul className="readiness-counts" aria-label="Readiness item counts">
+            <li>{readiness.passed} passed</li>
+            <li>{readiness.failed} failed</li>
+            <li>{readiness.unknown} unknown</li>
+            <li>{readiness.not_applicable} not applicable</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function ReadinessTopGaps({ gaps }: { gaps?: string[] }) {
+  const visibleGaps = Array.isArray(gaps) ? gaps : [];
+  return (
+    <section className="readiness-section" aria-labelledby="readiness-top-gaps-title">
+      <h3 id="readiness-top-gaps-title">Top Gaps</h3>
+      {visibleGaps.length > 0 ? (
+        <ul className="readiness-gap-list">
+          {visibleGaps.map((gap) => (
+            <li key={gap}>{gap}</li>
+          ))}
+        </ul>
+      ) : (
+        <p className="meta">No top gaps were returned.</p>
+      )}
+    </section>
+  );
+}
+
+function evidenceText(item: ProjectReadinessItem) {
+  const evidence = item.evidence;
+  if (!evidence) return "No evidence available yet.";
+  if ("signal" in evidence) {
+    const signal = String(evidence.signal);
+    const analysisId = String(evidence.analysis_id);
+    return `Signal ${signal} was ${evidence.value ? "detected" : "not detected"} in analysis ${analysisId}.`;
+  }
+  if ("health_check_id" in evidence) {
+    return `Latest health check ${String(evidence.health_check_id)} returned ${String(evidence.status)}.`;
+  }
+  if ("field" in evidence) {
+    return `Project field ${String(evidence.field)} is ${evidence.present ? "present" : "missing"}.`;
+  }
+  return "Structured evidence is available for this item.";
+}
+
+function missingEvidenceHelp(item: ProjectReadinessItem) {
+  if (item.evidence || item.source === "manual") return null;
+  return "Run CodeMap Lite or a manual health check to improve the evidence available to readiness.";
+}
+
+function ManualReadinessItemEditor({
+  item,
+  onSave,
+}: {
+  item: ProjectReadinessItem;
+  onSave: (itemKey: string, status: ReadinessStatus, notes: string | null) => Promise<void>;
+}) {
+  const [status, setStatus] = useState<ReadinessStatus>(item.status);
+  const [notes, setNotes] = useState(item.notes ?? "");
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+  const [saved, setSaved] = useState(false);
+  const statusId = `readiness-${item.item.key}-status`;
+  const notesId = `readiness-${item.item.key}-notes`;
+  const errorId = `readiness-${item.item.key}-error`;
+
+  useEffect(() => {
+    setStatus(item.status);
+    setNotes(item.notes ?? "");
+  }, [item]);
+
+  async function save() {
+    setSaving(true);
+    setError("");
+    setSaved(false);
+    try {
+      await onSave(item.item.key, status, notes.trim() || null);
+      setSaved(true);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Manual review item could not be saved.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="manual-readiness-editor">
+      <p className="meta">Manual review items are completed by an engineer. ProjectOps does not infer them automatically.</p>
+      <div className="field">
+        <label htmlFor={statusId}>Status for {item.item.label}</label>
+        <select
+          id={statusId}
+          value={status}
+          onChange={(event) => setStatus(event.target.value as ReadinessStatus)}
+          disabled={saving}
+        >
+          {readinessStatuses.map((value) => (
+            <option value={value} key={value}>
+              {itemStatusLabels[value]}
+            </option>
+          ))}
+        </select>
+      </div>
+      <div className="field">
+        <label htmlFor={notesId}>Notes for {item.item.label}</label>
+        <textarea
+          id={notesId}
+          value={notes}
+          onChange={(event) => setNotes(event.target.value)}
+          aria-describedby={error ? errorId : undefined}
+          disabled={saving}
+        />
+      </div>
+      {error && (
+        <p className="error-text" id={errorId} role="alert">
+          {error}
+        </p>
+      )}
+      {saved && (
+        <p className="meta" aria-live="polite">
+          Manual review saved.
+        </p>
+      )}
+      <button className="button" type="button" disabled={saving} onClick={save}>
+        {saving ? "Saving" : `Save ${item.item.label}`}
+      </button>
+    </div>
+  );
+}
+
+function ReadinessChecklist({
+  items,
+  onUpdateManualItem,
+}: {
+  items: ProjectReadinessItem[];
+  onUpdateManualItem: (itemKey: string, status: ReadinessStatus, notes: string | null) => Promise<void>;
+}) {
+  const visibleItems = Array.isArray(items) ? items : [];
+  return (
+    <section className="readiness-section" aria-labelledby="readiness-checklist-title">
+      <h3 id="readiness-checklist-title">Readiness Checklist</h3>
+      {visibleItems.length === 0 ? (
+        <p className="meta">No checklist items were returned.</p>
+      ) : (
+        <ul className="readiness-checklist">
+          {visibleItems.map((item) => (
+            <li key={item.id}>
+              <div className="row">
+                <div>
+                  <strong>{item.item.label}</strong>
+                  <p>{item.item.description}</p>
+                </div>
+                <span className={`badge readiness-item-status ${item.status}`}>{itemStatusLabels[item.status]}</span>
+              </div>
+              <dl className="readiness-item-details">
+                <div>
+                  <dt>Source</dt>
+                  <dd>{sourceDescriptions[item.source]}</dd>
+                </div>
+                <div>
+                  <dt>Evidence</dt>
+                  <dd>{evidenceText(item)}</dd>
+                </div>
+                <div>
+                  <dt>Category</dt>
+                  <dd>{item.item.category.replaceAll("_", " ")}</dd>
+                </div>
+              </dl>
+              {missingEvidenceHelp(item) && <p className="meta">{missingEvidenceHelp(item)}</p>}
+              {item.notes && <p className="readiness-notes">{item.notes}</p>}
+              {item.item.evaluation_type === "manual" && (
+                <ManualReadinessItemEditor item={item} onSave={onUpdateManualItem} />
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
+  );
+}
+
+export function ReadinessAssessmentCard({
+  readiness,
+  loading,
+  error,
+  evaluating,
+  onEvaluate,
+  onUpdateManualItem,
+}: {
+  readiness: ProjectReadinessSummary | null;
+  loading: boolean;
+  error: string;
+  evaluating: boolean;
+  onEvaluate: () => void;
+  onUpdateManualItem: (itemKey: string, status: ReadinessStatus, notes: string | null) => Promise<void>;
+}) {
+  const isNotStarted = !readiness || !readiness.status || readiness.status === "not_started";
+  const runLabel = evaluating ? "Evaluating Readiness" : "Run Readiness Evaluation";
+  const runButtonRef = useRef<HTMLButtonElement>(null);
+  const wasEvaluatingRef = useRef(false);
+
+  useEffect(() => {
+    if (wasEvaluatingRef.current && !evaluating) {
+      runButtonRef.current?.focus();
+    }
+    wasEvaluatingRef.current = evaluating;
+  }, [evaluating]);
+
+  return (
+    <section className="panel detail-panel readiness-panel" aria-labelledby="production-readiness-title">
+      <div className="eyebrow">Advisory Assessment</div>
+      <h2 id="production-readiness-title">Production Readiness</h2>
+      <p className="readiness-intro">
+        Readiness is an advisory assessment based on available ProjectOps evidence. This is not a deployment approval,
+        security audit, or uptime guarantee.
+      </p>
+      {evaluating && (
+        <p className="meta" aria-live="polite">
+          Readiness evaluation is running...
+        </p>
+      )}
+      {loading ? (
+        <p className="meta" aria-live="polite">
+          Loading readiness assessment...
+        </p>
+      ) : error ? (
+        <div className="readiness-error">
+          <p className="error-text" role="alert">
+            {error}
+          </p>
+          <p>Project metadata and other evidence sections are still usable.</p>
+        </div>
+      ) : isNotStarted ? (
+        <div className="readiness-empty">
+          <h3>Evaluate readiness to see an advisory checklist based on available ProjectOps evidence.</h3>
+          <p>
+            ProjectOps uses project metadata, repository analysis, manual health-check results, and manual review items
+            where available. Missing evidence may produce unknown or failed checklist items depending on backend rules.
+          </p>
+          <section className="readiness-section" aria-labelledby="readiness-evidence-sources-title">
+            <h3 id="readiness-evidence-sources-title">Evidence Sources</h3>
+            <ul className="readiness-source-list">
+              {evidenceSources.map((source) => (
+                <li key={source}>{source}</li>
+              ))}
+            </ul>
+          </section>
+        </div>
+      ) : (
+        <div className="readiness-result">
+          <ReadinessScoreSummary readiness={readiness} />
+          <ReadinessTopGaps gaps={readiness.top_gaps} />
+          <ReadinessChecklist items={readiness.items} onUpdateManualItem={onUpdateManualItem} />
+        </div>
+      )}
+      <button ref={runButtonRef} className="button primary" type="button" disabled={evaluating} onClick={onEvaluate}>
+        {runLabel}
+      </button>
+    </section>
+  );
+}

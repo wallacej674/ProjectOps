@@ -23,6 +23,7 @@ class ProjectReadinessItemRead(BaseModel):
     id: int
     project_id: int
     readiness_item_id: int
+    item: ReadinessItemRead
     status: ReadinessStatus
     source: str
     evidence: dict[str, Any] | None

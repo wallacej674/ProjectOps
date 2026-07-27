@@ -2,7 +2,7 @@ from datetime import datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.models.readiness import ProjectReadinessItem, ReadinessItem
 from app.readiness_catalog import DEFAULT_READINESS_CATALOG
@@ -30,6 +30,7 @@ class ReadinessRepository:
     def get_project_assessments(self, db: Session, project_id: int) -> list[ProjectReadinessItem]:
         statement = (
             select(ProjectReadinessItem)
+            .options(selectinload(ProjectReadinessItem.item))
             .where(ProjectReadinessItem.project_id == project_id)
             .order_by(ProjectReadinessItem.readiness_item_id)
         )
@@ -40,6 +41,7 @@ class ReadinessRepository:
     ) -> ProjectReadinessItem | None:
         statement = (
             select(ProjectReadinessItem)
+            .options(selectinload(ProjectReadinessItem.item))
             .join(ReadinessItem, ProjectReadinessItem.readiness_item_id == ReadinessItem.id)
             .where(
                 ProjectReadinessItem.project_id == project_id,

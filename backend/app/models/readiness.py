@@ -15,7 +15,7 @@ from sqlalchemy import (
     func,
 )
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -76,6 +76,7 @@ class ProjectReadinessItem(Base):
         onupdate=func.now(),
         nullable=False,
     )
+    item: Mapped[ReadinessItem] = relationship()
 
     __table_args__ = (
         UniqueConstraint("project_id", "readiness_item_id", name="uq_project_readiness_items"),

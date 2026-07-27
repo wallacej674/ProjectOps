@@ -31,6 +31,20 @@ def test_evaluate_returns_201_with_score_and_items(client):
     assert len(data["items"]) == 9
 
 
+def test_evaluate_items_include_catalog_metadata_for_frontend_checklist(client):
+    project = create_project(client)
+
+    response = client.post(f"/api/v1/projects/{project['id']}/readiness/evaluate")
+
+    assert response.status_code == 201
+    first_item = response.json()["items"][0]
+    assert first_item["item"]["key"] == "readme_present"
+    assert first_item["item"]["label"] == "README Present"
+    assert first_item["item"]["description"] == "The repository has a README.md at its root."
+    assert first_item["item"]["category"] == "documentation"
+    assert first_item["item"]["evaluation_type"] == "automatic"
+
+
 def test_evaluate_project_not_found_returns_404(client):
     response = client.post("/api/v1/projects/999/readiness/evaluate")
 
