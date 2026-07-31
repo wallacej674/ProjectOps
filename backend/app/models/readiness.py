@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import (
     Boolean,
@@ -18,6 +18,9 @@ from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+
+if TYPE_CHECKING:
+    from app.models.project_artifact import ProjectArtifact
 
 
 class ReadinessItem(Base):
@@ -87,5 +90,46 @@ class ProjectReadinessItem(Base):
         CheckConstraint(
             "source in ('codemap', 'health_check', 'project', 'manual')",
             name="ck_project_readiness_items_source",
+        ),
+    )
+
+
+class ProjectReadinessArtifactEvidence(Base):
+    __tablename__ = "project_readiness_artifact_evidence"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    project_id: Mapped[int] = mapped_column(
+        ForeignKey("projects.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    readiness_item_id: Mapped[int] = mapped_column(
+        ForeignKey("readiness_items.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    artifact_id: Mapped[int] = mapped_column(
+        ForeignKey("project_artifacts.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True),
+        server_default=func.now(),
+        nullable=False,
+    )
+    item: Mapped[ReadinessItem] = relationship()
+    artifact: Mapped[ProjectArtifact] = relationship("ProjectArtifact")
+
+    @property
+    def item_key(self) -> str:
+        return self.item.key
+
+    __table_args__ = (
+        UniqueConstraint(
+            "project_id",
+            "readiness_item_id",
+            "artifact_id",
+            name="uq_project_readiness_artifact_evidence",
         ),
     )

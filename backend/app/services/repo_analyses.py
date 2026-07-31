@@ -36,7 +36,7 @@ class RepoAnalysisService:
         try:
             paths = active_tree_fetcher.fetch_tree_paths(repo_integration.repo_owner, repo_integration.repo_name)
         except RepoTreeFetchError as error:
-            return repo_analysis_repository.create(
+            analysis = repo_analysis_repository.create(
                 db,
                 RepoAnalysis(
                     project_id=project_id,
@@ -52,9 +52,11 @@ class RepoAnalysisService:
                     total_files_scanned=0,
                 ),
             )
+            self._record_analysis_activity(db, analysis)
+            return analysis
 
         result = analyze_repo_paths(paths)
-        return repo_analysis_repository.create(
+        analysis = repo_analysis_repository.create(
             db,
             RepoAnalysis(
                 project_id=project_id,
@@ -70,6 +72,8 @@ class RepoAnalysisService:
                 total_files_scanned=result.total_files_scanned,
             ),
         )
+        self._record_analysis_activity(db, analysis)
+        return analysis
 
     def get_latest_project_analysis(self, db: Session, project_id: int) -> RepoAnalysis:
         project_service.get_project(db, project_id)
@@ -81,6 +85,25 @@ class RepoAnalysisService:
     def list_project_analyses(self, db: Session, project_id: int) -> list[RepoAnalysis]:
         project_service.get_project(db, project_id)
         return repo_analysis_repository.list_by_project_id(db, project_id)
+
+    def _record_analysis_activity(self, db: Session, analysis: RepoAnalysis) -> None:
+        from app.services.activity import activity_service
+
+        completed = analysis.status == RepoAnalysisStatus.completed.value
+        activity_service.record_event(
+            db,
+            project_id=analysis.project_id,
+            event_type="codemap_analysis_completed" if completed else "codemap_analysis_failed",
+            event_category="codemap",
+            message="CodeMap Lite analysis completed." if completed else "CodeMap Lite analysis failed.",
+            related_resource_type="repo_analysis",
+            related_resource_id=analysis.id,
+            metadata={
+                "status": analysis.status,
+                "total_files_scanned": analysis.total_files_scanned,
+                "error_message": analysis.error_message,
+            },
+        )
 
 
 repo_analysis_service = RepoAnalysisService()

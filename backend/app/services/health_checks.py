@@ -150,7 +150,7 @@ class HealthCheckService:
         error_message: str | None,
         response_preview: str | None,
     ) -> HealthCheck:
-        return health_check_repository.create(
+        health_check = health_check_repository.create(
             db,
             HealthCheck(
                 project_id=project_id,
@@ -163,6 +163,25 @@ class HealthCheckService:
                 response_preview=response_preview,
             ),
         )
+        from app.services.activity import activity_service
+
+        activity_service.record_event(
+            db,
+            project_id=project_id,
+            event_type=f"health_check_{health_check.status}",
+            event_category="health",
+            message=f"Manual health check returned {health_check.status}.",
+            related_resource_type="health_check",
+            related_resource_id=health_check.id,
+            metadata={
+                "target_url": health_check.target_url,
+                "status": health_check.status,
+                "http_status_code": health_check.http_status_code,
+                "response_time_ms": health_check.response_time_ms,
+                "error_message": health_check.error_message,
+            },
+        )
+        return health_check
 
 
 def _classify_http_status(status_code: int) -> str:

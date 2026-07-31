@@ -4,10 +4,11 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
-from app.models.readiness import ProjectReadinessItem, ReadinessItem
+from app.models.readiness import ProjectReadinessArtifactEvidence, ProjectReadinessItem, ReadinessItem
 from app.repositories.readiness import readiness_repository
 from app.repositories.repo_analyses import repo_analysis_repository
 from app.repositories.health_checks import health_check_repository
+from app.services.project_artifacts import project_artifact_service
 from app.services.projects import project_service
 
 
@@ -28,6 +29,14 @@ class ManualItemUpdateError(Exception):
 
 
 class ReadinessItemNotFoundError(Exception):
+    pass
+
+
+class ArtifactEvidenceAlreadyLinkedError(Exception):
+    pass
+
+
+class ArtifactEvidenceLinkNotFoundError(Exception):
     pass
 
 
@@ -141,6 +150,24 @@ class ReadinessService:
         statuses = [a.status for a in assessments]
         score = calculate_readiness_score(statuses)
         score.top_gaps = compute_top_gaps(assessments, catalog)
+        from app.services.activity import activity_service
+
+        activity_service.record_event(
+            db,
+            project_id=project_id,
+            event_type="readiness_evaluated",
+            event_category="readiness",
+            message="Production readiness was evaluated.",
+            related_resource_type="project",
+            related_resource_id=project_id,
+            metadata={
+                "status": score.status,
+                "score": score.score,
+                "passed": score.passed,
+                "failed": score.failed,
+                "unknown": score.unknown,
+            },
+        )
         return assessments, score
 
     def get_project_readiness(self, db: Session, project_id: int) -> tuple[list[ProjectReadinessItem], ReadinessScore]:
@@ -190,7 +217,119 @@ class ReadinessService:
 
         db.commit()
         db.refresh(assessment)
+        from app.services.activity import activity_service
+
+        activity_service.record_event(
+            db,
+            project_id=project_id,
+            event_type="readiness_manual_item_updated",
+            event_category="readiness",
+            message="Manual readiness item was updated.",
+            related_resource_type="readiness_item",
+            related_resource_id=catalog_item.id,
+            metadata={
+                "item_key": catalog_item.key,
+                "item_label": catalog_item.label,
+                "status": assessment.status,
+            },
+        )
         return assessment
+
+    def link_artifact_evidence(
+        self,
+        db: Session,
+        project_id: int,
+        item_key: str,
+        artifact_id: int,
+    ) -> ProjectReadinessArtifactEvidence:
+        project_service.get_project(db, project_id)
+        catalog_item = readiness_repository.get_item_by_key(db, item_key)
+        if catalog_item is None:
+            raise ReadinessItemNotFoundError(f"Readiness item '{item_key}' was not found.")
+        artifact = project_artifact_service.get_project_artifact(db, project_id, artifact_id)
+
+        existing = readiness_repository.get_artifact_evidence_link(
+            db,
+            project_id,
+            catalog_item.id,
+            artifact_id,
+        )
+        if existing is not None:
+            raise ArtifactEvidenceAlreadyLinkedError("Artifact is already linked to this readiness item.")
+
+        link = readiness_repository.create_artifact_evidence_link(
+            db,
+            project_id,
+            catalog_item.id,
+            artifact_id,
+        )
+        from app.services.activity import activity_service
+
+        activity_service.record_event(
+            db,
+            project_id=project_id,
+            event_type="readiness_artifact_linked",
+            event_category="evidence",
+            message="Artifact was linked as readiness evidence.",
+            related_resource_type="project_artifact",
+            related_resource_id=artifact.id,
+            metadata={
+                "item_key": catalog_item.key,
+                "item_label": catalog_item.label,
+                "artifact_title": artifact.title,
+            },
+        )
+        return link
+
+    def list_artifact_evidence(
+        self,
+        db: Session,
+        project_id: int,
+        item_key: str,
+    ) -> list[ProjectReadinessArtifactEvidence]:
+        project_service.get_project(db, project_id)
+        catalog_item = readiness_repository.get_item_by_key(db, item_key)
+        if catalog_item is None:
+            raise ReadinessItemNotFoundError(f"Readiness item '{item_key}' was not found.")
+        return readiness_repository.list_artifact_evidence_links(db, project_id, catalog_item.id)
+
+    def unlink_artifact_evidence(
+        self,
+        db: Session,
+        project_id: int,
+        item_key: str,
+        artifact_id: int,
+    ) -> None:
+        project_service.get_project(db, project_id)
+        catalog_item = readiness_repository.get_item_by_key(db, item_key)
+        if catalog_item is None:
+            raise ReadinessItemNotFoundError(f"Readiness item '{item_key}' was not found.")
+        link = readiness_repository.get_artifact_evidence_link(
+            db,
+            project_id,
+            catalog_item.id,
+            artifact_id,
+        )
+        if link is None:
+            raise ArtifactEvidenceLinkNotFoundError("Artifact evidence link was not found.")
+        artifact_title = link.artifact.title
+        readiness_repository.delete_artifact_evidence_link(db, link)
+        from app.services.activity import activity_service
+
+        activity_service.record_event(
+            db,
+            project_id=project_id,
+            event_type="readiness_artifact_unlinked",
+            event_category="evidence",
+            message="Artifact was unlinked from readiness evidence.",
+            related_resource_type="project_artifact",
+            related_resource_id=artifact_id,
+            metadata={
+                "item_key": catalog_item.key,
+                "item_label": catalog_item.label,
+                "artifact_title": artifact_title,
+            },
+        )
 
 
 def _evaluate_automatic_item(

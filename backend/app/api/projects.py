@@ -7,9 +7,12 @@ from app.core.database import get_db
 from app.schemas.dashboard import ProjectDashboardRead
 from app.schemas.health_check import HealthCheckRead, HealthCheckRunRequest
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
+from app.schemas.project_activity import ProjectActivityEventRead
+from app.schemas.project_artifact import ProjectArtifactCreate, ProjectArtifactRead, ProjectArtifactUpdate
 from app.schemas.repo_analysis import RepoAnalysisRead
 from app.schemas.repo_integration import RepoIntegrationCreate, RepoIntegrationRead
 from app.services.dashboard import dashboard_service
+from app.services.activity import activity_service
 from app.services.github_repo_parser import InvalidGitHubRepoUrlError
 from app.services.health_checks import (
     HealthCheckNotFoundError,
@@ -18,8 +21,11 @@ from app.services.health_checks import (
 )
 from app.services.url_validator import HealthCheckUrlSafetyError
 from app.services.projects import ProjectNotFoundError, project_service
+from app.services.project_artifacts import ProjectArtifactNotFoundError, project_artifact_service
 from app.services.repo_analyses import RepoAnalysisNotFoundError, repo_analysis_service
 from app.services.repo_integrations import RepoIntegrationNotFoundError, repo_integration_service
+from app.models.project_artifact import ProjectArtifactSourceType, ProjectArtifactType
+from app.models.project_activity import ProjectActivityCategory, ProjectActivityEventType
 
 router = APIRouter(prefix="/projects", tags=["Projects"])
 
@@ -37,6 +43,10 @@ def _analysis_not_found(error: RepoAnalysisNotFoundError) -> HTTPException:
 
 
 def _health_check_not_found(error: HealthCheckNotFoundError) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
+
+
+def _artifact_not_found(error: ProjectArtifactNotFoundError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
 
 
@@ -73,6 +83,28 @@ def get_project(project_id: int, db: Annotated[Session, Depends(get_db)]) -> Pro
 def get_project_dashboard(project_id: int, db: Annotated[Session, Depends(get_db)]) -> ProjectDashboardRead:
     try:
         return dashboard_service.get_project_dashboard(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+
+
+@router.get("/{project_id}/activity", response_model=list[ProjectActivityEventRead])
+def list_project_activity(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    category: ProjectActivityCategory | None = Query(default=None),
+    event_type: ProjectActivityEventType | None = Query(default=None),
+    limit: int = Query(default=25, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+) -> list[ProjectActivityEventRead]:
+    try:
+        return activity_service.list_project_activity(
+            db,
+            project_id,
+            event_category=category.value if category else None,
+            event_type=event_type.value if event_type else None,
+            limit=limit,
+            offset=offset,
+        )
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
 
@@ -171,6 +203,86 @@ def list_project_health_checks(project_id: int, db: Annotated[Session, Depends(g
         return health_check_service.list_project_health_checks(db, project_id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
+
+
+@router.post("/{project_id}/artifacts", response_model=ProjectArtifactRead, status_code=status.HTTP_201_CREATED)
+def create_project_artifact(
+    project_id: int,
+    artifact_in: ProjectArtifactCreate,
+    db: Annotated[Session, Depends(get_db)],
+) -> ProjectArtifactRead:
+    try:
+        return project_artifact_service.create_project_artifact(db, project_id, artifact_in)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+
+
+@router.get("/{project_id}/artifacts", response_model=list[ProjectArtifactRead])
+def list_project_artifacts(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    include_archived: bool = Query(default=False),
+    artifact_type: ProjectArtifactType | None = Query(default=None),
+    source_type: ProjectArtifactSourceType | None = Query(default=None),
+    search: str | None = Query(default=None, max_length=200),
+    tags: str | None = Query(default=None, max_length=1000),
+) -> list[ProjectArtifactRead]:
+    try:
+        parsed_tags = [tag.strip() for tag in tags.split(",") if tag.strip()] if tags else None
+        return project_artifact_service.list_project_artifacts(
+            db,
+            project_id,
+            include_archived=include_archived,
+            artifact_type=artifact_type,
+            source_type=source_type,
+            search=search,
+            tags=parsed_tags,
+        )
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+
+
+@router.get("/{project_id}/artifacts/{artifact_id}", response_model=ProjectArtifactRead)
+def get_project_artifact(
+    project_id: int,
+    artifact_id: int,
+    db: Annotated[Session, Depends(get_db)],
+) -> ProjectArtifactRead:
+    try:
+        return project_artifact_service.get_project_artifact(db, project_id, artifact_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+    except ProjectArtifactNotFoundError as error:
+        raise _artifact_not_found(error) from error
+
+
+@router.patch("/{project_id}/artifacts/{artifact_id}", response_model=ProjectArtifactRead)
+def update_project_artifact(
+    project_id: int,
+    artifact_id: int,
+    artifact_in: ProjectArtifactUpdate,
+    db: Annotated[Session, Depends(get_db)],
+) -> ProjectArtifactRead:
+    try:
+        return project_artifact_service.update_project_artifact(db, project_id, artifact_id, artifact_in)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+    except ProjectArtifactNotFoundError as error:
+        raise _artifact_not_found(error) from error
+
+
+@router.delete("/{project_id}/artifacts/{artifact_id}", response_model=ProjectArtifactRead)
+def archive_project_artifact(
+    project_id: int,
+    artifact_id: int,
+    db: Annotated[Session, Depends(get_db)],
+) -> ProjectArtifactRead:
+    try:
+        return project_artifact_service.archive_project_artifact(db, project_id, artifact_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+    except ProjectArtifactNotFoundError as error:
+        raise _artifact_not_found(error) from error
 
 
 @router.patch("/{project_id}", response_model=ProjectRead)

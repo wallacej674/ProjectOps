@@ -16,7 +16,9 @@ os.environ.setdefault("PROJECTOPS_ENVIRONMENT", "test")
 from app.core.database import Base, SessionLocal, engine  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import Project  # noqa: F401, E402
-from app.models import ReadinessItem, ProjectReadinessItem  # noqa: F401, E402
+from app.models import ProjectActivityEvent  # noqa: F401, E402
+from app.models import ProjectArtifact  # noqa: F401, E402
+from app.models import ReadinessItem, ProjectReadinessArtifactEvidence, ProjectReadinessItem  # noqa: F401, E402
 from app.repositories.readiness import seed_default_readiness_items  # noqa: E402
 
 

@@ -4,7 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 from sqlalchemy.orm import Session, selectinload
 
-from app.models.readiness import ProjectReadinessItem, ReadinessItem
+from app.models.readiness import ProjectReadinessArtifactEvidence, ProjectReadinessItem, ReadinessItem
 from app.readiness_catalog import DEFAULT_READINESS_CATALOG
 
 
@@ -49,6 +49,72 @@ class ReadinessRepository:
             )
         )
         return db.scalar(statement)
+
+    def get_artifact_evidence_link(
+        self,
+        db: Session,
+        project_id: int,
+        readiness_item_id: int,
+        artifact_id: int,
+    ) -> ProjectReadinessArtifactEvidence | None:
+        statement = (
+            select(ProjectReadinessArtifactEvidence)
+            .options(
+                selectinload(ProjectReadinessArtifactEvidence.item),
+                selectinload(ProjectReadinessArtifactEvidence.artifact),
+            )
+            .where(
+                ProjectReadinessArtifactEvidence.project_id == project_id,
+                ProjectReadinessArtifactEvidence.readiness_item_id == readiness_item_id,
+                ProjectReadinessArtifactEvidence.artifact_id == artifact_id,
+            )
+        )
+        return db.scalar(statement)
+
+    def list_artifact_evidence_links(
+        self,
+        db: Session,
+        project_id: int,
+        readiness_item_id: int,
+    ) -> list[ProjectReadinessArtifactEvidence]:
+        statement = (
+            select(ProjectReadinessArtifactEvidence)
+            .options(
+                selectinload(ProjectReadinessArtifactEvidence.item),
+                selectinload(ProjectReadinessArtifactEvidence.artifact),
+            )
+            .where(
+                ProjectReadinessArtifactEvidence.project_id == project_id,
+                ProjectReadinessArtifactEvidence.readiness_item_id == readiness_item_id,
+            )
+            .order_by(ProjectReadinessArtifactEvidence.created_at.desc(), ProjectReadinessArtifactEvidence.id.desc())
+        )
+        return list(db.scalars(statement).all())
+
+    def create_artifact_evidence_link(
+        self,
+        db: Session,
+        project_id: int,
+        readiness_item_id: int,
+        artifact_id: int,
+    ) -> ProjectReadinessArtifactEvidence:
+        link = ProjectReadinessArtifactEvidence(
+            project_id=project_id,
+            readiness_item_id=readiness_item_id,
+            artifact_id=artifact_id,
+        )
+        db.add(link)
+        db.commit()
+        db.refresh(link)
+        return self.get_artifact_evidence_link(db, project_id, readiness_item_id, artifact_id) or link
+
+    def delete_artifact_evidence_link(
+        self,
+        db: Session,
+        link: ProjectReadinessArtifactEvidence,
+    ) -> None:
+        db.delete(link)
+        db.commit()
 
     def upsert_project_assessment(
         self,

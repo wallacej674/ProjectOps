@@ -1,4 +1,4 @@
-export type ApiErrorKind = "validation" | "not-found" | "network" | "unknown";
+export type ApiErrorKind = "validation" | "not-found" | "network" | "configuration" | "unknown";
 
 export class ApiError extends Error {
   constructor(
@@ -12,7 +12,19 @@ export class ApiError extends Error {
   }
 }
 
-const baseUrl = (import.meta.env.VITE_API_BASE_URL ?? "http://127.0.0.1:8000").replace(/\/$/, "");
+type ApiEnvironment = {
+  VITE_API_BASE_URL?: string;
+  PROD?: boolean;
+};
+
+export function resolveApiBaseUrl(env: ApiEnvironment = import.meta.env): string {
+  const configuredUrl = env.VITE_API_BASE_URL?.trim();
+  if (configuredUrl) return configuredUrl.replace(/\/+$/, "");
+  if (env.PROD) {
+    throw new ApiError("ProjectOps API URL is not configured. Set VITE_API_BASE_URL for this deployment.", "configuration");
+  }
+  return "http://127.0.0.1:8000";
+}
 
 function messageFromDetail(detail: unknown): string {
   if (typeof detail === "string") return detail;
@@ -21,6 +33,7 @@ function messageFromDetail(detail: unknown): string {
 }
 
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
+  const baseUrl = resolveApiBaseUrl();
   let response: Response;
   try {
     response = await fetch(`${baseUrl}${path}`, {

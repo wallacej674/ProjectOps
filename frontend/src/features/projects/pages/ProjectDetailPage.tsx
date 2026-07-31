@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../../../api/client";
 import { projectsApi } from "../../../api/projects";
@@ -8,20 +8,46 @@ import { SkeletonPanel } from "../../../components/ui/LoadingSkeleton";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { formatDate } from "../../../utils/formatDate";
 import type { Project } from "../../../types/project";
+import type { ProjectActivityCategory, ProjectActivityEvent } from "../../../types/projectActivity";
+import type { ProjectArtifactCreate, ProjectArtifactUpdate } from "../../../types/projectArtifact";
 import type { HealthCheck } from "../../../types/healthCheck";
-import type { ProjectReadinessSummary, ReadinessStatus } from "../../../types/readiness";
+import type { ProjectReadinessSummary, ReadinessArtifactEvidence, ReadinessStatus } from "../../../types/readiness";
 import type { RepoAnalysis } from "../../../types/repoAnalysis";
 import type { RepoIntegration } from "../../../types/repoIntegration";
 import { getLatestProjectAnalysis, listProjectAnalyses, runProjectAnalysis } from "../api/projectAnalyses";
+import { listProjectActivity } from "../api/projectActivity";
 import { getLatestProjectHealthCheck, listProjectHealthChecks, runProjectHealthCheck } from "../api/projectHealthChecks";
 import { evaluateProjectReadiness, getProjectReadiness, updateProjectReadinessItem } from "../api/projectReadiness";
+import {
+  linkReadinessArtifact,
+  listReadinessItemArtifacts,
+  unlinkReadinessArtifact,
+} from "../api/projectReadinessArtifacts";
 import { attachProjectRepo, getProjectRepo, removeProjectRepo } from "../api/projectRepo";
 import { ArchiveProjectModal } from "../components/ArchiveProjectModal";
 import { CodeMapAnalysisCard } from "../components/CodeMapAnalysisCard";
 import { HealthMonitoringCard } from "../components/HealthMonitoringCard";
+import { ProjectArtifactsCard } from "../components/ProjectArtifactsCard";
+import { ProjectActivityTimeline } from "../components/ProjectActivityTimeline";
+import { ProjectCommandCenterHeader } from "../components/ProjectCommandCenterHeader";
+import { ProjectNextActions } from "../components/ProjectNextActions";
+import { ProjectSectionNav } from "../components/ProjectSectionNav";
+import { ProjectSetupProgress } from "../components/ProjectSetupProgress";
+import { ProjectSummaryCards } from "../components/ProjectSummaryCards";
 import { ReadinessAssessmentCard } from "../components/ReadinessAssessmentCard";
 import { RepositoryConnectionCard } from "../components/RepositoryConnectionCard";
 import { RepositoryRemoveModal } from "../components/RepositoryRemoveModal";
+import { useProjectArtifacts } from "../hooks/useProjectArtifacts";
+import {
+  getCodeMapSummary,
+  getActivitySummary,
+  getArtifactsSummary,
+  getHealthSummary,
+  getProjectNextActions,
+  getProjectSetupSteps,
+  getReadinessSummary,
+  getRepositorySummary,
+} from "../utils/projectCommandCenter";
 
 /** Single-Project dashboard: identity, metadata, and setup progress. */
 function repoErrorMessage(error: unknown) {
@@ -49,6 +75,67 @@ function runHealthErrorMessage(error: unknown) {
 function readinessErrorMessage(error: unknown) {
   if (error instanceof ApiError && error.kind === "not-found") return "";
   return error instanceof Error ? error.message : "Readiness assessment could not load.";
+}
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isRepoIntegration(value: unknown): value is RepoIntegration {
+  return (
+    isRecord(value) &&
+    value.provider === "github" &&
+    typeof value.repo_owner === "string" &&
+    typeof value.repo_name === "string" &&
+    typeof value.repo_url === "string"
+  );
+}
+
+function isRepoAnalysis(value: unknown): value is RepoAnalysis {
+  return (
+    isRecord(value) &&
+    (value.status === "completed" || value.status === "failed") &&
+    typeof value.total_files_scanned === "number" &&
+    typeof value.created_at === "string"
+  );
+}
+
+function isHealthCheck(value: unknown): value is HealthCheck {
+  return (
+    isRecord(value) &&
+    (value.status === "healthy" || value.status === "unhealthy" || value.status === "timeout" || value.status === "error") &&
+    typeof value.target_url === "string" &&
+    typeof value.checked_at === "string" &&
+    (typeof value.http_status_code === "number" || value.http_status_code === null) &&
+    (typeof value.response_time_ms === "number" || value.response_time_ms === null)
+  );
+}
+
+function isReadinessSummary(value: unknown): value is ProjectReadinessSummary {
+  return (
+    isRecord(value) &&
+    typeof value.status === "string" &&
+    (typeof value.score === "number" || value.score === null) &&
+    typeof value.passed === "number" &&
+    typeof value.failed === "number" &&
+    typeof value.unknown === "number" &&
+    typeof value.not_applicable === "number" &&
+    typeof value.total_applicable === "number" &&
+    Array.isArray(value.top_gaps) &&
+    Array.isArray(value.items)
+  );
+}
+
+function isProjectActivityEvent(value: unknown): value is ProjectActivityEvent {
+  return (
+    isRecord(value) &&
+    typeof value.id === "number" &&
+    typeof value.project_id === "number" &&
+    typeof value.event_type === "string" &&
+    typeof value.event_category === "string" &&
+    typeof value.message === "string" &&
+    typeof value.created_at === "string"
+  );
 }
 
 export function ProjectDetailPage() {
@@ -83,6 +170,43 @@ export function ProjectDetailPage() {
   const [readinessLoading, setReadinessLoading] = useState(false);
   const [readinessError, setReadinessError] = useState("");
   const [readinessEvaluating, setReadinessEvaluating] = useState(false);
+  const [readinessEvidence, setReadinessEvidence] = useState<Record<string, ReadinessArtifactEvidence[]>>({});
+  const [readinessEvidenceLoading, setReadinessEvidenceLoading] = useState(false);
+  const [activityEvents, setActivityEvents] = useState<ProjectActivityEvent[]>([]);
+  const [activitySummaryEvents, setActivitySummaryEvents] = useState<ProjectActivityEvent[]>([]);
+  const [activityLoading, setActivityLoading] = useState(true);
+  const [activityError, setActivityError] = useState("");
+  const [activityCategoryFilter, setActivityCategoryFilter] = useState<ProjectActivityCategory | "">("");
+  const projectArtifacts = useProjectArtifacts(projectId);
+
+  const loadActivity = useCallback(async () => {
+    setActivityLoading(true);
+    setActivityError("");
+    try {
+      const nextEvents = await listProjectActivity(projectId, {
+        category: activityCategoryFilter,
+      });
+      setActivityEvents(Array.isArray(nextEvents) ? nextEvents.filter(isProjectActivityEvent) : []);
+    } catch (e) {
+      setActivityEvents([]);
+      setActivityError(e instanceof Error ? e.message : "Recent activity could not load.");
+    } finally {
+      setActivityLoading(false);
+    }
+  }, [activityCategoryFilter, projectId]);
+
+  const loadActivitySummary = useCallback(async () => {
+    try {
+      const nextEvents = await listProjectActivity(projectId);
+      setActivitySummaryEvents(Array.isArray(nextEvents) ? nextEvents.filter(isProjectActivityEvent) : []);
+    } catch {
+      setActivitySummaryEvents([]);
+    }
+  }, [projectId]);
+
+  const refreshActivity = useCallback(async () => {
+    await Promise.all([loadActivity(), loadActivitySummary()]);
+  }, [loadActivity, loadActivitySummary]);
 
   useEffect(() => {
     projectsApi
@@ -92,11 +216,52 @@ export function ProjectDetailPage() {
   }, [projectId]);
 
   useEffect(() => {
+    void loadActivity();
+  }, [loadActivity]);
+
+  useEffect(() => {
+    void loadActivitySummary();
+  }, [loadActivitySummary]);
+
+  useEffect(() => {
+    const items = readiness?.items ?? [];
+    if (items.length === 0) {
+      setReadinessEvidence({});
+      setReadinessEvidenceLoading(false);
+      return;
+    }
+
+    let cancelled = false;
+    setReadinessEvidenceLoading(true);
+    Promise.all(
+      items.map(async (item) => {
+        try {
+          const evidence = await listReadinessItemArtifacts(projectId, item.item.key);
+          return [item.item.key, evidence.filter((entry) => entry.item_key === item.item.key)] as const;
+        } catch {
+          return [item.item.key, []] as const;
+        }
+      }),
+    )
+      .then((entries) => {
+        if (cancelled) return;
+        setReadinessEvidence(Object.fromEntries(entries));
+      })
+      .finally(() => {
+        if (!cancelled) setReadinessEvidenceLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, readiness]);
+
+  useEffect(() => {
     setRepoLoading(true);
     setRepoError("");
     getProjectRepo(projectId)
       .then((nextRepo) => {
-        setRepo(nextRepo);
+        setRepo(isRepoIntegration(nextRepo) ? nextRepo : null);
         setRepoError("");
       })
       .catch((e: unknown) => {
@@ -122,7 +287,7 @@ export function ProjectDetailPage() {
     setAnalysisError("");
     getLatestProjectAnalysis(projectId)
       .then((analysis) => {
-        setLatestAnalysis(analysis);
+        setLatestAnalysis(isRepoAnalysis(analysis) ? analysis : null);
         setAnalysisError("");
       })
       .catch((e: unknown) => {
@@ -160,7 +325,7 @@ export function ProjectDetailPage() {
     setHealthError("");
     getLatestProjectHealthCheck(projectId)
       .then((healthCheck) => {
-        setLatestHealthCheck(healthCheck);
+        setLatestHealthCheck(isHealthCheck(healthCheck) ? healthCheck : null);
         setHealthError("");
       })
       .catch((e: unknown) => {
@@ -188,7 +353,7 @@ export function ProjectDetailPage() {
     setReadinessError("");
     getProjectReadiness(projectId)
       .then((nextReadiness) => {
-        setReadiness(nextReadiness);
+        setReadiness(isReadinessSummary(nextReadiness) ? nextReadiness : null);
         setReadinessError("");
       })
       .catch((e: unknown) => {
@@ -205,6 +370,7 @@ export function ProjectDetailPage() {
       const analysis = await runProjectAnalysis(projectId);
       setLatestAnalysis(analysis);
       setAnalysisHistory((currentHistory) => [analysis, ...currentHistory.filter((item) => item.id !== analysis.id)]);
+      await refreshActivity();
     } catch (e) {
       setAnalysisError(e instanceof Error ? e.message : "CodeMap Lite analysis could not run.");
     } finally {
@@ -219,6 +385,7 @@ export function ProjectDetailPage() {
       const healthCheck = await runProjectHealthCheck(projectId, overrideUrl ? { url: overrideUrl } : undefined);
       setLatestHealthCheck(healthCheck);
       setHealthHistory((currentHistory) => [healthCheck, ...currentHistory.filter((item) => item.id !== healthCheck.id)]);
+      await refreshActivity();
     } catch (e) {
       setHealthError(runHealthErrorMessage(e));
     } finally {
@@ -232,6 +399,7 @@ export function ProjectDetailPage() {
     try {
       const nextReadiness = await evaluateProjectReadiness(projectId);
       setReadiness(nextReadiness);
+      await refreshActivity();
     } catch (e) {
       setReadinessError(e instanceof Error ? e.message : "Readiness evaluation could not run.");
     } finally {
@@ -248,6 +416,25 @@ export function ProjectDetailPage() {
         items: currentReadiness.items.map((item) => (item.id === updatedItem.id ? updatedItem : item)),
       };
     });
+    await refreshActivity();
+  }
+
+  async function linkArtifactEvidence(itemKey: string, artifactId: number) {
+    const evidence = await linkReadinessArtifact(projectId, itemKey, artifactId);
+    setReadinessEvidence((currentEvidence) => ({
+      ...currentEvidence,
+      [itemKey]: [...(currentEvidence[itemKey] ?? []), evidence],
+    }));
+    await refreshActivity();
+  }
+
+  async function unlinkArtifactEvidence(itemKey: string, artifactId: number) {
+    await unlinkReadinessArtifact(projectId, itemKey, artifactId);
+    setReadinessEvidence((currentEvidence) => ({
+      ...currentEvidence,
+      [itemKey]: (currentEvidence[itemKey] ?? []).filter((entry) => entry.artifact.id !== artifactId),
+    }));
+    await refreshActivity();
   }
 
   async function attachRepo(repoUrl: string) {
@@ -261,6 +448,7 @@ export function ProjectDetailPage() {
       setHistoryError("");
       setRepo(nextRepo);
       setRepoReplaceMode(false);
+      await refreshActivity();
     } catch (e) {
       setRepoError(e instanceof Error ? e.message : "Repository could not be attached.");
     } finally {
@@ -279,11 +467,27 @@ export function ProjectDetailPage() {
       setHistoryError("");
       setRepo(null);
       setRepoRemoveOpen(false);
+      await refreshActivity();
     } catch (e) {
       setRepoRemoveError(e instanceof Error ? e.message : "Repository connection could not be removed.");
     } finally {
       setRepoRemovePending(false);
     }
+  }
+
+  async function createArtifactAndRefreshActivity(input: ProjectArtifactCreate) {
+    await projectArtifacts.createArtifact(input);
+    await refreshActivity();
+  }
+
+  async function updateArtifactAndRefreshActivity(artifactId: number, input: ProjectArtifactUpdate) {
+    await projectArtifacts.updateArtifact(artifactId, input);
+    await refreshActivity();
+  }
+
+  async function archiveArtifactAndRefreshActivity(artifactId: number) {
+    await projectArtifacts.archiveArtifact(artifactId);
+    await refreshActivity();
   }
 
   if (error)
@@ -308,57 +512,149 @@ export function ProjectDetailPage() {
       </AppShell>
     );
 
-  const hasReadinessEvaluation = Boolean(readiness?.status && readiness.status !== "not_started");
-  const setup = [
-    { label: "Project information", done: true, meta: "Available from Project data." },
-    {
-      label: "Repository URL",
-      done: Boolean(project.repo_url),
-      meta: project.repo_url ? "Available from Project data." : "Add repository metadata to this Project.",
-    },
-    {
-      label: "Production URL",
-      done: Boolean(project.production_url),
-      meta: project.production_url ? "Available from Project data." : "Add a production URL when one exists.",
-    },
-    {
-      label: "Repository analysis",
-      done: Boolean(latestAnalysis),
-      meta: latestAnalysis ? "Latest CodeMap Lite analysis is available." : "Run CodeMap Lite after attaching a repository.",
-    },
-    {
-      label: "Health checks",
-      done: Boolean(latestHealthCheck),
-      meta: latestHealthCheck ? "Latest manual health check is available." : "Run a manual check for the production URL.",
-    },
-    {
-      label: "Readiness evaluation",
-      done: hasReadinessEvaluation,
-      meta: hasReadinessEvaluation ? "Latest advisory readiness result is available." : "Run readiness after evidence exists.",
-    },
-  ];
+  const repositorySummary = getRepositorySummary(repo);
+  const codeMapSummary = getCodeMapSummary(repo, latestAnalysis);
+  const healthSummary = getHealthSummary(project, latestHealthCheck);
+  const readinessSummary = getReadinessSummary(readiness);
+  const artifactsSummary = getArtifactsSummary(projectArtifacts.artifacts);
+  const activitySummary = getActivitySummary(activitySummaryEvents);
+  const commandCenterInput = {
+    project,
+    repo,
+    latestAnalysis,
+    latestHealthCheck,
+    readiness,
+    artifacts: projectArtifacts.artifacts,
+    activityEvents: activitySummaryEvents,
+  };
+  const nextActions = getProjectNextActions(commandCenterInput);
+  const setupSteps = getProjectSetupSteps(commandCenterInput);
 
   return (
     <AppShell>
       <div className="content">
-        <div className="page-head">
-          <div>
-            <div className="eyebrow">Project Dashboard</div>
-            <h1>{project.name}</h1>
-            <p>{project.description || "No description added."}</p>
+        <section className="command-center" id="overview" aria-label="Project Command Center">
+          <ProjectCommandCenterHeader
+            project={project}
+            repositorySummary={repositorySummary}
+            healthSummary={healthSummary}
+            primaryAction={nextActions[0]}
+            titleId="command-center-title"
+            onArchive={() => setArchive(true)}
+          />
+          <ProjectSummaryCards
+            items={[
+              { label: "Repository", summary: repositorySummary },
+              { label: "CodeMap", summary: codeMapSummary },
+              { label: "Health", summary: healthSummary },
+              { label: "Readiness", summary: readinessSummary },
+              { label: "Artifacts", summary: artifactsSummary },
+              { label: "Activity", summary: activitySummary },
+            ]}
+          />
+          <div className="command-grid">
+            <ProjectNextActions actions={nextActions} />
+            <ProjectSetupProgress steps={setupSteps} />
           </div>
-          <div className="top-actions">
-            <Link className="button" to={`/app/projects/${project.id}/edit`}>
-              Edit Project
-            </Link>
-            <button className="button danger" type="button" onClick={() => setArchive(true)}>
-              Archive Project
-            </button>
-          </div>
-        </div>
+        </section>
+        <ProjectSectionNav />
         <div className="detail-grid">
-          <section className="panel detail-panel">
-            <h2>Project information</h2>
+          <div id="repository" className="section-anchor">
+            <RepositoryConnectionCard
+              repo={repo}
+              loading={repoLoading}
+              error={repoError}
+              pending={repoPending}
+              replaceMode={repoReplaceMode}
+              onStartReplace={() => setRepoReplaceMode(true)}
+              onCancelReplace={() => {
+                setRepoError("");
+                setRepoReplaceMode(false);
+              }}
+              onRemove={() => {
+                setRepoRemoveError("");
+                setRepoRemoveOpen(true);
+              }}
+              onAttach={attachRepo}
+            />
+          </div>
+          <div id="codemap" className="section-anchor">
+            <CodeMapAnalysisCard
+              repo={repo}
+              repoLoading={repoLoading}
+              latestAnalysis={latestAnalysis}
+              analysisLoading={analysisLoading}
+              analysisRunning={analysisRunning}
+              analysisError={analysisError}
+              analysisHistory={analysisHistory}
+              historyLoading={historyLoading}
+              historyError={historyError}
+              onRunAnalysis={runAnalysis}
+            />
+          </div>
+          <div id="health" className="section-anchor">
+            <HealthMonitoringCard
+              project={project}
+              latestHealthCheck={latestHealthCheck}
+              healthLoading={healthLoading}
+              healthError={healthError}
+              healthHistory={healthHistory}
+              historyLoading={healthHistoryLoading}
+              historyError={healthHistoryError}
+              healthRunning={healthRunning}
+              onRunHealthCheck={runHealthCheck}
+            />
+          </div>
+          <div id="readiness" className="section-anchor">
+            <ReadinessAssessmentCard
+              readiness={readiness}
+              loading={readinessLoading}
+              error={readinessError}
+              evaluating={readinessEvaluating}
+              artifacts={projectArtifacts.artifacts}
+              evidenceByItemKey={readinessEvidence}
+              evidenceLoading={readinessEvidenceLoading}
+              onEvaluate={runReadinessEvaluation}
+              onUpdateManualItem={updateManualReadinessItem}
+              onLinkArtifactEvidence={linkArtifactEvidence}
+              onUnlinkArtifactEvidence={unlinkArtifactEvidence}
+            />
+          </div>
+          <div id="artifacts" className="section-anchor">
+            <ProjectArtifactsCard
+              artifacts={projectArtifacts.artifacts}
+              loading={projectArtifacts.loading}
+              error={projectArtifacts.error}
+              includeArchived={projectArtifacts.includeArchived}
+              artifactTypeFilter={projectArtifacts.artifactTypeFilter}
+              sourceTypeFilter={projectArtifacts.sourceTypeFilter}
+              search={projectArtifacts.search}
+              selectedTags={projectArtifacts.selectedTags}
+              pending={projectArtifacts.mutationPending}
+              onIncludeArchivedChange={projectArtifacts.setIncludeArchived}
+              onArtifactTypeFilterChange={projectArtifacts.setArtifactTypeFilter}
+              onSourceTypeFilterChange={projectArtifacts.setSourceTypeFilter}
+              onSearchChange={projectArtifacts.setSearch}
+              onToggleTag={projectArtifacts.toggleTagFilter}
+              onClearFilters={projectArtifacts.clearFilters}
+              onCreate={createArtifactAndRefreshActivity}
+              onUpdate={updateArtifactAndRefreshActivity}
+              onArchive={archiveArtifactAndRefreshActivity}
+            />
+          </div>
+          <div id="activity" className="section-anchor">
+            <ProjectActivityTimeline
+              events={activityEvents}
+              loading={activityLoading}
+              error={activityError}
+              categoryFilter={activityCategoryFilter}
+              onCategoryFilterChange={setActivityCategoryFilter}
+              onClearFilters={() => setActivityCategoryFilter("")}
+              onRefresh={() => void refreshActivity()}
+            />
+          </div>
+          <section className="panel detail-panel" id="details" aria-label="Project Details">
+            <h2 id="project-details-title">Project information</h2>
             <dl>
               <div className="definition">
                 <dt>Status</dt>
@@ -388,75 +684,6 @@ export function ProjectDetailPage() {
               </div>
             </dl>
           </section>
-          <aside className="panel detail-panel">
-            <div className="eyebrow">Setup progress</div>
-            <h2>Complete project setup to unlock the full command center.</h2>
-            <div className="setup">
-              {setup.map((item) => (
-                <div className={`setup-item ${item.done ? "done" : ""}`} key={item.label}>
-                  <span aria-hidden="true">
-                    {item.done && (
-                      <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" focusable="false">
-                        <path d="M3.5 8.5 6.5 11.5 12.5 5" />
-                      </svg>
-                    )}
-                  </span>
-                  <div>
-                    <strong>{item.label}</strong>
-                    <div className="meta">{item.meta}</div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </aside>
-          <RepositoryConnectionCard
-            repo={repo}
-            loading={repoLoading}
-            error={repoError}
-            pending={repoPending}
-            replaceMode={repoReplaceMode}
-            onStartReplace={() => setRepoReplaceMode(true)}
-            onCancelReplace={() => {
-              setRepoError("");
-              setRepoReplaceMode(false);
-            }}
-            onRemove={() => {
-              setRepoRemoveError("");
-              setRepoRemoveOpen(true);
-            }}
-            onAttach={attachRepo}
-          />
-          <CodeMapAnalysisCard
-            repo={repo}
-            repoLoading={repoLoading}
-            latestAnalysis={latestAnalysis}
-            analysisLoading={analysisLoading}
-            analysisRunning={analysisRunning}
-            analysisError={analysisError}
-            analysisHistory={analysisHistory}
-            historyLoading={historyLoading}
-            historyError={historyError}
-            onRunAnalysis={runAnalysis}
-          />
-          <HealthMonitoringCard
-            project={project}
-            latestHealthCheck={latestHealthCheck}
-            healthLoading={healthLoading}
-            healthError={healthError}
-            healthHistory={healthHistory}
-            historyLoading={healthHistoryLoading}
-            historyError={healthHistoryError}
-            healthRunning={healthRunning}
-            onRunHealthCheck={runHealthCheck}
-          />
-          <ReadinessAssessmentCard
-            readiness={readiness}
-            loading={readinessLoading}
-            error={readinessError}
-            evaluating={readinessEvaluating}
-            onEvaluate={runReadinessEvaluation}
-            onUpdateManualItem={updateManualReadinessItem}
-          />
         </div>
         {archive && (
           <ArchiveProjectModal

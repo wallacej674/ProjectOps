@@ -434,3 +434,584 @@ summary rendering, and manual update flow. A future dashboard can reuse these
 types and deterministic evidence labels without coupling dashboard layout to the
 current Project detail card.
 
+## Project command-center data flow
+
+Milestone 14 adds a unified command-center layer to Project detail. The page
+still loads each resource separately:
+
+- Project metadata from the Project API.
+- `RepoIntegration` from repository intake.
+- Latest and historical `RepoAnalysis` from CodeMap Lite.
+- Latest and historical `HealthCheck` from Manual Health Monitoring.
+- `ProjectReadinessSummary` from Production Readiness.
+
+The command center does not call the backend dashboard endpoint. It derives
+summary state from resources already loaded by `ProjectDetailPage`, so the
+overview and detailed sections share one frontend source of truth.
+
+## Derived summary helper functions
+
+`features/projects/utils/projectCommandCenter.ts` contains pure helper
+functions:
+
+- `getRepositorySummary(repo)`
+- `getCodeMapSummary(repo, latestAnalysis)`
+- `getHealthSummary(project, latestHealthCheck)`
+- `getReadinessSummary(readiness)`
+- `getProjectSetupSteps(input)`
+- `getProjectNextActions(input)`
+
+These helpers return UI-ready labels, details, tones, metrics, timestamps, target
+section IDs, and action priorities. Keeping this logic outside JSX makes it easy
+to test and safe to refactor the layout later.
+
+The helpers are defensive around missing readiness data. Some focused tests mock
+only the section they are exercising, so an unrelated readiness fallback payload
+must not crash the whole dashboard.
+
+## Setup-progress logic
+
+Setup progress is based on actual frontend state:
+
+- Project created is complete once Project metadata loads.
+- Repository connected requires a real `RepoIntegration`.
+- CodeMap analysis run follows latest analysis state.
+- Production URL added follows `Project.production_url`.
+- Manual health check run follows latest `HealthCheck`.
+- Readiness evaluated follows readiness status.
+- Manual readiness review appears only when manual readiness items are present.
+
+Status text is explicit: complete, incomplete, or needs attention. Color only
+reinforces the text state.
+
+## Recommended-next-action priority logic
+
+Recommended actions are deterministic rules, not AI. They are sorted by numeric
+priority and capped at five visible actions.
+
+The first missing setup dependency generally wins:
+
+1. Attach repository.
+2. Run or retry CodeMap.
+3. Add production URL.
+4. Run or review health check.
+5. Evaluate readiness.
+6. Review backend-provided readiness top gaps.
+7. Complete manual readiness review items.
+
+Each action links to an existing section anchor such as `#repository`,
+`#codemap`, `#health`, `#readiness`, or `#details`.
+
+## How the unified dashboard composes existing feature sections
+
+The command center is a summary and navigation layer. It does not replace the
+detailed feature cards.
+
+`ProjectDetailPage` computes summaries and then renders:
+
+1. `ProjectCommandCenterHeader`
+2. `ProjectSummaryCards`
+3. `ProjectNextActions`
+4. `ProjectSetupProgress`
+5. `ProjectSectionNav`
+6. Existing Repository, CodeMap, Health, Readiness, and Details sections
+
+Repository attach/replace/remove, CodeMap run/history, health check
+run/history, readiness evaluation/checklist/manual updates, and Project
+metadata rendering all stay in their existing components.
+
+## How to add the next Project detail section safely
+
+When adding a future section:
+
+1. Add a stable section ID and section-nav entry.
+2. Add or extend a pure summary helper only if the command center needs to
+   summarize the new evidence.
+3. Write helper tests before changing JSX.
+4. Add an integration test that proves the summary links to the detailed
+   section and does not show fake metrics.
+5. Keep workflow controls inside the detailed section component.
+6. Update the milestone doc and these learning notes.
+
+This keeps Project detail from turning back into a pile of unrelated cards while
+preserving the clear boundaries between evidence sources.
+
+## ProjectArtifact data model
+
+Milestone 15 adds `ProjectArtifact`, the frontend type for DataForge Lite
+artifact metadata.
+
+A Project Artifact belongs to one Project and includes title, artifact type,
+source type, optional URL, optional summary, optional content, optional tags,
+status, and timestamps.
+
+Artifact types are constrained to values such as `note`, `document`, `link`,
+`runbook`, `decision`, `incident`, `requirement`, `risk`, `evidence`, and
+`other`. Source types are `manual`, `external_url`, `imported`, and `system`.
+Status is `active` or `archived`.
+
+DataForge Lite stores metadata and references only. It does not upload files,
+parse documents, preview PDFs, create embeddings, run semantic search, or use an
+LLM to extract document content.
+
+## Artifact backend flow
+
+The backend follows the existing ProjectOps route/service/repository/model
+shape:
+
+- `ProjectArtifact` defines the `project_artifacts` table.
+- Pydantic schemas validate create and update payloads.
+- The service checks that the Project exists before artifact operations.
+- Repository lookups always include `project_id`.
+- DELETE archives by setting `status` to `archived`.
+
+The list route hides archived artifacts by default and supports
+`include_archived`, `artifact_type`, and `source_type` query parameters.
+
+## Artifact frontend API flow
+
+`features/projects/api/projectArtifacts.ts` is the only frontend module that
+knows artifact endpoint paths.
+
+It provides:
+
+- `createProjectArtifact(projectId, input)`
+- `listProjectArtifacts(projectId, options)`
+- `getProjectArtifact(projectId, artifactId)`
+- `updateProjectArtifact(projectId, artifactId, input)`
+- `archiveProjectArtifact(projectId, artifactId)`
+
+All functions call the shared `request` helper, so backend validation and 404
+responses become `ApiError` objects consistently with repository, CodeMap,
+health, and readiness APIs.
+
+## Artifact section state model
+
+`useProjectArtifacts(projectId)` coordinates local state for the Project detail
+Artifacts section:
+
+- `artifacts`: currently loaded artifacts.
+- `loading`: list request pending state.
+- `error`: list error text.
+- `includeArchived`: whether archived artifacts are requested.
+- `artifactTypeFilter`: optional type filter.
+- `sourceTypeFilter`: optional source filter.
+- `mutationPending`: create, edit, or archive pending state.
+
+The hook reloads artifacts after create, edit, and archive. That keeps the UI
+simple and lets the backend remain the source of truth for filtering and archive
+behavior.
+
+## Create/edit/archive control flow
+
+`ProjectArtifactsCard` owns workflow UI state:
+
+- Whether the create form is visible.
+- Which artifact is being edited.
+- Which artifact is being archived.
+- Save/archive error text.
+
+`ProjectArtifactForm` owns draft field values and client validation for required
+title and optional HTTP/HTTPS URL format. Successful create or edit calls back to
+the hook, then the hook reloads the list.
+
+`ProjectArtifactArchiveModal` is a focus-trapped confirmation dialog. Archive
+copy is explicit: archiving removes the artifact from the default active view
+but does not delete the Project or any external document.
+
+## Command-center artifact summary logic
+
+`getArtifactsSummary(artifacts)` derives the Artifacts summary card:
+
+- No active artifacts becomes `No artifacts`.
+- Active artifacts show an active count.
+- Archived artifacts show an archived metric when present in loaded state.
+- The latest updated artifact supplies the timestamp and most-recent title.
+
+`getProjectNextActions` adds `Add a project note or runbook.` only at low
+priority after repository, CodeMap, production URL, health, and readiness work.
+
+The Project detail command center still does not call
+`GET /api/v1/projects/{project_id}/dashboard`; it uses data already loaded by
+the page.
+
+## How artifacts prepare future DataForge phases
+
+DataForge Lite creates the durable Project-scoped record that later file upload,
+document parsing, search, or readiness-evidence features can attach to.
+
+Future phases can add storage metadata, file scan state, extracted text, or
+search indexes without changing the basic user concept: an artifact is the
+registry entry that says what important project knowledge exists and where it
+lives.
+
+## Artifact search data flow
+
+Milestone 16 keeps artifact search backend-backed.
+
+`ProjectArtifactsCard` owns the visible controls, while `useProjectArtifacts`
+owns the filter state:
+
+- `search`
+- `selectedTags`
+- `artifactTypeFilter`
+- `sourceTypeFilter`
+- `includeArchived`
+
+When any filter changes, the hook calls `listProjectArtifacts(projectId,
+options)`. The API helper serializes those options into query parameters such
+as:
+
+```text
+/api/v1/projects/7/artifacts?search=deploy&tags=runbook&artifact_type=runbook
+```
+
+The backend returns the already-filtered list. The frontend does not duplicate
+the search algorithm client-side, which keeps the UI aligned with API behavior.
+
+There is no debounce dependency. Each search keystroke can reload the list. That
+is acceptable for DataForge Lite and easy to optimize later with a small local
+debounce if needed.
+
+## Tag parsing and filtering logic
+
+Tags are still stored as comma-separated text.
+
+The frontend parses tags for display by splitting on commas, trimming
+whitespace, and ignoring empty values. Tag chips are rendered as buttons. When a
+tag chip is pressed, the hook stores a lowercased selected tag token and reloads
+the backend list.
+
+The backend performs any-match tag filtering. For example, `tags=runbook,ops`
+returns artifacts tagged with either `runbook` or `ops`.
+
+This is intentionally pragmatic. It improves artifact usability without adding a
+tag table, JSON column migration, or complex tag editor before the product
+needs them.
+
+## Backend dashboard artifact summary logic
+
+The backend dashboard endpoint now includes an `artifacts` summary object.
+
+The dashboard service loads all Project artifacts with archived records
+included, then derives:
+
+- active artifact count
+- archived artifact count
+- total artifact count
+- latest active artifact summary
+
+Archived artifacts count as archived and total records, but they do not replace
+the latest active artifact. This mirrors the frontend command-center behavior:
+archived records should remain visible when requested, but they should not make
+the Project look more current than its active evidence.
+
+## Readiness artifact evidence model
+
+Artifact evidence links are stored separately from readiness status and notes.
+
+The join table connects:
+
+- Project
+- readiness item
+- artifact
+
+The unique key prevents the same artifact from being linked twice to the same
+readiness item.
+
+This matters because linked artifacts are supporting references. They are not
+automatic evidence of completion, and they do not change readiness scoring.
+Manual review status remains an engineer decision.
+
+## Link and unlink evidence control flow
+
+`ProjectDetailPage` coordinates evidence state with a map:
+
+```text
+readiness item key -> linked artifact evidence rows
+```
+
+After readiness loads, the page fetches linked artifacts for each checklist
+item. The current catalog is small, so one request per item is acceptable for
+this milestone. A future bulk endpoint could reduce this if the checklist grows.
+
+`ReadinessAssessmentCard` receives:
+
+- active Project artifacts
+- evidence rows by readiness item key
+- link and unlink handlers
+
+Each checklist item renders a select for active artifacts that are not already
+linked to that item. Linking calls the API, appends the returned evidence row to
+the local evidence map, and leaves readiness status unchanged. Unlinking deletes
+only the evidence link and removes that row from the local map.
+
+Backend duplicate-link errors are displayed with `role="alert"` so the user can
+understand why the action did not complete.
+
+## Why DataForge Lite does not analyze document contents yet
+
+ProjectOps currently stores artifact metadata and references only.
+
+Document analysis would require more product and engineering boundaries:
+
+- file storage
+- upload limits
+- malware scanning
+- access control
+- parsing/OCR reliability
+- extracted text retention policy
+- user-visible provenance
+- background jobs
+- review and correction workflows
+
+Milestone 16 deliberately stops before those concerns. It makes artifacts
+searchable and linkable as team-supplied supporting evidence without claiming
+that ProjectOps verified the contents.
+
+## Activity backend model
+
+Milestone 17 adds `ProjectActivityEvent`, a Project-scoped product history
+record.
+
+Each event answers:
+
+- what happened
+- which Project it happened in
+- what category and event type it belongs to
+- what short message should be shown
+- which related resource was involved
+- what small metadata details explain the event
+- when it happened
+
+The database column is named `metadata`, but the SQLAlchemy model uses
+`metadata_json` because `metadata` is reserved by SQLAlchemy declarative models.
+The API still returns `metadata` to the frontend.
+
+Activity is product history, not a notification system or audit log.
+
+## Event recording flow
+
+Activity events are recorded inside service-layer workflows after the primary
+action succeeds.
+
+Examples:
+
+- `ProjectService.create_project` creates the Project, then records
+  `project_created`.
+- `RepoIntegrationService.attach_github_repo` checks whether a repo already
+  exists, then records either `repository_attached` or `repository_replaced`.
+- `RepoAnalysisService.run_analysis` stores a completed or failed analysis, then
+  records a matching CodeMap event.
+- `HealthCheckService._store_health_check` stores the health result, then
+  records a status-specific health event.
+- `ReadinessService.link_artifact_evidence` creates the evidence link, then
+  records `readiness_artifact_linked`.
+
+This follows the existing ProjectOps architecture: routes handle HTTP, services
+handle behavior, repositories handle database access.
+
+## Activity frontend API flow
+
+`features/projects/api/projectActivity.ts` owns the activity endpoint path.
+
+It exposes:
+
+```ts
+listProjectActivity(projectId, filters)
+```
+
+Supported frontend filters:
+
+- `category`
+- `eventType`
+- `limit`
+- `offset`
+
+The helper serializes those filters into query parameters such as:
+
+```text
+/api/v1/projects/7/activity?category=artifact&limit=25
+```
+
+Components do not call `fetch` directly. They call this API helper, which uses
+the shared `request` function and returns typed `ProjectActivityEvent` objects
+or `ApiError`.
+
+## Timeline rendering
+
+`ProjectActivityTimeline` is a presentational component.
+
+It receives:
+
+- events
+- loading state
+- error text
+- current category filter
+- category change handler
+- clear-filter handler
+
+The component renders:
+
+- a labeled Recent Activity region
+- a category filter
+- a result count
+- empty/loading/error/no-results states
+- an ordered list of timeline events
+
+The timeline displays the backend-provided message directly. That keeps display
+copy deterministic and avoids inventing AI summaries client-side.
+
+## Activity filtering
+
+Project detail owns `activityCategoryFilter`.
+
+When the filter changes, `ProjectDetailPage` reloads activity from the backend.
+The frontend does not filter the full event list locally because the backend is
+the source of truth for pagination and filtering.
+
+The clear-filter button sets the category back to `""`, which reloads all
+categories.
+
+## Activity and command-center integration
+
+`getActivitySummary(activityEvents)` derives the Activity command-center card:
+
+- no events becomes `No activity recorded yet`
+- one event becomes `1 event`
+- multiple loaded events show the loaded count
+- the latest event supplies the card detail and timestamp
+
+Activity is intentionally not a next-action driver. It tells the user what
+happened; it does not tell them to do work unless another feature already
+created a next action.
+
+## How activity prepares future notifications and audit history
+
+Stored activity events create a durable event stream that future features can
+reuse, but Milestone 17 stops before notification behavior.
+
+## Milestone 18 cross-Project activity backend flow
+
+Milestone 18 adds a top-level activity route:
+
+```text
+GET /api/v1/activity
+```
+
+The route is app-level, not Project-detail-level. It asks the activity service
+for newest-first events across Projects. The repository joins
+`project_activity_events` to `projects` so each event can include Project
+context such as `project_name` and `project_status`. That lets the Overview
+page show activity rows and links without making one request per Project.
+
+Supported filters:
+
+```text
+category=artifact
+event_type=artifact_created
+project_id=7
+limit=25
+offset=0
+```
+
+The endpoint returns `[]` when no activity exists. A missing `project_id` filter
+returns a 404 because that filter names a specific Project. Since ProjectOps
+does not have authentication or visibility rules yet, the cross-Project feed
+returns activity for local Projects, including archived Projects.
+
+## Overview activity frontend flow
+
+`OverviewPage` now loads two independent data sets:
+
+- `projectsApi.list(true)` for Project metrics.
+- `listActivity({ category, limit: 25 })` for the cross-Project activity feed.
+
+The Overview feed renders real product history:
+
+- category badge
+- event message
+- Project name and lifecycle status
+- timestamp
+- link to `/app/projects/:projectId`
+
+The Recently Active Projects section is derived from the loaded activity window.
+It groups by Project and keeps the newest event for each Project. This avoids a
+separate overview aggregate endpoint while the app is still small.
+
+## Stable summary versus filtered list state
+
+Project detail now keeps separate activity state:
+
+- `activityEvents`: the filtered Activity section list.
+- `activitySummaryEvents`: an unfiltered source for the command-center Activity
+  summary card.
+
+When the user changes the Activity category filter, only `activityEvents`
+changes. The command-center Activity summary keeps using the unfiltered summary
+source, so it does not switch from "latest activity" to "latest filtered
+activity" by accident.
+
+This is the key state-management lesson: if two pieces of UI answer different
+questions, they need different state even when they read from the same backend
+resource.
+
+## Manual refresh control flow
+
+Overview and Project detail both use a Refresh activity button. Refreshing:
+
+- calls the same API helper as initial load
+- preserves the current category filter
+- shows a pending/disabled state while loading
+- does not start polling
+
+Project detail refreshes both the filtered timeline and the unfiltered summary
+source. That keeps the visible list current without corrupting the summary.
+
+## Why this is not realtime notifications yet
+
+Recent Activity is product history. It records meaningful ProjectOps actions
+after they happen. It is not:
+
+- realtime monitoring
+- unread state
+- user-specific notifications
+- a notification inbox
+- audit-grade compliance history
+
+Those features need authentication, users, preferences, delivery channels, and
+stronger event semantics. Milestone 18 intentionally stops at refresh-based
+activity surfacing.
+
+Future milestones can add:
+
+- grouped timeline views
+- related-resource links
+- event detail pages
+- backfill tools
+- user attribution after authentication exists
+- notification rules only if users need active interruption
+
+Audit history would require stricter guarantees than this milestone provides:
+user identity, immutable retention rules, permission checks, tamper resistance,
+and operational controls. Those are intentionally out of scope for this product
+timeline.
+
+## Milestone 19: Deployment-aware API base URL
+
+The frontend API client now resolves `VITE_API_BASE_URL` when a request is made,
+not once at module import time. That keeps tests and runtime behavior aligned:
+tests can override the Vite environment, local development can still fall back
+to `http://127.0.0.1:8000`, and production builds fail clearly if the deployed
+backend URL was not configured.
+
+The important control flow is:
+
+1. `request()` calls `resolveApiBaseUrl()`.
+2. If `VITE_API_BASE_URL` exists, it is trimmed and trailing slashes are removed.
+3. If no URL exists and the build is production, the client raises a
+   configuration `ApiError`.
+4. If no URL exists outside production, the local FastAPI default is used.
+
+This keeps the production bundle from silently calling localhost while
+preserving the easy local development path.

@@ -1,5 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { readinessStatuses, type ProjectReadinessItem, type ProjectReadinessSummary, type ReadinessStatus } from "../../../types/readiness";
+import type { ProjectArtifact, ProjectArtifactSourceType, ProjectArtifactType } from "../../../types/projectArtifact";
+import {
+  readinessStatuses,
+  type ProjectReadinessItem,
+  type ProjectReadinessSummary,
+  type ReadinessArtifactEvidence,
+  type ReadinessStatus,
+} from "../../../types/readiness";
 
 const evidenceSources = [
   "Project metadata",
@@ -21,6 +28,26 @@ const itemStatusLabels: Record<ReadinessStatus, string> = {
   failed: "Failed",
   unknown: "Unknown",
   not_applicable: "Not applicable",
+};
+
+const artifactTypeLabels: Record<ProjectArtifactType, string> = {
+  note: "Note",
+  document: "Document",
+  link: "Link",
+  runbook: "Runbook",
+  decision: "Decision",
+  incident: "Incident",
+  requirement: "Requirement",
+  risk: "Risk",
+  evidence: "Evidence",
+  other: "Other",
+};
+
+const sourceTypeLabels: Record<ProjectArtifactSourceType, string> = {
+  manual: "Manual",
+  external_url: "External URL",
+  imported: "Imported",
+  system: "System",
 };
 
 const sourceDescriptions: Record<string, string> = {
@@ -185,17 +212,159 @@ function ManualReadinessItemEditor({
   );
 }
 
+function SupportingArtifactControl({
+  item,
+  artifacts,
+  evidence,
+  evidenceLoading,
+  onLinkArtifactEvidence,
+  onUnlinkArtifactEvidence,
+}: {
+  item: ProjectReadinessItem;
+  artifacts: ProjectArtifact[];
+  evidence: ReadinessArtifactEvidence[];
+  evidenceLoading: boolean;
+  onLinkArtifactEvidence: (itemKey: string, artifactId: number) => Promise<void>;
+  onUnlinkArtifactEvidence: (itemKey: string, artifactId: number) => Promise<void>;
+}) {
+  const [selectedArtifactId, setSelectedArtifactId] = useState("");
+  const [pending, setPending] = useState(false);
+  const [error, setError] = useState("");
+  const activeArtifacts = artifacts.filter((artifact) => artifact.status === "active");
+  const linkedArtifactIds = new Set(evidence.map((entry) => entry.artifact.id));
+  const linkableArtifacts = activeArtifacts.filter((artifact) => !linkedArtifactIds.has(artifact.id));
+  const selectId = `readiness-${item.item.key}-artifact-evidence`;
+  const errorId = `readiness-${item.item.key}-artifact-evidence-error`;
+
+  useEffect(() => {
+    if (selectedArtifactId && !linkableArtifacts.some((artifact) => String(artifact.id) === selectedArtifactId)) {
+      setSelectedArtifactId("");
+    }
+  }, [linkableArtifacts, selectedArtifactId]);
+
+  async function linkSelectedArtifact() {
+    if (!selectedArtifactId) return;
+    setPending(true);
+    setError("");
+    try {
+      await onLinkArtifactEvidence(item.item.key, Number(selectedArtifactId));
+      setSelectedArtifactId("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Artifact evidence could not be linked.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  async function unlinkArtifact(artifactId: number) {
+    setPending(true);
+    setError("");
+    try {
+      await onUnlinkArtifactEvidence(item.item.key, artifactId);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Artifact evidence could not be unlinked.");
+    } finally {
+      setPending(false);
+    }
+  }
+
+  return (
+    <div className="readiness-artifact-evidence">
+      {evidenceLoading ? (
+        <p className="meta" aria-live="polite">
+          Loading supporting artifacts...
+        </p>
+      ) : evidence.length > 0 ? (
+        <ul className="readiness-artifact-list" aria-label={`Supporting artifacts for ${item.item.label}`}>
+          {evidence.map((entry) => (
+            <li key={entry.id}>
+              <div>
+                <strong>{entry.artifact.title}</strong>
+                <div className="artifact-badges">
+                  <span className="badge">{artifactTypeLabels[entry.artifact.artifact_type]}</span>
+                  <span className="badge">{sourceTypeLabels[entry.artifact.source_type]}</span>
+                  <span className={`badge ${entry.artifact.status}`}>
+                    {entry.artifact.status === "archived" ? "Archived" : "Active"}
+                  </span>
+                </div>
+              </div>
+              <button
+                className="button"
+                type="button"
+                disabled={pending}
+                onClick={() => unlinkArtifact(entry.artifact.id)}
+              >
+                {`Unlink ${entry.artifact.title} from ${item.item.label}`}
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="meta">No supporting artifacts linked yet.</p>
+      )}
+      <div className="readiness-artifact-link-row">
+        <div className="field">
+          <label htmlFor={selectId}>Artifact evidence for {item.item.label}</label>
+          <select
+            id={selectId}
+            value={selectedArtifactId}
+            onChange={(event) => setSelectedArtifactId(event.target.value)}
+            disabled={pending || linkableArtifacts.length === 0}
+            aria-describedby={error ? errorId : undefined}
+          >
+            <option value="">Select an artifact</option>
+            {linkableArtifacts.map((artifact) => (
+              <option value={artifact.id} key={artifact.id}>
+                {artifact.title}
+              </option>
+            ))}
+          </select>
+        </div>
+        <button
+          className="button"
+          type="button"
+          disabled={pending || !selectedArtifactId}
+          onClick={linkSelectedArtifact}
+        >
+          {`Link artifact evidence for ${item.item.label}`}
+        </button>
+      </div>
+      {error && (
+        <p className="error-text" id={errorId} role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+
 function ReadinessChecklist({
   items,
+  artifacts,
+  evidenceByItemKey,
+  evidenceLoading,
   onUpdateManualItem,
+  onLinkArtifactEvidence,
+  onUnlinkArtifactEvidence,
 }: {
   items: ProjectReadinessItem[];
+  artifacts: ProjectArtifact[];
+  evidenceByItemKey: Record<string, ReadinessArtifactEvidence[]>;
+  evidenceLoading: boolean;
   onUpdateManualItem: (itemKey: string, status: ReadinessStatus, notes: string | null) => Promise<void>;
+  onLinkArtifactEvidence: (itemKey: string, artifactId: number) => Promise<void>;
+  onUnlinkArtifactEvidence: (itemKey: string, artifactId: number) => Promise<void>;
 }) {
   const visibleItems = Array.isArray(items) ? items : [];
   return (
     <section className="readiness-section" aria-labelledby="readiness-checklist-title">
       <h3 id="readiness-checklist-title">Readiness Checklist</h3>
+      <div className="readiness-supporting-artifacts-note">
+        <h4>Supporting artifacts</h4>
+        <p className="meta">
+          Linked artifacts are references supplied by your team. ProjectOps does not verify their contents in DataForge Lite.
+        </p>
+      </div>
       {visibleItems.length === 0 ? (
         <p className="meta">No checklist items were returned.</p>
       ) : (
@@ -225,6 +394,14 @@ function ReadinessChecklist({
               </dl>
               {missingEvidenceHelp(item) && <p className="meta">{missingEvidenceHelp(item)}</p>}
               {item.notes && <p className="readiness-notes">{item.notes}</p>}
+              <SupportingArtifactControl
+                item={item}
+                artifacts={artifacts}
+                evidence={evidenceByItemKey[item.item.key] ?? []}
+                evidenceLoading={evidenceLoading}
+                onLinkArtifactEvidence={onLinkArtifactEvidence}
+                onUnlinkArtifactEvidence={onUnlinkArtifactEvidence}
+              />
               {item.item.evaluation_type === "manual" && (
                 <ManualReadinessItemEditor item={item} onSave={onUpdateManualItem} />
               )}
@@ -241,15 +418,25 @@ export function ReadinessAssessmentCard({
   loading,
   error,
   evaluating,
+  artifacts,
+  evidenceByItemKey,
+  evidenceLoading,
   onEvaluate,
   onUpdateManualItem,
+  onLinkArtifactEvidence,
+  onUnlinkArtifactEvidence,
 }: {
   readiness: ProjectReadinessSummary | null;
   loading: boolean;
   error: string;
   evaluating: boolean;
+  artifacts: ProjectArtifact[];
+  evidenceByItemKey: Record<string, ReadinessArtifactEvidence[]>;
+  evidenceLoading: boolean;
   onEvaluate: () => void;
   onUpdateManualItem: (itemKey: string, status: ReadinessStatus, notes: string | null) => Promise<void>;
+  onLinkArtifactEvidence: (itemKey: string, artifactId: number) => Promise<void>;
+  onUnlinkArtifactEvidence: (itemKey: string, artifactId: number) => Promise<void>;
 }) {
   const isNotStarted = !readiness || !readiness.status || readiness.status === "not_started";
   const runLabel = evaluating ? "Evaluating Readiness" : "Run Readiness Evaluation";
@@ -307,7 +494,15 @@ export function ReadinessAssessmentCard({
         <div className="readiness-result">
           <ReadinessScoreSummary readiness={readiness} />
           <ReadinessTopGaps gaps={readiness.top_gaps} />
-          <ReadinessChecklist items={readiness.items} onUpdateManualItem={onUpdateManualItem} />
+          <ReadinessChecklist
+            items={readiness.items}
+            artifacts={artifacts}
+            evidenceByItemKey={evidenceByItemKey}
+            evidenceLoading={evidenceLoading}
+            onUpdateManualItem={onUpdateManualItem}
+            onLinkArtifactEvidence={onLinkArtifactEvidence}
+            onUnlinkArtifactEvidence={onUnlinkArtifactEvidence}
+          />
         </div>
       )}
       <button ref={runButtonRef} className="button primary" type="button" disabled={evaluating} onClick={onEvaluate}>

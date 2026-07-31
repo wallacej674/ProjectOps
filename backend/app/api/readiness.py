@@ -4,9 +4,18 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
-from app.schemas.readiness import ProjectReadinessItemRead, ProjectReadinessSummary, ReadinessItemUpdate
+from app.schemas.readiness import (
+    ProjectReadinessItemRead,
+    ProjectReadinessSummary,
+    ReadinessArtifactEvidenceRead,
+    ReadinessArtifactLinkRequest,
+    ReadinessItemUpdate,
+)
+from app.services.project_artifacts import ProjectArtifactNotFoundError
 from app.services.projects import ProjectNotFoundError
 from app.services.readiness import (
+    ArtifactEvidenceAlreadyLinkedError,
+    ArtifactEvidenceLinkNotFoundError,
     ManualItemUpdateError,
     ReadinessItemNotFoundError,
     readiness_service,
@@ -21,6 +30,10 @@ def _not_found(detail: str) -> HTTPException:
 
 def _bad_request(detail: str) -> HTTPException:
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=detail)
+
+
+def _conflict(detail: str) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
 
 
 def _build_summary(assessments, score) -> ProjectReadinessSummary:
@@ -62,6 +75,66 @@ def get_project_readiness(
         assessments, score = readiness_service.get_project_readiness(db, project_id)
         return _build_summary(assessments, score)
     except ProjectNotFoundError as error:
+        raise _not_found(str(error)) from error
+
+
+@router.post(
+    "/{project_id}/readiness/items/{item_key}/artifacts",
+    response_model=ReadinessArtifactEvidenceRead,
+    status_code=status.HTTP_201_CREATED,
+)
+def link_readiness_artifact_evidence(
+    project_id: int,
+    item_key: str,
+    link_in: ReadinessArtifactLinkRequest,
+    db: Annotated[Session, Depends(get_db)],
+) -> ReadinessArtifactEvidenceRead:
+    try:
+        return readiness_service.link_artifact_evidence(db, project_id, item_key, link_in.artifact_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(str(error)) from error
+    except ProjectArtifactNotFoundError as error:
+        raise _not_found(str(error)) from error
+    except ReadinessItemNotFoundError as error:
+        raise _not_found(str(error)) from error
+    except ArtifactEvidenceAlreadyLinkedError as error:
+        raise _conflict(str(error)) from error
+
+
+@router.get(
+    "/{project_id}/readiness/items/{item_key}/artifacts",
+    response_model=list[ReadinessArtifactEvidenceRead],
+)
+def list_readiness_artifact_evidence(
+    project_id: int,
+    item_key: str,
+    db: Annotated[Session, Depends(get_db)],
+) -> list[ReadinessArtifactEvidenceRead]:
+    try:
+        return readiness_service.list_artifact_evidence(db, project_id, item_key)
+    except ProjectNotFoundError as error:
+        raise _not_found(str(error)) from error
+    except ReadinessItemNotFoundError as error:
+        raise _not_found(str(error)) from error
+
+
+@router.delete(
+    "/{project_id}/readiness/items/{item_key}/artifacts/{artifact_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def unlink_readiness_artifact_evidence(
+    project_id: int,
+    item_key: str,
+    artifact_id: int,
+    db: Annotated[Session, Depends(get_db)],
+) -> None:
+    try:
+        readiness_service.unlink_artifact_evidence(db, project_id, item_key, artifact_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(str(error)) from error
+    except ReadinessItemNotFoundError as error:
+        raise _not_found(str(error)) from error
+    except ArtifactEvidenceLinkNotFoundError as error:
         raise _not_found(str(error)) from error
 
 

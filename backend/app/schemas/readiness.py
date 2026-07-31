@@ -3,6 +3,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict
 
+from app.schemas.project_artifact import ProjectArtifactRead
+
 ReadinessStatus = Literal["passed", "failed", "unknown", "not_applicable"]
 
 
@@ -36,6 +38,21 @@ class ProjectReadinessItemRead(BaseModel):
 class ReadinessItemUpdate(BaseModel):
     status: ReadinessStatus
     notes: str | None = None
+
+
+class ReadinessArtifactLinkRequest(BaseModel):
+    artifact_id: int
+
+
+class ReadinessArtifactEvidenceRead(BaseModel):
+    id: int
+    project_id: int
+    readiness_item_id: int
+    item_key: str
+    artifact: ProjectArtifactRead
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
 
 
 class ProjectReadinessSummary(BaseModel):

@@ -100,6 +100,30 @@ const updatedManualItem = {
   notes: "Reviewed by security lead.",
 };
 
+const artifact = {
+  id: 12,
+  project_id: 7,
+  title: "Deployment runbook",
+  artifact_type: "runbook",
+  source_type: "external_url",
+  url: "https://docs.example.com/runbook",
+  content: null,
+  summary: "Deployment steps.",
+  tags: "deployment,runbook",
+  status: "active",
+  created_at: "2026-01-01T00:00:00Z",
+  updated_at: "2026-01-02T00:00:00Z",
+};
+
+const linkedEvidence = {
+  id: 5,
+  project_id: 7,
+  readiness_item_id: 9,
+  item_key: "secrets_management_reviewed",
+  artifact,
+  created_at: "2026-01-03T00:00:00Z",
+};
+
 function renderDetail() {
   window.history.pushState({}, "", "/app/projects/7");
   return render(<App />);
@@ -113,10 +137,18 @@ function mockProjectDetail({
   readinessResponse = json(notStartedReadiness),
   evaluateResponse = json(evaluatedReadiness, 201),
   updateItemResponse = json(updatedManualItem),
+  artifactsResponse = json([artifact]),
+  evidenceResponse = json([]),
+  linkEvidenceResponse = json(linkedEvidence, 201),
+  unlinkEvidenceResponse = json(undefined, 204),
 }: {
   readinessResponse?: Response;
   evaluateResponse?: Response | Promise<Response>;
   updateItemResponse?: Response | Promise<Response>;
+  artifactsResponse?: Response;
+  evidenceResponse?: Response;
+  linkEvidenceResponse?: Response | Promise<Response>;
+  unlinkEvidenceResponse?: Response | Promise<Response>;
 } = {}) {
   return mockFetch((url, init) => {
     const method = (init.method ?? "GET").toUpperCase();
@@ -131,6 +163,16 @@ function mockProjectDetail({
     if (url.endsWith("/api/v1/projects/7/readiness") && method === "GET") return responseClone(readinessResponse);
     if (url.endsWith("/api/v1/projects/7/readiness/evaluate") && method === "POST") {
       return evaluateResponse instanceof Promise ? evaluateResponse : responseClone(evaluateResponse);
+    }
+    if (url.endsWith("/api/v1/projects/7/artifacts") && method === "GET") return responseClone(artifactsResponse);
+    if (url.includes("/api/v1/projects/7/readiness/items/") && url.endsWith("/artifacts") && method === "GET") {
+      return responseClone(evidenceResponse);
+    }
+    if (url.endsWith("/api/v1/projects/7/readiness/items/secrets_management_reviewed/artifacts") && method === "POST") {
+      return linkEvidenceResponse instanceof Promise ? linkEvidenceResponse : responseClone(linkEvidenceResponse);
+    }
+    if (url.endsWith("/api/v1/projects/7/readiness/items/secrets_management_reviewed/artifacts/12") && method === "DELETE") {
+      return unlinkEvidenceResponse instanceof Promise ? unlinkEvidenceResponse : responseClone(unlinkEvidenceResponse);
     }
     if (url.endsWith("/api/v1/projects/7/readiness/items/secrets_management_reviewed") && method === "PATCH") {
       return updateItemResponse instanceof Promise ? updateItemResponse : responseClone(updateItemResponse);
@@ -244,5 +286,69 @@ describe("Project detail Production Readiness", () => {
           init?.body === JSON.stringify({ status: "passed", notes: "Reviewed by security lead." }),
       ),
     ).toBe(true);
+  });
+
+  it("shows linked artifacts as supporting evidence without marking the item passed", async () => {
+    mockProjectDetail({ readinessResponse: json(evaluatedReadiness), evidenceResponse: json([linkedEvidence]) });
+
+    renderDetail();
+
+    const section = await screen.findByRole("region", { name: "Production Readiness" });
+    expect(await within(section).findByText("Supporting artifacts")).toBeInTheDocument();
+    const evidenceList = await within(section).findByRole("list", {
+      name: "Supporting artifacts for Secrets Management Reviewed",
+    });
+    expect(within(evidenceList).getByText("Deployment runbook")).toBeInTheDocument();
+    expect(within(section).getByText(/Linked artifacts are references supplied by your team/)).toBeInTheDocument();
+    expect(within(section).getAllByText("Unknown").length).toBeGreaterThan(0);
+    expect(within(section).queryByText(/verified/i)).not.toBeInTheDocument();
+  });
+
+  it("links an existing artifact to a readiness item and surfaces duplicate errors", async () => {
+    const fetchMock = mockProjectDetail({
+      readinessResponse: json(evaluatedReadiness),
+      linkEvidenceResponse: json({ detail: "Artifact is already linked to this readiness item." }, 409),
+    });
+    const user = userEvent.setup();
+
+    renderDetail();
+
+    const section = await screen.findByRole("region", { name: "Production Readiness" });
+    await user.selectOptions(await within(section).findByLabelText("Artifact evidence for Secrets Management Reviewed"), "12");
+    await user.click(within(section).getByRole("button", { name: "Link artifact evidence for Secrets Management Reviewed" }));
+
+    expect(await within(section).findByRole("alert")).toHaveTextContent("Artifact is already linked to this readiness item.");
+    expect(
+      fetchMock.mock.calls.some(
+        ([url, init]) =>
+          String(url).endsWith("/api/v1/projects/7/readiness/items/secrets_management_reviewed/artifacts") &&
+          init?.body === JSON.stringify({ artifact_id: 12 }),
+      ),
+    ).toBe(true);
+  });
+
+  it("links and unlinks artifact evidence in the checklist UI", async () => {
+    mockProjectDetail({ readinessResponse: json(evaluatedReadiness) });
+    const user = userEvent.setup();
+
+    renderDetail();
+
+    const section = await screen.findByRole("region", { name: "Production Readiness" });
+    await user.selectOptions(await within(section).findByLabelText("Artifact evidence for Secrets Management Reviewed"), "12");
+    await user.click(within(section).getByRole("button", { name: "Link artifact evidence for Secrets Management Reviewed" }));
+
+    const evidenceList = await within(section).findByRole("list", {
+      name: "Supporting artifacts for Secrets Management Reviewed",
+    });
+    expect(within(evidenceList).getByText("Deployment runbook")).toBeInTheDocument();
+    expect(within(section).getAllByText("Unknown").length).toBeGreaterThan(0);
+
+    await user.click(within(evidenceList).getByRole("button", { name: "Unlink Deployment runbook from Secrets Management Reviewed" }));
+
+    await waitFor(() => {
+      expect(
+        within(section).queryByRole("list", { name: "Supporting artifacts for Secrets Management Reviewed" }),
+      ).not.toBeInTheDocument();
+    });
   });
 });

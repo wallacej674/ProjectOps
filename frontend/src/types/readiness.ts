@@ -1,3 +1,5 @@
+import type { ProjectArtifact } from "./projectArtifact";
+
 export const readinessStatuses = ["passed", "failed", "unknown", "not_applicable"] as const;
 
 export type ReadinessStatus = (typeof readinessStatuses)[number];
@@ -44,4 +46,13 @@ export interface ProjectReadinessSummary {
 export interface ReadinessItemUpdate {
   status: ReadinessStatus;
   notes?: string | null;
+}
+
+export interface ReadinessArtifactEvidence {
+  id: number;
+  project_id: number;
+  readiness_item_id: number;
+  item_key: string;
+  artifact: ProjectArtifact;
+  created_at: string;
 }

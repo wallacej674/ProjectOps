@@ -2,7 +2,7 @@
 
 ProjectOps is a software project command center for understanding, monitoring, and preparing projects for production.
 
-ProjectOps currently lets developers create, read, update, list, archive, view dashboard summaries, attach public GitHub repository connections, run CodeMap Lite repository path analysis, run manual health checks, and view an advisory production-readiness checklist from Project detail pages. It is still intentionally staged: ProjectOps is building the command-center data model and the first frontend workflows before adding artifacts, authentication, scheduled monitoring, alerts, or AI features.
+ProjectOps currently lets developers create, read, update, list, archive, view dashboard summaries, attach public GitHub repository connections, run CodeMap Lite repository path analysis, run manual health checks, view an advisory production-readiness checklist, search Project Artifact metadata, link artifacts as supporting readiness evidence, review recent Project activity from Project detail pages, and scan recent activity across Projects from the app Overview. It is still intentionally staged: ProjectOps is building the command-center data model and the first frontend workflows before adding authentication, scheduled monitoring, alerts, file processing, notifications, or AI features.
 
 ## Current Status
 
@@ -18,17 +18,19 @@ Implemented:
 - GitHub repo intake for public GitHub repository URLs.
 - CodeMap Lite rule-based repository path analysis.
 - Manual Health Monitor for on-demand Project URL checks.
+- DataForge Lite Project Artifacts metadata registry with search, tag filtering, dashboard summary, and readiness evidence links.
+- Recent Engineering Activity with stored event records, Project-scoped and cross-Project list APIs, filters, dashboard summary, Overview surfacing, and frontend timeline UI.
+- Deployment-aware configuration, database health checks, environment examples, SPA hosting guidance, and deployment readiness documentation.
 - Pytest coverage for health, Project CRUD, archive behavior, dashboard output, repo intake, CodeMap Lite, and Manual Health Monitor behavior.
-- React + TypeScript frontend: marketing landing page, Project Registry, Project create/edit/archive flows, sorting, mobile navigation, Project detail GitHub repository attach/replace/remove UI, Project detail CodeMap Lite analysis UI, Project detail Manual Health Monitoring UI, and Project detail Production Readiness UI (see `frontend/README.md`).
+- React + TypeScript frontend: marketing landing page, Overview activity feed, Project Registry, Project create/edit/archive flows, sorting, mobile navigation, Project detail GitHub repository attach/replace/remove UI, Project detail CodeMap Lite analysis UI, Project detail Manual Health Monitoring UI, Project detail Production Readiness UI, Project detail Artifacts UI, and Project detail Recent Activity UI (see `frontend/README.md`).
 - Milestone documentation in `docs/`.
 
 Not implemented yet:
 
-- Frontend screens for artifacts.
 - Authentication or user ownership.
 - GitHub OAuth, GitHub Apps, or private repository support.
 - Deep repository analysis, file content fetching, language detection, or AST parsing.
-- Scheduled monitoring, background jobs, webhooks, alerts, or AI summaries.
+- File upload storage, OCR, document preview, embeddings, semantic search, LLM extraction, scheduled monitoring, background jobs, webhooks, alerts, notification inboxes, or AI summaries.
 
 ## Repository Layout
 
@@ -66,6 +68,7 @@ npm install
 npm run dev      # http://localhost:5173
 npm run test     # Vitest + React Testing Library (API mocked, never hits the backend)
 npm run build    # tsc -b && vite build
+npm run preview  # serve the built dist/ output locally
 npm run lint
 ```
 
@@ -73,9 +76,11 @@ The Project Registry (`/api/v1/projects`), Project detail repository
 connection UI (`/api/v1/projects/{project_id}/repo`), Project detail CodeMap
 Lite analysis UI (`/api/v1/projects/{project_id}/analyses`), and Project detail
 Manual Health Monitoring UI (`/api/v1/projects/{project_id}/health-checks`),
-and Project detail Production Readiness UI
-(`/api/v1/projects/{project_id}/readiness`) are wired to the backend. Artifacts
-remain clearly labeled future-state previews. See `frontend/README.md` for the
+Project detail Production Readiness UI
+(`/api/v1/projects/{project_id}/readiness`), and Project detail Artifacts UI
+(`/api/v1/projects/{project_id}/artifacts`), Project detail Recent Activity UI
+(`/api/v1/projects/{project_id}/activity`), and Overview Recent Activity UI
+(`/api/v1/activity`) are wired to the backend. See `frontend/README.md` for the
 route map, architecture, theme/navigation/sorting behavior, repo-intake
 behavior, CodeMap behavior, manual health-check behavior, readiness behavior,
 and known limitations.
@@ -112,6 +117,12 @@ Run the database migration:
 .\.venv\Scripts\python -m alembic upgrade head
 ```
 
+Check deployment-critical backend configuration without printing secrets:
+
+```powershell
+.\.venv\Scripts\python scripts\check_config.py
+```
+
 Start the backend:
 
 ```powershell
@@ -121,8 +132,25 @@ Start the backend:
 Useful local URLs:
 
 - Health endpoint: `http://127.0.0.1:8000/health`
+- Database health endpoint: `http://127.0.0.1:8000/health/db`
 - Project API: `http://127.0.0.1:8000/api/v1/projects`
 - API docs: `http://127.0.0.1:8000/docs`
+
+## Deployment Readiness
+
+Deployment guidance lives in `docs/deployment-readiness.md`. It covers backend
+and frontend environment variables, managed PostgreSQL setup, Alembic migration
+strategy, production CORS, static-host SPA fallback, smoke tests,
+troubleshooting, dogfooding ProjectOps inside ProjectOps, and future hardening
+needs.
+
+Production notes:
+
+- Set `PROJECTOPS_ENVIRONMENT=production`.
+- Set `PROJECTOPS_DATABASE_URL` to the managed PostgreSQL connection string.
+- Set `PROJECTOPS_CORS_ALLOWED_ORIGINS` to the deployed frontend origin; wildcard CORS is rejected in production.
+- Set frontend `VITE_API_BASE_URL` to the deployed backend origin before building.
+- Serve frontend deep links such as `/app/projects/1/edit` with an SPA fallback to `index.html`.
 
 ## Running Tests
 
@@ -141,12 +169,15 @@ ProjectOps maps PostgreSQL to local port `55432` so it does not collide with ano
 
 ```text
 GET    /health
+GET    /health/db
 POST   /api/v1/projects
 GET    /api/v1/projects
 GET    /api/v1/projects/{project_id}
 PATCH  /api/v1/projects/{project_id}
 DELETE /api/v1/projects/{project_id}
 GET    /api/v1/projects/{project_id}/dashboard
+GET    /api/v1/activity
+GET    /api/v1/projects/{project_id}/activity
 POST   /api/v1/projects/{project_id}/repo
 GET    /api/v1/projects/{project_id}/repo
 DELETE /api/v1/projects/{project_id}/repo
@@ -159,14 +190,33 @@ GET    /api/v1/projects/{project_id}/health-checks
 POST   /api/v1/projects/{project_id}/readiness/evaluate
 GET    /api/v1/projects/{project_id}/readiness
 PATCH  /api/v1/projects/{project_id}/readiness/items/{item_key}
+POST   /api/v1/projects/{project_id}/readiness/items/{item_key}/artifacts
+GET    /api/v1/projects/{project_id}/readiness/items/{item_key}/artifacts
+DELETE /api/v1/projects/{project_id}/readiness/items/{item_key}/artifacts/{artifact_id}
+POST   /api/v1/projects/{project_id}/artifacts
+GET    /api/v1/projects/{project_id}/artifacts
+GET    /api/v1/projects/{project_id}/artifacts/{artifact_id}
+PATCH  /api/v1/projects/{project_id}/artifacts/{artifact_id}
+DELETE /api/v1/projects/{project_id}/artifacts/{artifact_id}
 ```
 
 Deleting a project archives it by setting `status` to `archived`; rows are not hard deleted.
+Deleting a Project Artifact archives it by setting `status` to `archived`; artifact rows are not hard deleted.
 
 The dashboard endpoint returns real Project metadata, real Repo Integration data when a repo is attached, and explicit placeholder sections for future ProjectOps modules.
 The dashboard also returns the latest attempted Repo Analysis when CodeMap Lite has run.
 The dashboard also returns the latest attempted Health Check when Manual Health Monitor has run.
 The dashboard also returns a readiness summary when readiness has been evaluated.
+The dashboard also returns Project Artifact summary counts and the latest active artifact.
+The dashboard also returns a compact activity summary with the Project activity event count and latest event.
+
+The cross-Project activity list endpoint supports `category`, `event_type`, `project_id`, `limit`, and `offset` query parameters. It returns newest-first activity across local Projects and includes Project name/status for frontend navigation.
+
+The Project-scoped activity list endpoint supports `category`, `event_type`, `limit`, and `offset` query parameters. Activity events are stored as product history for meaningful ProjectOps actions. They are not realtime notifications, unread state, or audit-grade compliance logs.
+
+The artifact list endpoint supports `search`, `tags`, `artifact_type`, `source_type`, and `include_archived` query parameters. Search scans artifact metadata and text fields, not uploaded document contents. Tag filtering uses comma-separated tag tokens with any-match semantics.
+
+Readiness artifact evidence links attach existing Project Artifacts to readiness checklist items as supporting references. Linked artifacts do not automatically change readiness status, and ProjectOps does not verify artifact contents in DataForge Lite.
 
 ## Milestones
 
@@ -360,6 +410,119 @@ Milestone 13 exclusions:
 
 See `docs/milestone-13-production-readiness-frontend.md`.
 
+### Milestone 15: DataForge Lite Project Artifacts
+
+Milestone 15 added Project Artifacts, a metadata registry for project knowledge and supporting references.
+
+What was built:
+
+- `ProjectArtifact` database model.
+- Alembic migration for `project_artifacts`.
+- Project-scoped artifact create, list, detail, update, and archive routes.
+- Artifact type, source type, and status constraints.
+- Active-by-default listing, include-archived support, and type/source filters.
+- Project detail Artifacts section with create, edit, archive, filters, empty, loading, and error states.
+- Command-center Artifacts summary card, section navigation entry, setup-progress step, and low-priority next action.
+- Frontend and backend tests plus learning notes.
+
+Milestone 15 exclusions:
+
+- File uploads or blob storage.
+- OCR, PDF parsing, document preview, embeddings, semantic search, or vector databases.
+- LLM summarization or AI extraction.
+- Malware scanning or background processing.
+- Artifact-based readiness scoring.
+
+See `docs/milestone-15-dataforge-lite-artifacts.md`.
+
+### Milestone 16: DataForge Evidence Layer
+
+Milestone 16 strengthened Project Artifacts as a DataForge Lite evidence layer.
+
+Implemented:
+
+- Backend artifact search across title, summary, content, URL, and tags.
+- Backend tag filtering with comma-separated `tags` query parameters and any-match semantics.
+- Frontend artifact search input, clickable tag chips, result count, clear filters, and no-results state.
+- Artifact summary fields on the backend Project dashboard endpoint.
+- Readiness artifact evidence link table and link/list/unlink APIs.
+- Readiness checklist UI for showing, linking, and unlinking supporting artifacts.
+- Clear copy that artifacts are team-supplied supporting evidence, not verified proof.
+
+Still not implemented:
+
+- File upload storage.
+- Document parsing, OCR, preview, embeddings, semantic search, or AI extraction.
+- Artifact-based automatic readiness passing.
+- Standalone artifact knowledge base.
+
+See `docs/milestone-16-dataforge-evidence-layer.md`.
+
+### Milestone 17: Recent Engineering Activity Timeline
+
+Milestone 17 added a Project-scoped activity timeline.
+
+Implemented:
+
+- `project_activity_events` backend table and Alembic migration.
+- Constrained activity categories and event types.
+- `GET /api/v1/projects/{project_id}/activity` with category, event type, limit, and offset filters.
+- Activity recording for Project lifecycle, repository intake, CodeMap results, health-check outcomes, readiness evaluation, manual readiness updates, artifact lifecycle, and readiness evidence links.
+- Backend dashboard activity summary with event count and latest event.
+- Frontend activity API/types, Recent Activity timeline section, category filter, empty/loading/error/no-results states, and command-center summary card.
+
+Still not implemented:
+
+- Real-time updates, WebSockets, server-sent events, notification inboxes, email/Slack alerts, background workers, user accounts, permissions, comments, AI summaries, or audit-grade logging.
+- Historical backfill for Projects created before the activity table existed.
+
+See `docs/milestone-17-recent-engineering-activity.md`.
+
+### Milestone 18: Activity Surfacing and Overview Upgrade
+
+Milestone 18 surfaces recent activity across the app.
+
+Implemented:
+
+- `GET /api/v1/activity` cross-Project activity feed with category, event type, Project, limit, and offset filters.
+- Overview metrics backed by real Projects and recent activity.
+- Overview Recent Activity Across Projects feed with Project names and links.
+- Recently Active Projects section derived from the latest activity window.
+- Manual Refresh activity controls on Overview and Project detail.
+- Project detail Activity summary card now uses an unfiltered summary source while timeline filters affect only the Activity section list.
+- Copy distinguishes recent activity indicators from unread notifications, realtime alerts, and audit-grade logging.
+
+Still not implemented:
+
+- Realtime updates, polling, WebSockets, server-sent events, notification inboxes, user-specific unread state, authentication, permissions, team preferences, AI summaries, or compliance audit logs.
+
+See `docs/milestone-18-activity-surfacing-overview.md`.
+
+### Milestone 19: Deployment Readiness and Production Hardening
+
+Milestone 19 prepares ProjectOps itself for cleaner deployment and demos outside
+local development.
+
+Implemented:
+
+- Deployment-aware backend CORS validation.
+- `GET /health/db` database reachability endpoint.
+- Backend config check helper at `backend/scripts/check_config.py`.
+- Frontend production API URL guard for `VITE_API_BASE_URL`.
+- Vercel SPA rewrite for `/app/*` deep links.
+- Frontend `npm run preview` command for built-output smoke checks.
+- Complete root and frontend environment examples.
+- Provider-neutral deployment readiness guide, smoke checklist, CI/CD review,
+  security footgun review, dogfooding notes, and future hardening checklist.
+
+Still not implemented:
+
+- Authentication, authorization, rate limiting, structured logging, monitoring,
+  backups, migration rollback automation, dependency scanning, or CI/CD deploy
+  automation.
+
+See `docs/deployment-readiness.md`.
+
 ## Project Vocabulary
 
 ProjectOps uses a small domain glossary in `CONTEXT.md`.
@@ -377,5 +540,8 @@ Important current terms:
 - `Health Check`: a stored result of one manual reachability check against a Project URL.
 - `Manual Health Monitor`: the workflow that runs and stores an on-demand Health Check for a Project.
 - `Readiness`: an advisory checklist combining available ProjectOps evidence and manual review.
+- `Project Artifact`: a Project-scoped metadata record for notes, links, runbooks, decisions, requirements, risks, incidents, or evidence references.
+- `DataForge Lite`: the Project Artifact registry and evidence-linking foundation; it does not process uploaded files or perform AI document analysis.
+- `Project Activity Event`: a stored Project-scoped product history event for meaningful ProjectOps actions; it is not a realtime notification or audit-grade log.
 
 When adding new features, use those terms consistently in code, tests, and documentation.

@@ -43,3 +43,19 @@ _Avoid_: Uptime metric, incident, readiness score
 **Manual Health Monitor**:
 The workflow that runs and stores an on-demand Health Check for a Project. Manual Health Monitor is not scheduled monitoring.
 _Avoid_: Scheduled uptime monitoring, alerting, status page
+
+**Project Artifact**:
+A Project-scoped metadata record for an important note, link, runbook, decision, requirement, risk, incident note, or evidence reference. Project Artifacts store registry metadata and optional text/URL references; they do not upload, parse, preview, or analyze document files yet.
+_Avoid_: Uploaded file, AI document analysis, vector document, evidence proof
+
+**DataForge Lite**:
+The Project Artifact registry foundation. DataForge Lite helps teams record what project knowledge exists and where supporting references live, without file storage, OCR, embeddings, semantic search, or LLM extraction.
+_Avoid_: Full DataForge, document intelligence, AI extraction
+
+**Project Activity Event**:
+A Project-scoped product history record for something meaningful that happened inside ProjectOps, such as repository changes, CodeMap results, health-check outcomes, readiness work, artifact changes, or evidence links. Activity events are stored for the Recent Activity timeline; they are not realtime notifications or audit-grade compliance logs.
+_Avoid_: Notification, alert, audit log, security event
+
+**Cross-Project Activity**:
+A newest-first product history feed that lists Project Activity Events across local Projects for app-level Overview surfacing. It includes Project context for navigation, but it is still recent activity history rather than unread notifications, realtime monitoring, or an audit log.
+_Avoid_: Inbox, unread feed, notification center, realtime feed
