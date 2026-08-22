@@ -5,6 +5,7 @@ import type {
   ProjectArtifactSourceType,
   ProjectArtifactType,
 } from "../../../types/projectArtifact";
+import type { ProjectReadinessEvidenceCoverage } from "../../../types/readiness";
 import { formatDate } from "../../../utils/formatDate";
 import { ProjectArtifactArchiveModal } from "./ProjectArtifactArchiveModal";
 import { ProjectArtifactForm } from "./ProjectArtifactForm";
@@ -44,12 +45,50 @@ function normalizedTag(tag: string) {
   return tag.trim().toLowerCase();
 }
 
+type EvidenceUsageFilter = "all" | "linked" | "unlinked";
+
+interface ArtifactEvidenceUsage {
+  linkedItemCount: number;
+  itemLabels: string[];
+}
+
+function buildArtifactUsageMap(coverage: ProjectReadinessEvidenceCoverage | null) {
+  const usage = new Map<number, ArtifactEvidenceUsage>();
+  for (const row of coverage?.artifact_usage ?? []) {
+    usage.set(row.artifact.id, {
+      linkedItemCount: row.linked_item_count,
+      itemLabels: row.readiness_items.map((item) => item.label),
+    });
+  }
+  for (const item of coverage?.readiness_items ?? []) {
+    for (const artifact of item.artifacts) {
+      const current = usage.get(artifact.id) ?? { linkedItemCount: 0, itemLabels: [] };
+      if (!current.itemLabels.includes(item.label)) {
+        current.itemLabels.push(item.label);
+      }
+      usage.set(artifact.id, {
+        linkedItemCount: current.itemLabels.length,
+        itemLabels: current.itemLabels,
+      });
+    }
+  }
+  return usage;
+}
+
+function usageLabel(artifact: ProjectArtifact, usageByArtifactId: Map<number, ArtifactEvidenceUsage>) {
+  const usage = usageByArtifactId.get(artifact.id);
+  if (!usage || usage.linkedItemCount === 0) return "Not currently linked to readiness evidence.";
+  const itemText = usage.linkedItemCount === 1 ? "readiness item" : "readiness items";
+  return `Supports ${usage.linkedItemCount} ${itemText}: ${usage.itemLabels.join(", ")}`;
+}
+
 function ProjectArtifactList({
   artifacts,
   editingArtifact,
   pending,
   submitError,
   selectedTags,
+  usageByArtifactId,
   onEdit,
   onCancelEdit,
   onSubmitEdit,
@@ -61,6 +100,7 @@ function ProjectArtifactList({
   pending: boolean;
   submitError: string;
   selectedTags: string[];
+  usageByArtifactId: Map<number, ArtifactEvidenceUsage>;
   onEdit: (artifact: ProjectArtifact) => void;
   onCancelEdit: () => void;
   onSubmitEdit: (artifact: ProjectArtifact, input: ProjectArtifactCreate) => Promise<void>;
@@ -137,6 +177,7 @@ function ProjectArtifactList({
                     ))}
                   </ul>
                 )}
+                <p className="meta">{usageLabel(artifact, usageByArtifactId)}</p>
                 <div className="meta history-meta">
                   <span>Updated {formatDate(artifact.updated_at)}</span>
                   <span>Artifact ID {artifact.id}</span>
@@ -159,6 +200,7 @@ export function ProjectArtifactsCard({
   sourceTypeFilter,
   search,
   selectedTags,
+  evidenceCoverage,
   pending,
   onIncludeArchivedChange,
   onArtifactTypeFilterChange,
@@ -178,6 +220,7 @@ export function ProjectArtifactsCard({
   sourceTypeFilter: ProjectArtifactSourceType | "";
   search: string;
   selectedTags: string[];
+  evidenceCoverage: ProjectReadinessEvidenceCoverage | null;
   pending: boolean;
   onIncludeArchivedChange: (includeArchived: boolean) => void;
   onArtifactTypeFilterChange: (artifactType: ProjectArtifactType | "") => void;
@@ -192,11 +235,21 @@ export function ProjectArtifactsCard({
   const [showCreateForm, setShowCreateForm] = useState(false);
   const [editingArtifact, setEditingArtifact] = useState<ProjectArtifact | null>(null);
   const [archiveArtifact, setArchiveArtifact] = useState<ProjectArtifact | null>(null);
+  const [evidenceUsageFilter, setEvidenceUsageFilter] = useState<EvidenceUsageFilter>("all");
   const [submitError, setSubmitError] = useState("");
   const [archiveError, setArchiveError] = useState("");
-  const hasArtifacts = artifacts.length > 0;
-  const hasActiveFilters = Boolean(search.trim() || artifactTypeFilter || sourceTypeFilter || selectedTags.length > 0);
-  const resultLabel = `${artifacts.length} artifact${artifacts.length === 1 ? "" : "s"} shown`;
+  const usageByArtifactId = buildArtifactUsageMap(evidenceCoverage);
+  const visibleArtifacts = artifacts.filter((artifact) => {
+    const linkedItemCount = usageByArtifactId.get(artifact.id)?.linkedItemCount ?? 0;
+    if (evidenceUsageFilter === "linked") return linkedItemCount > 0;
+    if (evidenceUsageFilter === "unlinked") return linkedItemCount === 0;
+    return true;
+  });
+  const hasArtifacts = visibleArtifacts.length > 0;
+  const hasActiveFilters = Boolean(
+    search.trim() || artifactTypeFilter || sourceTypeFilter || selectedTags.length > 0 || evidenceUsageFilter !== "all",
+  );
+  const resultLabel = `${visibleArtifacts.length} artifact${visibleArtifacts.length === 1 ? "" : "s"} shown`;
 
   async function createArtifact(input: ProjectArtifactCreate) {
     setSubmitError("");
@@ -297,6 +350,18 @@ export function ProjectArtifactsCard({
             ))}
           </select>
         </div>
+        <div className="field">
+          <label htmlFor="artifact-evidence-usage-filter">Filter artifacts by readiness evidence usage</label>
+          <select
+            id="artifact-evidence-usage-filter"
+            value={evidenceUsageFilter}
+            onChange={(event) => setEvidenceUsageFilter(event.target.value as EvidenceUsageFilter)}
+          >
+            <option value="all">All usage</option>
+            <option value="linked">Linked to readiness</option>
+            <option value="unlinked">Not linked to readiness</option>
+          </select>
+        </div>
         <label className="check-row artifact-include-archived">
           <input
             type="checkbox"
@@ -328,7 +393,14 @@ export function ProjectArtifactsCard({
           </ul>
         )}
         {hasActiveFilters && (
-          <button className="button" type="button" onClick={onClearFilters}>
+          <button
+            className="button"
+            type="button"
+            onClick={() => {
+              setEvidenceUsageFilter("all");
+              onClearFilters();
+            }}
+          >
             Clear artifact filters
           </button>
         )}
@@ -359,11 +431,12 @@ export function ProjectArtifactsCard({
         </p>
       ) : hasArtifacts ? (
         <ProjectArtifactList
-          artifacts={artifacts}
+          artifacts={visibleArtifacts}
           editingArtifact={editingArtifact}
           pending={pending}
           submitError={submitError}
           selectedTags={selectedTags}
+          usageByArtifactId={usageByArtifactId}
           onEdit={(artifact) => {
             setSubmitError("");
             setShowCreateForm(false);

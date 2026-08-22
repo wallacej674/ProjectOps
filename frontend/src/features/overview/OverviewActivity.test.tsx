@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { App } from "../../app/App";
 import { json, makeProject, mockFetch } from "../../test/mockApi";
@@ -44,12 +44,15 @@ function goOverview() {
 function mockOverview({
   activityResponse = json(activityEvents),
   projectsResponse = json(projects),
+  demoStatusResponse = json({ enabled: true, reason: null }),
 }: {
   activityResponse?: Response;
   projectsResponse?: Response;
+  demoStatusResponse?: Response;
 } = {}) {
   return mockFetch((url, init) => {
     const method = (init.method ?? "GET").toUpperCase();
+    if (url.endsWith("/api/v1/demo-data/status") && method === "GET") return demoStatusResponse.clone();
     if (url.endsWith("/api/v1/projects?include_archived=true") && method === "GET") {
       return projectsResponse.clone();
     }
@@ -171,5 +174,88 @@ describe("Overview activity", () => {
       expect.any(Object),
     );
     expect(within(feed).getByDisplayValue("Health")).toBeInTheDocument();
+  });
+
+  it("shows first-run options when the workspace is empty", async () => {
+    mockOverview({ activityResponse: json([]), projectsResponse: json([]) });
+    goOverview();
+    render(<App />);
+
+    const panel = await screen.findByRole("region", { name: "Start with a Project, or load a sample workspace." });
+    expect(within(panel).getByRole("link", { name: "Create Project" })).toHaveAttribute("href", "/app/projects/new");
+    expect(within(panel).getByRole("button", { name: "Load demo workspace" })).toBeInTheDocument();
+    expect(within(panel).getByText(/Demo data is sample material/i)).toBeInTheDocument();
+  });
+
+  it("seeds demo data and opens the demo Project", async () => {
+    const user = userEvent.setup();
+    const demoProject = makeProject({
+      id: 99,
+      name: "ProjectOps Demo Command Center",
+      production_url: "https://demo.projectops.example.com",
+      status: "staging",
+    });
+    const fetchMock = mockFetch((url, init) => {
+      const method = (init.method ?? "GET").toUpperCase();
+      if (url.endsWith("/api/v1/demo-data/status") && method === "GET") return json({ enabled: true, reason: null });
+      if (url.endsWith("/api/v1/projects?include_archived=true") && method === "GET") return json([]);
+      if (url.endsWith("/api/v1/activity?limit=25") && method === "GET") return json([]);
+      if (url.endsWith("/api/v1/demo-data/seed") && method === "POST") {
+        return json({ created: true, project: demoProject, message: "Demo workspace was created." }, 201);
+      }
+      if (url.endsWith("/api/v1/projects/99") && method === "GET") return json(demoProject);
+      if (url.endsWith("/api/v1/projects/99/repo") && method === "GET") {
+        return json({ detail: "Project 99 does not have an attached repo." }, 404);
+      }
+      if (url.endsWith("/api/v1/projects/99/analyses/latest") && method === "GET") {
+        return json({ detail: "Project 99 does not have a repo analysis yet." }, 404);
+      }
+      if (url.endsWith("/api/v1/projects/99/analyses") && method === "GET") return json([]);
+      if (url.endsWith("/api/v1/projects/99/health-checks/latest") && method === "GET") {
+        return json({ detail: "Project 99 does not have a health check yet." }, 404);
+      }
+      if (url.endsWith("/api/v1/projects/99/health-checks") && method === "GET") return json([]);
+      if (url.endsWith("/api/v1/projects/99/readiness") && method === "GET") {
+        return json({
+          score: null,
+          status: "not_started",
+          passed: 0,
+          failed: 0,
+          unknown: 0,
+          not_applicable: 0,
+          total_applicable: 0,
+          top_gaps: [],
+          items: [],
+        });
+      }
+      if (url.endsWith("/api/v1/projects/99/artifacts") && method === "GET") return json([]);
+      if (url.endsWith("/api/v1/projects/99/activity") && method === "GET") return json([]);
+      return json([]);
+    });
+    goOverview();
+    render(<App />);
+
+    await user.click(await screen.findByRole("button", { name: "Load demo workspace" }));
+
+    await waitFor(() => expect(window.location.pathname).toBe("/app/projects/99"));
+    expect(fetchMock).toHaveBeenCalledWith("http://127.0.0.1:8000/api/v1/demo-data/seed", expect.any(Object));
+    expect(await screen.findByRole("heading", { name: "ProjectOps Demo Command Center" })).toBeInTheDocument();
+  });
+
+  it("explains when demo data is disabled", async () => {
+    mockOverview({
+      activityResponse: json([]),
+      projectsResponse: json([]),
+      demoStatusResponse: json({
+        enabled: false,
+        reason: "Demo data seeding is disabled in production environments.",
+      }),
+    });
+    goOverview();
+    render(<App />);
+
+    const panel = await screen.findByRole("region", { name: "Start with a Project, or load a sample workspace." });
+    expect(within(panel).queryByRole("button", { name: "Load demo workspace" })).not.toBeInTheDocument();
+    expect(within(panel).getByText("Demo data seeding is disabled in production environments.")).toBeInTheDocument();
   });
 });

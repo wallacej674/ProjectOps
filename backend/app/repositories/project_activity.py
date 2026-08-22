@@ -63,6 +63,7 @@ class ProjectActivityRepository:
         event_category: str | None = None,
         event_type: str | None = None,
         project_id: int | None = None,
+        owner_user_id: int | None = None,
         limit: int = 25,
         offset: int = 0,
     ) -> list[tuple[ProjectActivityEvent, str, str]]:
@@ -76,6 +77,8 @@ class ProjectActivityRepository:
             statement = statement.where(ProjectActivityEvent.event_type == event_type)
         if project_id:
             statement = statement.where(ProjectActivityEvent.project_id == project_id)
+        if owner_user_id is not None:
+            statement = statement.where(Project.owner_user_id == owner_user_id)
         statement = statement.order_by(ProjectActivityEvent.created_at.desc(), ProjectActivityEvent.id.desc()).limit(limit).offset(offset)
         return list(db.execute(statement).all())
 

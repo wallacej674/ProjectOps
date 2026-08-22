@@ -64,16 +64,20 @@ class ActivityService:
         event_category: str | None = None,
         event_type: str | None = None,
         project_id: int | None = None,
+        owner_user_id: int | None = None,
         limit: int = 25,
         offset: int = 0,
     ) -> list[CrossProjectActivityEventRead]:
-        if project_id is not None:
+        if project_id is not None and owner_user_id is not None:
+            project_service.get_project_for_user(db, project_id, owner_user_id)
+        elif project_id is not None:
             project_service.get_project(db, project_id)
         events = project_activity_repository.list_all(
             db,
             event_category=event_category,
             event_type=event_type,
             project_id=project_id,
+            owner_user_id=owner_user_id,
             limit=limit,
             offset=offset,
         )

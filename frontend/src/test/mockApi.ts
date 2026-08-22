@@ -1,5 +1,7 @@
 import { vi } from "vitest";
 import type { Project } from "../types/project";
+import { storeAuthSession } from "../api/authStorage";
+import type { AuthUser } from "../api/authTypes";
 
 /** Build a Project with sensible defaults; override any field per test. */
 export function makeProject(overrides: Partial<Project> = {}): Project {
@@ -14,6 +16,22 @@ export function makeProject(overrides: Partial<Project> = {}): Project {
     updated_at: "2026-02-01T00:00:00Z",
     ...overrides,
   };
+}
+
+export function makeAuthUser(overrides: Partial<AuthUser> = {}): AuthUser {
+  return {
+    id: 1,
+    email: "engineer@example.com",
+    display_name: null,
+    status: "active",
+    created_at: "2026-01-01T00:00:00Z",
+    updated_at: "2026-01-01T00:00:00Z",
+    ...overrides,
+  };
+}
+
+export function signInTestUser() {
+  storeAuthSession("test-token", makeAuthUser());
 }
 
 /** A JSON Response, mirroring how the FastAPI backend replies. */
@@ -34,6 +52,7 @@ type Handler = (url: string, init: RequestInit) => Response | Promise<Response>;
  * Tests must never reach the real backend.
  */
 export function mockFetch(handler: Handler) {
+  signInTestUser();
   const fn = vi.fn(async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const url = typeof input === "string" ? input : input.toString();
     return handler(url, init);
@@ -53,6 +72,7 @@ export function mockProjectsApi(opts: {
   update?: Project | Response;
   archive?: Project | Response;
 } = {}) {
+  signInTestUser();
   return mockFetch((url, init) => {
     const method = (init.method ?? "GET").toUpperCase();
     if (url.includes("/api/v1/projects") && !url.match(/projects\/[^?]/) && method === "GET") {

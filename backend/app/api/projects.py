@@ -3,7 +3,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.config import Settings, get_settings
 from app.core.database import get_db
+from app.dependencies import enforce_rate_limit, get_current_user
+from app.models.user import User
 from app.schemas.dashboard import ProjectDashboardRead
 from app.schemas.health_check import HealthCheckRead, HealthCheckRunRequest
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
@@ -21,7 +24,11 @@ from app.services.health_checks import (
 )
 from app.services.url_validator import HealthCheckUrlSafetyError
 from app.services.projects import ProjectNotFoundError, project_service
-from app.services.project_artifacts import ProjectArtifactNotFoundError, project_artifact_service
+from app.services.project_artifacts import (
+    ProjectArtifactNotFoundError,
+    ProjectArtifactValidationError,
+    project_artifact_service,
+)
 from app.services.repo_analyses import RepoAnalysisNotFoundError, repo_analysis_service
 from app.services.repo_integrations import RepoIntegrationNotFoundError, repo_integration_service
 from app.models.project_artifact import ProjectArtifactSourceType, ProjectArtifactType
@@ -50,6 +57,10 @@ def _artifact_not_found(error: ProjectArtifactNotFoundError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
 
 
+def _artifact_validation_error(error: ProjectArtifactValidationError) -> HTTPException:
+    return HTTPException(status_code=422, detail=str(error))
+
+
 def _bad_request(error: HealthCheckTargetUrlMissingError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error))
 
@@ -58,30 +69,48 @@ def _invalid_repo_url(error: InvalidGitHubRepoUrlError) -> HTTPException:
     return HTTPException(status_code=422, detail=str(error))
 
 
+def _ensure_owned_project(db: Session, project_id: int, current_user: User) -> None:
+    project_service.get_project_for_user(db, project_id, current_user.id)
+
+
 @router.post("", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
-def create_project(project_in: ProjectCreate, db: Annotated[Session, Depends(get_db)]) -> ProjectRead:
-    return project_service.create_project(db, project_in)
+def create_project(
+    project_in: ProjectCreate,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ProjectRead:
+    return project_service.create_project(db, project_in, owner_user_id=current_user.id)
 
 
 @router.get("", response_model=list[ProjectRead])
 def list_projects(
     db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
     include_archived: bool = Query(default=False),
 ) -> list[ProjectRead]:
-    return project_service.list_projects(db, include_archived=include_archived)
+    return project_service.list_projects(db, include_archived=include_archived, owner_user_id=current_user.id)
 
 
 @router.get("/{project_id}", response_model=ProjectRead)
-def get_project(project_id: int, db: Annotated[Session, Depends(get_db)]) -> ProjectRead:
+def get_project(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ProjectRead:
     try:
-        return project_service.get_project(db, project_id)
+        return project_service.get_project_for_user(db, project_id, current_user.id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
 
 
 @router.get("/{project_id}/dashboard", response_model=ProjectDashboardRead)
-def get_project_dashboard(project_id: int, db: Annotated[Session, Depends(get_db)]) -> ProjectDashboardRead:
+def get_project_dashboard(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ProjectDashboardRead:
     try:
+        _ensure_owned_project(db, project_id, current_user)
         return dashboard_service.get_project_dashboard(db, project_id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
@@ -91,12 +120,14 @@ def get_project_dashboard(project_id: int, db: Annotated[Session, Depends(get_db
 def list_project_activity(
     project_id: int,
     db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
     category: ProjectActivityCategory | None = Query(default=None),
     event_type: ProjectActivityEventType | None = Query(default=None),
     limit: int = Query(default=25, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
 ) -> list[ProjectActivityEventRead]:
     try:
+        _ensure_owned_project(db, project_id, current_user)
         return activity_service.list_project_activity(
             db,
             project_id,
@@ -114,8 +145,10 @@ def attach_project_repo(
     project_id: int,
     repo_integration_in: RepoIntegrationCreate,
     db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> RepoIntegrationRead:
     try:
+        _ensure_owned_project(db, project_id, current_user)
         return repo_integration_service.attach_github_repo(db, project_id, repo_integration_in)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
@@ -124,8 +157,13 @@ def attach_project_repo(
 
 
 @router.get("/{project_id}/repo", response_model=RepoIntegrationRead)
-def get_project_repo(project_id: int, db: Annotated[Session, Depends(get_db)]) -> RepoIntegrationRead:
+def get_project_repo(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> RepoIntegrationRead:
     try:
+        _ensure_owned_project(db, project_id, current_user)
         return repo_integration_service.get_project_repo(db, project_id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
@@ -134,8 +172,13 @@ def get_project_repo(project_id: int, db: Annotated[Session, Depends(get_db)]) -
 
 
 @router.delete("/{project_id}/repo", status_code=status.HTTP_204_NO_CONTENT)
-def remove_project_repo(project_id: int, db: Annotated[Session, Depends(get_db)]) -> None:
+def remove_project_repo(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> None:
     try:
+        _ensure_owned_project(db, project_id, current_user)
         repo_integration_service.remove_project_repo(db, project_id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
@@ -144,8 +187,20 @@ def remove_project_repo(project_id: int, db: Annotated[Session, Depends(get_db)]
 
 
 @router.post("/{project_id}/analyses/run", response_model=RepoAnalysisRead, status_code=status.HTTP_201_CREATED)
-def run_project_repo_analysis(project_id: int, db: Annotated[Session, Depends(get_db)]) -> RepoAnalysisRead:
+def run_project_repo_analysis(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> RepoAnalysisRead:
     try:
+        _ensure_owned_project(db, project_id, current_user)
+        enforce_rate_limit(
+            scope="codemap.run.user_project",
+            identifier=f"{current_user.id}:{project_id}",
+            limit=settings.rate_limit_codemap_run_attempts,
+            window_seconds=settings.rate_limit_codemap_run_window_seconds,
+        )
         return repo_analysis_service.run_analysis(db, project_id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
@@ -154,8 +209,13 @@ def run_project_repo_analysis(project_id: int, db: Annotated[Session, Depends(ge
 
 
 @router.get("/{project_id}/analyses/latest", response_model=RepoAnalysisRead)
-def get_latest_project_repo_analysis(project_id: int, db: Annotated[Session, Depends(get_db)]) -> RepoAnalysisRead:
+def get_latest_project_repo_analysis(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> RepoAnalysisRead:
     try:
+        _ensure_owned_project(db, project_id, current_user)
         return repo_analysis_service.get_latest_project_analysis(db, project_id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
@@ -164,8 +224,13 @@ def get_latest_project_repo_analysis(project_id: int, db: Annotated[Session, Dep
 
 
 @router.get("/{project_id}/analyses", response_model=list[RepoAnalysisRead])
-def list_project_repo_analyses(project_id: int, db: Annotated[Session, Depends(get_db)]) -> list[RepoAnalysisRead]:
+def list_project_repo_analyses(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[RepoAnalysisRead]:
     try:
+        _ensure_owned_project(db, project_id, current_user)
         return repo_analysis_service.list_project_analyses(db, project_id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
@@ -175,9 +240,18 @@ def list_project_repo_analyses(project_id: int, db: Annotated[Session, Depends(g
 def run_project_health_check(
     project_id: int,
     db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    settings: Annotated[Settings, Depends(get_settings)],
     health_check_in: HealthCheckRunRequest | None = None,
 ) -> HealthCheckRead:
     try:
+        _ensure_owned_project(db, project_id, current_user)
+        enforce_rate_limit(
+            scope="health.run.user_project",
+            identifier=f"{current_user.id}:{project_id}",
+            limit=settings.rate_limit_health_check_run_attempts,
+            window_seconds=settings.rate_limit_health_check_run_window_seconds,
+        )
         return health_check_service.run_health_check(db, project_id, health_check_in or HealthCheckRunRequest())
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
@@ -188,8 +262,13 @@ def run_project_health_check(
 
 
 @router.get("/{project_id}/health-checks/latest", response_model=HealthCheckRead)
-def get_latest_project_health_check(project_id: int, db: Annotated[Session, Depends(get_db)]) -> HealthCheckRead:
+def get_latest_project_health_check(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> HealthCheckRead:
     try:
+        _ensure_owned_project(db, project_id, current_user)
         return health_check_service.get_latest_project_health_check(db, project_id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
@@ -198,8 +277,13 @@ def get_latest_project_health_check(project_id: int, db: Annotated[Session, Depe
 
 
 @router.get("/{project_id}/health-checks", response_model=list[HealthCheckRead])
-def list_project_health_checks(project_id: int, db: Annotated[Session, Depends(get_db)]) -> list[HealthCheckRead]:
+def list_project_health_checks(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[HealthCheckRead]:
     try:
+        _ensure_owned_project(db, project_id, current_user)
         return health_check_service.list_project_health_checks(db, project_id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
@@ -210,17 +294,27 @@ def create_project_artifact(
     project_id: int,
     artifact_in: ProjectArtifactCreate,
     db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> ProjectArtifactRead:
     try:
-        return project_artifact_service.create_project_artifact(db, project_id, artifact_in)
+        _ensure_owned_project(db, project_id, current_user)
+        return project_artifact_service.create_project_artifact(
+            db,
+            project_id,
+            artifact_in,
+            created_by_user_id=current_user.id,
+        )
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
+    except ProjectArtifactValidationError as error:
+        raise _artifact_validation_error(error) from error
 
 
 @router.get("/{project_id}/artifacts", response_model=list[ProjectArtifactRead])
 def list_project_artifacts(
     project_id: int,
     db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
     include_archived: bool = Query(default=False),
     artifact_type: ProjectArtifactType | None = Query(default=None),
     source_type: ProjectArtifactSourceType | None = Query(default=None),
@@ -228,6 +322,7 @@ def list_project_artifacts(
     tags: str | None = Query(default=None, max_length=1000),
 ) -> list[ProjectArtifactRead]:
     try:
+        _ensure_owned_project(db, project_id, current_user)
         parsed_tags = [tag.strip() for tag in tags.split(",") if tag.strip()] if tags else None
         return project_artifact_service.list_project_artifacts(
             db,
@@ -247,8 +342,10 @@ def get_project_artifact(
     project_id: int,
     artifact_id: int,
     db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> ProjectArtifactRead:
     try:
+        _ensure_owned_project(db, project_id, current_user)
         return project_artifact_service.get_project_artifact(db, project_id, artifact_id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
@@ -262,13 +359,17 @@ def update_project_artifact(
     artifact_id: int,
     artifact_in: ProjectArtifactUpdate,
     db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> ProjectArtifactRead:
     try:
+        _ensure_owned_project(db, project_id, current_user)
         return project_artifact_service.update_project_artifact(db, project_id, artifact_id, artifact_in)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
     except ProjectArtifactNotFoundError as error:
         raise _artifact_not_found(error) from error
+    except ProjectArtifactValidationError as error:
+        raise _artifact_validation_error(error) from error
 
 
 @router.delete("/{project_id}/artifacts/{artifact_id}", response_model=ProjectArtifactRead)
@@ -276,8 +377,10 @@ def archive_project_artifact(
     project_id: int,
     artifact_id: int,
     db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> ProjectArtifactRead:
     try:
+        _ensure_owned_project(db, project_id, current_user)
         return project_artifact_service.archive_project_artifact(db, project_id, artifact_id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
@@ -290,16 +393,21 @@ def update_project(
     project_id: int,
     project_in: ProjectUpdate,
     db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
 ) -> ProjectRead:
     try:
-        return project_service.update_project(db, project_id, project_in)
+        return project_service.update_project(db, project_id, project_in, owner_user_id=current_user.id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
 
 
 @router.delete("/{project_id}", response_model=ProjectRead)
-def archive_project(project_id: int, db: Annotated[Session, Depends(get_db)]) -> ProjectRead:
+def archive_project(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ProjectRead:
     try:
-        return project_service.archive_project(db, project_id)
+        return project_service.archive_project(db, project_id, owner_user_id=current_user.id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error

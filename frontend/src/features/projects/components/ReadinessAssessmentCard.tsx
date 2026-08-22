@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import type { ProjectArtifact, ProjectArtifactSourceType, ProjectArtifactType } from "../../../types/projectArtifact";
 import {
   readinessStatuses,
+  type ProjectReadinessEvidenceCoverage,
   type ProjectReadinessItem,
   type ProjectReadinessSummary,
-  type ReadinessArtifactEvidence,
   type ReadinessStatus,
 } from "../../../types/readiness";
 
@@ -106,6 +106,47 @@ function ReadinessTopGaps({ gaps }: { gaps?: string[] }) {
       ) : (
         <p className="meta">No top gaps were returned.</p>
       )}
+    </section>
+  );
+}
+
+function plural(count: number, singular: string, pluralLabel = `${singular}s`) {
+  return `${count} ${count === 1 ? singular : pluralLabel}`;
+}
+
+function ReadinessEvidenceCoverageSummary({
+  coverage,
+  loading,
+}: {
+  coverage: ProjectReadinessEvidenceCoverage | null;
+  loading: boolean;
+}) {
+  if (loading) {
+    return (
+      <section className="readiness-section" aria-labelledby="readiness-evidence-coverage-title">
+        <h3 id="readiness-evidence-coverage-title">Evidence Coverage</h3>
+        <p className="meta" aria-live="polite">
+          Loading evidence coverage...
+        </p>
+      </section>
+    );
+  }
+
+  if (!coverage) return null;
+
+  return (
+    <section className="readiness-section" aria-labelledby="readiness-evidence-coverage-title">
+      <h3 id="readiness-evidence-coverage-title">Evidence Coverage</h3>
+      <ul className="readiness-counts" aria-label="Readiness evidence coverage counts">
+        <li>{plural(coverage.linked_active_artifacts, "linked active artifact")}</li>
+        <li>{plural(coverage.unlinked_active_artifacts, "unlinked active artifact")}</li>
+        <li>{plural(coverage.readiness_items_with_linked_artifacts, "readiness item")} with supporting artifacts</li>
+        <li>{plural(coverage.readiness_items_without_linked_artifacts, "readiness item")} without supporting artifacts</li>
+      </ul>
+      <p className="meta">
+        Linked artifacts are supporting references supplied by your team. ProjectOps does not verify artifact contents in
+        DataForge Lite.
+      </p>
     </section>
   );
 }
@@ -222,7 +263,7 @@ function SupportingArtifactControl({
 }: {
   item: ProjectReadinessItem;
   artifacts: ProjectArtifact[];
-  evidence: ReadinessArtifactEvidence[];
+  evidence: ProjectArtifact[];
   evidenceLoading: boolean;
   onLinkArtifactEvidence: (itemKey: string, artifactId: number) => Promise<void>;
   onUnlinkArtifactEvidence: (itemKey: string, artifactId: number) => Promise<void>;
@@ -231,7 +272,7 @@ function SupportingArtifactControl({
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
   const activeArtifacts = artifacts.filter((artifact) => artifact.status === "active");
-  const linkedArtifactIds = new Set(evidence.map((entry) => entry.artifact.id));
+  const linkedArtifactIds = new Set(evidence.map((artifact) => artifact.id));
   const linkableArtifacts = activeArtifacts.filter((artifact) => !linkedArtifactIds.has(artifact.id));
   const selectId = `readiness-${item.item.key}-artifact-evidence`;
   const errorId = `readiness-${item.item.key}-artifact-evidence-error`;
@@ -276,15 +317,15 @@ function SupportingArtifactControl({
         </p>
       ) : evidence.length > 0 ? (
         <ul className="readiness-artifact-list" aria-label={`Supporting artifacts for ${item.item.label}`}>
-          {evidence.map((entry) => (
-            <li key={entry.id}>
+          {evidence.map((artifact) => (
+            <li key={artifact.id}>
               <div>
-                <strong>{entry.artifact.title}</strong>
+                <strong>{artifact.title}</strong>
                 <div className="artifact-badges">
-                  <span className="badge">{artifactTypeLabels[entry.artifact.artifact_type]}</span>
-                  <span className="badge">{sourceTypeLabels[entry.artifact.source_type]}</span>
-                  <span className={`badge ${entry.artifact.status}`}>
-                    {entry.artifact.status === "archived" ? "Archived" : "Active"}
+                  <span className="badge">{artifactTypeLabels[artifact.artifact_type]}</span>
+                  <span className="badge">{sourceTypeLabels[artifact.source_type]}</span>
+                  <span className={`badge ${artifact.status}`}>
+                    {artifact.status === "archived" ? "Archived" : "Active"}
                   </span>
                 </div>
               </div>
@@ -292,9 +333,9 @@ function SupportingArtifactControl({
                 className="button"
                 type="button"
                 disabled={pending}
-                onClick={() => unlinkArtifact(entry.artifact.id)}
+                onClick={() => unlinkArtifact(artifact.id)}
               >
-                {`Unlink ${entry.artifact.title} from ${item.item.label}`}
+                {`Unlink ${artifact.title} from ${item.item.label}`}
               </button>
             </li>
           ))}
@@ -341,7 +382,7 @@ function SupportingArtifactControl({
 function ReadinessChecklist({
   items,
   artifacts,
-  evidenceByItemKey,
+  evidenceCoverage,
   evidenceLoading,
   onUpdateManualItem,
   onLinkArtifactEvidence,
@@ -349,13 +390,16 @@ function ReadinessChecklist({
 }: {
   items: ProjectReadinessItem[];
   artifacts: ProjectArtifact[];
-  evidenceByItemKey: Record<string, ReadinessArtifactEvidence[]>;
+  evidenceCoverage: ProjectReadinessEvidenceCoverage | null;
   evidenceLoading: boolean;
   onUpdateManualItem: (itemKey: string, status: ReadinessStatus, notes: string | null) => Promise<void>;
   onLinkArtifactEvidence: (itemKey: string, artifactId: number) => Promise<void>;
   onUnlinkArtifactEvidence: (itemKey: string, artifactId: number) => Promise<void>;
 }) {
   const visibleItems = Array.isArray(items) ? items : [];
+  const evidenceByItemKey = Object.fromEntries(
+    (evidenceCoverage?.readiness_items ?? []).map((item) => [item.item_key, item.artifacts]),
+  );
   return (
     <section className="readiness-section" aria-labelledby="readiness-checklist-title">
       <h3 id="readiness-checklist-title">Readiness Checklist</h3>
@@ -419,7 +463,7 @@ export function ReadinessAssessmentCard({
   error,
   evaluating,
   artifacts,
-  evidenceByItemKey,
+  evidenceCoverage,
   evidenceLoading,
   onEvaluate,
   onUpdateManualItem,
@@ -431,7 +475,7 @@ export function ReadinessAssessmentCard({
   error: string;
   evaluating: boolean;
   artifacts: ProjectArtifact[];
-  evidenceByItemKey: Record<string, ReadinessArtifactEvidence[]>;
+  evidenceCoverage: ProjectReadinessEvidenceCoverage | null;
   evidenceLoading: boolean;
   onEvaluate: () => void;
   onUpdateManualItem: (itemKey: string, status: ReadinessStatus, notes: string | null) => Promise<void>;
@@ -494,10 +538,11 @@ export function ReadinessAssessmentCard({
         <div className="readiness-result">
           <ReadinessScoreSummary readiness={readiness} />
           <ReadinessTopGaps gaps={readiness.top_gaps} />
+          <ReadinessEvidenceCoverageSummary coverage={evidenceCoverage} loading={evidenceLoading} />
           <ReadinessChecklist
             items={readiness.items}
             artifacts={artifacts}
-            evidenceByItemKey={evidenceByItemKey}
+            evidenceCoverage={evidenceCoverage}
             evidenceLoading={evidenceLoading}
             onUpdateManualItem={onUpdateManualItem}
             onLinkArtifactEvidence={onLinkArtifactEvidence}

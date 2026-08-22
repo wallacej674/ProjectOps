@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { ApiError } from "../../api/client";
+import { demoDataApi } from "../../api/demoData";
 import { projectsApi } from "../../api/projects";
 import { AppShell } from "../../components/layout/AppShell";
 import { ErrorState } from "../../components/ui/ErrorState";
@@ -40,8 +41,13 @@ function recentlyActiveProjects(events: CrossProjectActivityEvent[]) {
 }
 
 export function OverviewPage() {
+  const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [error, setError] = useState("");
+  const [demoStatus, setDemoStatus] = useState<{ enabled: boolean; reason: string | null } | null>(null);
+  const [demoStatusError, setDemoStatusError] = useState("");
+  const [demoSeedPending, setDemoSeedPending] = useState(false);
+  const [demoSeedError, setDemoSeedError] = useState("");
   const [activityEvents, setActivityEvents] = useState<CrossProjectActivityEvent[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
   const [activityError, setActivityError] = useState("");
@@ -64,7 +70,8 @@ export function OverviewPage() {
     }
   }, [activityCategoryFilter]);
 
-  useEffect(() => {
+  const loadProjects = useCallback(() => {
+    setError("");
     projectsApi
       .list(true)
       .then(setProjects)
@@ -72,8 +79,38 @@ export function OverviewPage() {
   }, []);
 
   useEffect(() => {
+    loadProjects();
+  }, [loadProjects]);
+
+  useEffect(() => {
+    demoDataApi
+      .status()
+      .then((status) => {
+        if (typeof status.enabled === "boolean") {
+          setDemoStatus(status);
+        }
+      })
+      .catch((e: Error) => setDemoStatusError(e.message));
+  }, []);
+
+  useEffect(() => {
     void loadActivity();
   }, [loadActivity]);
+
+  async function seedDemoWorkspace() {
+    setDemoSeedPending(true);
+    setDemoSeedError("");
+    try {
+      const result = await demoDataApi.seed();
+      navigate(`/app/projects/${result.project.id}`);
+    } catch (e) {
+      setDemoSeedError(e instanceof Error ? e.message : "Demo workspace could not be created.");
+      loadProjects();
+      await loadActivity();
+    } finally {
+      setDemoSeedPending(false);
+    }
+  }
 
   const active = projects?.filter((p) => p.status !== "archived") ?? [];
   const setup = active.filter((p) => !p.repo_url || !p.production_url);
@@ -105,6 +142,35 @@ export function OverviewPage() {
           </ErrorState>
         ) : (
           <>
+            {projects && projects.length === 0 && (
+              <section className="panel first-run-panel" aria-labelledby="first-run-title">
+                <div>
+                  <div className="eyebrow">First run</div>
+                  <h2 id="first-run-title">Start with a Project, or load a sample workspace.</h2>
+                  <p>
+                    ProjectOps becomes useful when a Project has repository context, health evidence, readiness review,
+                    artifacts, and activity. Demo data is sample material for local exploration.
+                  </p>
+                </div>
+                <div className="first-run-actions">
+                  <Link to="/app/projects/new" className="button primary">
+                    Create Project
+                  </Link>
+                  {demoStatus?.enabled && (
+                    <button className="button" type="button" onClick={() => void seedDemoWorkspace()} disabled={demoSeedPending}>
+                      {demoSeedPending ? "Loading demo..." : "Load demo workspace"}
+                    </button>
+                  )}
+                  {!demoStatus?.enabled && demoStatus?.reason && <p className="meta">{demoStatus.reason}</p>}
+                  {demoStatusError && <p className="meta">Demo data controls could not load: {demoStatusError}</p>}
+                  {demoSeedError && (
+                    <p className="error-text" role="alert">
+                      {demoSeedError}
+                    </p>
+                  )}
+                </div>
+              </section>
+            )}
             <section className="metrics">
               {metrics.map(([label, value, text]) => (
                 <article className="panel metric" key={label}>

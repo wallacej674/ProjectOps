@@ -1,6 +1,7 @@
 import pytest
 
 from app.models.project import Project
+from app.models.user import User
 from app.services.activity import activity_service
 from app.services.repo_analyses import repo_analysis_service
 from app.services.health_checks import health_check_service
@@ -49,7 +50,9 @@ def create_project(client):
 
 
 def create_project_without_activity(db, name="LaunchBudget"):
+    owner = db.query(User).filter(User.email == "test-user@example.com").one()
     project = Project(
+        owner_user_id=owner.id,
         name=name,
         description="A budgeting app for product launches.",
         repo_url="https://github.com/example/launch-budget",

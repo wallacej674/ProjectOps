@@ -103,6 +103,12 @@ const updatedManualItem = {
 const artifact = {
   id: 12,
   project_id: 7,
+  created_by_user_id: 3,
+  created_by_user: {
+    id: 3,
+    email: "reviewer@example.com",
+    display_name: "Release Reviewer",
+  },
   title: "Deployment runbook",
   artifact_type: "runbook",
   source_type: "external_url",
@@ -124,6 +130,72 @@ const linkedEvidence = {
   created_at: "2026-01-03T00:00:00Z",
 };
 
+const emptyCoverage = {
+  active_artifacts: 1,
+  linked_active_artifacts: 0,
+  unlinked_active_artifacts: 1,
+  readiness_items_with_linked_artifacts: 0,
+  readiness_items_without_linked_artifacts: 0,
+  total_evidence_links: 0,
+  artifact_usage: [
+    {
+      artifact,
+      linked_item_count: 0,
+      readiness_items: [],
+    },
+  ],
+  readiness_items: [],
+};
+
+const linkedCoverage = {
+  active_artifacts: 1,
+  linked_active_artifacts: 1,
+  unlinked_active_artifacts: 0,
+  readiness_items_with_linked_artifacts: 1,
+  readiness_items_without_linked_artifacts: 2,
+  total_evidence_links: 1,
+  artifact_usage: [
+    {
+      artifact,
+      linked_item_count: 1,
+      readiness_items: [
+        {
+          readiness_item_id: 9,
+          item_key: "secrets_management_reviewed",
+          label: "Secrets Management Reviewed",
+          status: "unknown",
+        },
+      ],
+    },
+  ],
+  readiness_items: [
+    {
+      readiness_item_id: 1,
+      item_key: "readme_present",
+      label: "README Present",
+      status: "failed",
+      linked_artifact_count: 0,
+      artifacts: [],
+    },
+    {
+      readiness_item_id: 6,
+      item_key: "latest_health_check_healthy",
+      label: "Latest Health Check Healthy",
+      status: "unknown",
+      linked_artifact_count: 0,
+      artifacts: [],
+    },
+    {
+      readiness_item_id: 9,
+      item_key: "secrets_management_reviewed",
+      label: "Secrets Management Reviewed",
+      status: "unknown",
+      linked_artifact_count: 1,
+      artifacts: [artifact],
+    },
+  ],
+};
+
 function renderDetail() {
   window.history.pushState({}, "", "/app/projects/7");
   return render(<App />);
@@ -138,7 +210,7 @@ function mockProjectDetail({
   evaluateResponse = json(evaluatedReadiness, 201),
   updateItemResponse = json(updatedManualItem),
   artifactsResponse = json([artifact]),
-  evidenceResponse = json([]),
+  coverageResponse = json(emptyCoverage),
   linkEvidenceResponse = json(linkedEvidence, 201),
   unlinkEvidenceResponse = json(undefined, 204),
 }: {
@@ -146,10 +218,11 @@ function mockProjectDetail({
   evaluateResponse?: Response | Promise<Response>;
   updateItemResponse?: Response | Promise<Response>;
   artifactsResponse?: Response;
-  evidenceResponse?: Response;
+  coverageResponse?: Response;
   linkEvidenceResponse?: Response | Promise<Response>;
   unlinkEvidenceResponse?: Response | Promise<Response>;
 } = {}) {
+  const coverageResponses = [coverageResponse.clone()];
   return mockFetch((url, init) => {
     const method = (init.method ?? "GET").toUpperCase();
     if (url.endsWith("/api/v1/projects/7") && method === "GET") return json(project);
@@ -161,13 +234,13 @@ function mockProjectDetail({
     }
     if (url.endsWith("/api/v1/projects/7/health-checks") && method === "GET") return json([]);
     if (url.endsWith("/api/v1/projects/7/readiness") && method === "GET") return responseClone(readinessResponse);
+    if (url.endsWith("/api/v1/projects/7/readiness/evidence-coverage") && method === "GET") {
+      return coverageResponses.length > 1 ? coverageResponses.shift()! : coverageResponses[0].clone();
+    }
     if (url.endsWith("/api/v1/projects/7/readiness/evaluate") && method === "POST") {
       return evaluateResponse instanceof Promise ? evaluateResponse : responseClone(evaluateResponse);
     }
     if (url.endsWith("/api/v1/projects/7/artifacts") && method === "GET") return responseClone(artifactsResponse);
-    if (url.includes("/api/v1/projects/7/readiness/items/") && url.endsWith("/artifacts") && method === "GET") {
-      return responseClone(evidenceResponse);
-    }
     if (url.endsWith("/api/v1/projects/7/readiness/items/secrets_management_reviewed/artifacts") && method === "POST") {
       return linkEvidenceResponse instanceof Promise ? linkEvidenceResponse : responseClone(linkEvidenceResponse);
     }
@@ -178,7 +251,7 @@ function mockProjectDetail({
       return updateItemResponse instanceof Promise ? updateItemResponse : responseClone(updateItemResponse);
     }
     return json([]);
-  });
+  }) as ReturnType<typeof mockFetch> & { queueCoverageResponse?: (response: Response) => void };
 }
 
 describe("Project detail Production Readiness", () => {
@@ -264,6 +337,21 @@ describe("Project detail Production Readiness", () => {
     expect(within(section).queryByRole("button", { name: "Save README Present" })).not.toBeInTheDocument();
   });
 
+  it("shows project-level evidence coverage in the readiness result", async () => {
+    mockProjectDetail({ readinessResponse: json(evaluatedReadiness), coverageResponse: json(linkedCoverage) });
+
+    renderDetail();
+
+    const section = await screen.findByRole("region", { name: "Production Readiness" });
+    expect(await within(section).findByRole("heading", { name: "Evidence Coverage" })).toBeInTheDocument();
+    expect(within(section).getByText("1 linked active artifact")).toBeInTheDocument();
+    expect(within(section).getByText("0 unlinked active artifacts")).toBeInTheDocument();
+    expect(within(section).getByText("1 readiness item with supporting artifacts")).toBeInTheDocument();
+    expect(within(section).getByText("2 readiness items without supporting artifacts")).toBeInTheDocument();
+    expect(within(section).getByText(/supporting references supplied by your team/)).toBeInTheDocument();
+    expect(within(section).queryByText(/verified/i)).not.toBeInTheDocument();
+  });
+
   it("updates a manual readiness item status and notes", async () => {
     const fetchMock = mockProjectDetail({ readinessResponse: json(evaluatedReadiness) });
     const user = userEvent.setup();
@@ -289,7 +377,7 @@ describe("Project detail Production Readiness", () => {
   });
 
   it("shows linked artifacts as supporting evidence without marking the item passed", async () => {
-    mockProjectDetail({ readinessResponse: json(evaluatedReadiness), evidenceResponse: json([linkedEvidence]) });
+    mockProjectDetail({ readinessResponse: json(evaluatedReadiness), coverageResponse: json(linkedCoverage) });
 
     renderDetail();
 

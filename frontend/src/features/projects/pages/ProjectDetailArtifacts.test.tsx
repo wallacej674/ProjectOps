@@ -12,6 +12,12 @@ const project = makeProject({
 const artifact = {
   id: 12,
   project_id: 7,
+  created_by_user_id: 3,
+  created_by_user: {
+    id: 3,
+    email: "reviewer@example.com",
+    display_name: "Release Reviewer",
+  },
   title: "Deployment runbook",
   artifact_type: "runbook",
   source_type: "external_url",
@@ -46,6 +52,63 @@ const incidentArtifact = {
   tags: "incident,reliability",
 };
 
+const defaultCoverage = {
+  active_artifacts: 0,
+  linked_active_artifacts: 0,
+  unlinked_active_artifacts: 0,
+  readiness_items_with_linked_artifacts: 0,
+  readiness_items_without_linked_artifacts: 0,
+  total_evidence_links: 0,
+  artifact_usage: [],
+  readiness_items: [],
+};
+
+const artifactCoverage = {
+  active_artifacts: 2,
+  linked_active_artifacts: 1,
+  unlinked_active_artifacts: 1,
+  readiness_items_with_linked_artifacts: 1,
+  readiness_items_without_linked_artifacts: 1,
+  total_evidence_links: 1,
+  artifact_usage: [
+    {
+      artifact,
+      linked_item_count: 1,
+      readiness_items: [
+        {
+          readiness_item_id: 9,
+          item_key: "deployment_docs_reviewed",
+          label: "Deployment Docs Reviewed",
+          status: "unknown",
+        },
+      ],
+    },
+    {
+      artifact: incidentArtifact,
+      linked_item_count: 0,
+      readiness_items: [],
+    },
+  ],
+  readiness_items: [
+    {
+      readiness_item_id: 9,
+      item_key: "deployment_docs_reviewed",
+      label: "Deployment Docs Reviewed",
+      status: "unknown",
+      linked_artifact_count: 1,
+      artifacts: [artifact],
+    },
+    {
+      readiness_item_id: 10,
+      item_key: "rollback_plan_reviewed",
+      label: "Rollback Plan Reviewed",
+      status: "unknown",
+      linked_artifact_count: 0,
+      artifacts: [],
+    },
+  ],
+};
+
 function renderDetail() {
   window.history.pushState({}, "", "/app/projects/7");
   return render(<App />);
@@ -56,11 +119,13 @@ function mockProjectDetailArtifacts({
   createResponse = json({ ...artifact, id: 20 }, 201),
   updateResponse = json({ ...artifact, title: "Updated runbook" }),
   archiveResponse = json({ ...artifact, status: "archived" }),
+  coverageResponse = json(defaultCoverage),
 }: {
   artifactsResponse?: Response;
   createResponse?: Response;
   updateResponse?: Response;
   archiveResponse?: Response;
+  coverageResponse?: Response;
 } = {}) {
   const artifactRequests: string[] = [];
   const artifacts = [artifactsResponse.clone()];
@@ -83,6 +148,17 @@ function mockProjectDetailArtifacts({
         top_gaps: [],
         items: [],
       });
+    }
+    if (url.endsWith("/api/v1/projects/7/readiness/evidence-coverage") && method === "GET") {
+      return coverageResponse.clone();
+    }
+    if (
+      url.includes("/api/v1/projects/7/artifacts?") &&
+      url.includes("artifact_type=decision") &&
+      url.includes("tags=launch-decision") &&
+      method === "GET"
+    ) {
+      return json([]);
     }
     if (url.includes("/api/v1/projects/7/artifacts") && method === "GET") {
       artifactRequests.push(url);
@@ -122,13 +198,17 @@ describe("Project detail Artifacts", () => {
   });
 
   it("renders artifacts and filters by type", async () => {
-    const { artifactRequests } = mockProjectDetailArtifacts({ artifactsResponse: json([artifact]) });
+    const { artifactRequests } = mockProjectDetailArtifacts({
+      artifactsResponse: json([artifact]),
+      coverageResponse: json(artifactCoverage),
+    });
 
     renderDetail();
 
     const artifactsSection = await screen.findByRole("region", { name: "Project Artifacts" });
     expect(await within(artifactsSection).findByText("Deployment runbook")).toBeInTheDocument();
     expect(within(artifactsSection).getByText("Production deployment steps.")).toBeInTheDocument();
+    expect(within(artifactsSection).getByText("Supports 1 readiness item: Deployment Docs Reviewed")).toBeInTheDocument();
     expect(within(artifactsSection).getByRole("link", { name: "Open artifact URL" })).toHaveAttribute(
       "href",
       "https://docs.example.com/runbook",
@@ -139,6 +219,31 @@ describe("Project detail Artifacts", () => {
     await waitFor(() => {
       expect(artifactRequests.at(-1)).toContain("artifact_type=runbook");
     });
+  });
+
+  it("filters artifacts by readiness evidence usage", async () => {
+    mockProjectDetailArtifacts({
+      artifactsResponse: json([artifact, incidentArtifact]),
+      coverageResponse: json(artifactCoverage),
+    });
+
+    renderDetail();
+
+    const artifactsSection = await screen.findByRole("region", { name: "Project Artifacts" });
+    expect(await within(artifactsSection).findByText("Deployment runbook")).toBeInTheDocument();
+    expect(within(artifactsSection).getByText("Incident review note")).toBeInTheDocument();
+    expect(within(artifactsSection).getByText("Not currently linked to readiness evidence.")).toBeInTheDocument();
+
+    await userEvent.selectOptions(within(artifactsSection).getByLabelText("Filter artifacts by readiness evidence usage"), "linked");
+
+    expect(within(artifactsSection).getByText("Deployment runbook")).toBeInTheDocument();
+    expect(within(artifactsSection).queryByText("Incident review note")).not.toBeInTheDocument();
+    expect(within(artifactsSection).getByText("1 artifact shown")).toBeInTheDocument();
+
+    await userEvent.selectOptions(within(artifactsSection).getByLabelText("Filter artifacts by readiness evidence usage"), "unlinked");
+
+    expect(within(artifactsSection).queryByText("Deployment runbook")).not.toBeInTheDocument();
+    expect(within(artifactsSection).getByText("Incident review note")).toBeInTheDocument();
   });
 
   it("searches artifacts, shows no-results, and clears filters", async () => {

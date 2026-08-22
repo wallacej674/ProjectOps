@@ -10,8 +10,8 @@ class ProjectNotFoundError(Exception):
 
 
 class ProjectService:
-    def create_project(self, db: Session, project_in: ProjectCreate) -> Project:
-        project = project_repository.create(db, project_in)
+    def create_project(self, db: Session, project_in: ProjectCreate, owner_user_id: int | None = None) -> Project:
+        project = project_repository.create(db, project_in, owner_user_id=owner_user_id)
         from app.services.activity import activity_service
 
         activity_service.record_event(
@@ -26,8 +26,13 @@ class ProjectService:
         )
         return project
 
-    def list_projects(self, db: Session, include_archived: bool = False) -> list[Project]:
-        return project_repository.list(db, include_archived=include_archived)
+    def list_projects(
+        self,
+        db: Session,
+        include_archived: bool = False,
+        owner_user_id: int | None = None,
+    ) -> list[Project]:
+        return project_repository.list(db, include_archived=include_archived, owner_user_id=owner_user_id)
 
     def get_project(self, db: Session, project_id: int) -> Project:
         project = project_repository.get(db, project_id)
@@ -35,8 +40,24 @@ class ProjectService:
             raise ProjectNotFoundError(f"Project {project_id} was not found.")
         return project
 
-    def update_project(self, db: Session, project_id: int, project_in: ProjectUpdate) -> Project:
-        project = self.get_project(db, project_id)
+    def get_project_for_user(self, db: Session, project_id: int, owner_user_id: int) -> Project:
+        project = project_repository.get_for_owner(db, project_id, owner_user_id)
+        if project is None:
+            raise ProjectNotFoundError(f"Project {project_id} was not found.")
+        return project
+
+    def update_project(
+        self,
+        db: Session,
+        project_id: int,
+        project_in: ProjectUpdate,
+        owner_user_id: int | None = None,
+    ) -> Project:
+        project = (
+            self.get_project_for_user(db, project_id, owner_user_id)
+            if owner_user_id is not None
+            else self.get_project(db, project_id)
+        )
         updated_project = project_repository.update(db, project, project_in)
         from app.services.activity import activity_service
 
@@ -52,8 +73,12 @@ class ProjectService:
         )
         return updated_project
 
-    def archive_project(self, db: Session, project_id: int) -> Project:
-        project = self.get_project(db, project_id)
+    def archive_project(self, db: Session, project_id: int, owner_user_id: int | None = None) -> Project:
+        project = (
+            self.get_project_for_user(db, project_id, owner_user_id)
+            if owner_user_id is not None
+            else self.get_project(db, project_id)
+        )
         archived_project = project_repository.archive(db, project)
         from app.services.activity import activity_service
 

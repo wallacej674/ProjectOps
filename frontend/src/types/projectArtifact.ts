@@ -14,9 +14,17 @@ export type ProjectArtifactSourceType = "manual" | "external_url" | "imported" |
 
 export type ProjectArtifactStatus = "active" | "archived";
 
+export interface ProjectArtifactCreator {
+  id: number;
+  email: string;
+  display_name: string | null;
+}
+
 export interface ProjectArtifact {
   id: number;
   project_id: number;
+  created_by_user_id: number | null;
+  created_by_user: ProjectArtifactCreator | null;
   title: string;
   artifact_type: ProjectArtifactType;
   source_type: ProjectArtifactSourceType;

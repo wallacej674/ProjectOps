@@ -56,3 +56,36 @@ export interface ReadinessArtifactEvidence {
   artifact: ProjectArtifact;
   created_at: string;
 }
+
+export interface ReadinessEvidenceItemUsage {
+  readiness_item_id: number;
+  item_key: string;
+  label: string;
+  status: ReadinessStatus | null;
+}
+
+export interface ReadinessEvidenceArtifactUsage {
+  artifact: ProjectArtifact;
+  linked_item_count: number;
+  readiness_items: ReadinessEvidenceItemUsage[];
+}
+
+export interface ReadinessEvidenceItemCoverage {
+  readiness_item_id: number;
+  item_key: string;
+  label: string;
+  status: ReadinessStatus;
+  linked_artifact_count: number;
+  artifacts: ProjectArtifact[];
+}
+
+export interface ProjectReadinessEvidenceCoverage {
+  active_artifacts: number;
+  linked_active_artifacts: number;
+  unlinked_active_artifacts: number;
+  readiness_items_with_linked_artifacts: number;
+  readiness_items_without_linked_artifacts: number;
+  total_evidence_links: number;
+  artifact_usage: ReadinessEvidenceArtifactUsage[];
+  readiness_items: ReadinessEvidenceItemCoverage[];
+}

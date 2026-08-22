@@ -6,8 +6,9 @@ from app.schemas.project import ProjectCreate, ProjectUpdate
 
 
 class ProjectRepository:
-    def create(self, db: Session, project_in: ProjectCreate) -> Project:
+    def create(self, db: Session, project_in: ProjectCreate, owner_user_id: int | None = None) -> Project:
         project = Project(
+            owner_user_id=owner_user_id,
             name=project_in.name,
             description=project_in.description,
             repo_url=project_in.repo_url,
@@ -19,14 +20,29 @@ class ProjectRepository:
         db.refresh(project)
         return project
 
-    def list(self, db: Session, include_archived: bool = False) -> list[Project]:
+    def list(
+        self,
+        db: Session,
+        include_archived: bool = False,
+        owner_user_id: int | None = None,
+    ) -> list[Project]:
         statement = select(Project).order_by(Project.created_at.desc(), Project.id.desc())
+        if owner_user_id is not None:
+            statement = statement.where(Project.owner_user_id == owner_user_id)
         if not include_archived:
             statement = statement.where(Project.status != ProjectStatus.archived.value)
         return list(db.scalars(statement).all())
 
     def get(self, db: Session, project_id: int) -> Project | None:
         return db.get(Project, project_id)
+
+    def get_for_owner(self, db: Session, project_id: int, owner_user_id: int) -> Project | None:
+        return db.scalar(
+            select(Project)
+            .where(Project.id == project_id)
+            .where(Project.owner_user_id == owner_user_id)
+            .limit(1)
+        )
 
     def update(self, db: Session, project: Project, project_in: ProjectUpdate) -> Project:
         update_data = project_in.model_dump(exclude_unset=True)

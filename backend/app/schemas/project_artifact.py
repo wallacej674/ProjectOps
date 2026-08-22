@@ -69,9 +69,19 @@ class ProjectArtifactUpdate(BaseModel):
         return value
 
 
+class ProjectArtifactCreatorRead(BaseModel):
+    id: int
+    email: str
+    display_name: str | None
+
+    model_config = ConfigDict(from_attributes=True)
+
+
 class ProjectArtifactRead(BaseModel):
     id: int
     project_id: int
+    created_by_user_id: int | None
+    created_by_user: ProjectArtifactCreatorRead | None
     title: str
     artifact_type: ProjectArtifactType
     source_type: ProjectArtifactSourceType

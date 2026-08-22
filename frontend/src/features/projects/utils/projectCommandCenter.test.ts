@@ -11,6 +11,7 @@ import {
   getArtifactsSummary,
   getActivitySummary,
   getHealthSummary,
+  getLaunchDecisionSummary,
   getProjectNextActions,
   getProjectSetupSteps,
   getReadinessSummary,
@@ -120,6 +121,8 @@ const readiness: ProjectReadinessSummary = {
 const artifact: ProjectArtifact = {
   id: 41,
   project_id: 7,
+  created_by_user_id: null,
+  created_by_user: null,
   title: "Deployment runbook",
   artifact_type: "runbook",
   source_type: "external_url",
@@ -130,6 +133,19 @@ const artifact: ProjectArtifact = {
   status: "active",
   created_at: "2026-01-01T00:00:00Z",
   updated_at: "2026-01-06T00:00:00Z",
+};
+
+const noGoLaunchDecision: ProjectArtifact = {
+  ...artifact,
+  id: 42,
+  title: "Launch decision: No-go",
+  artifact_type: "decision",
+  source_type: "manual",
+  content: "Decision: no-go\n\nNotes:\nCI is still failing.",
+  summary: "CI is still failing.",
+  tags: "launch-decision,go-no-go,no-go",
+  created_at: "2026-01-08T12:00:00Z",
+  updated_at: "2026-01-08T12:00:00Z",
 };
 
 const activityEvent: ProjectActivityEvent = {
@@ -266,6 +282,40 @@ describe("project command-center summaries", () => {
       targetId: "activity",
     });
   });
+
+  it("summarizes latest launch decisions without claiming launch approval", () => {
+    expect(getLaunchDecisionSummary(null)).toMatchObject({
+      state: "none",
+      label: "No decision",
+      title: "No launch decision recorded",
+      targetId: "launch-decision",
+    });
+
+    expect(getLaunchDecisionSummary(noGoLaunchDecision)).toMatchObject({
+      state: "no_go",
+      label: "No-go recorded",
+      title: "Latest decision: No-go",
+      detail: "CI is still failing.",
+      tone: "danger",
+      targetId: "launch-decision",
+    });
+
+    expect(
+      getLaunchDecisionSummary({
+        ...noGoLaunchDecision,
+        title: "Launch decision: Go",
+        summary: "",
+        content: "Decision: go\n\nNotes:\nReady for controlled rollout.",
+        tags: "launch-decision,go-no-go,go",
+      }),
+    ).toMatchObject({
+      state: "go",
+      label: "Go recorded",
+      title: "Latest decision: Go",
+      detail: "Ready for controlled rollout.",
+      tone: "success",
+    });
+  });
 });
 
 describe("project setup progress and next actions", () => {
@@ -304,6 +354,62 @@ describe("project setup progress and next actions", () => {
     ).toMatchObject({
       title: "Attach a GitHub repository.",
       targetId: "repository",
+    });
+  });
+
+  it("prioritizes human No-go and Defer decisions before advisory next actions", () => {
+    expect(
+      getProjectNextActions({
+        project,
+        repo,
+        latestAnalysis: completedAnalysis,
+        latestHealthCheck: healthyCheck,
+        readiness,
+        artifacts: [artifact],
+        latestLaunchDecision: noGoLaunchDecision,
+      })[0],
+    ).toMatchObject({
+      title: "Review latest No-go launch notes.",
+      targetId: "launch-decision",
+      priority: 5,
+    });
+
+    expect(
+      getProjectNextActions({
+        project,
+        repo,
+        latestAnalysis: completedAnalysis,
+        latestHealthCheck: healthyCheck,
+        readiness,
+        artifacts: [artifact],
+        latestLaunchDecision: {
+          ...noGoLaunchDecision,
+          title: "Launch decision: Defer",
+          summary: "Wait for hosted smoke evidence.",
+          tags: "launch-decision,go-no-go,defer",
+        },
+      })[0],
+    ).toMatchObject({
+      title: "Review deferred launch context.",
+      targetId: "launch-decision",
+      priority: 6,
+    });
+  });
+
+  it("recommends a human launch decision after advisory evidence is in place", () => {
+    const actions = getProjectNextActions({
+      project: { ...project, production_url: "https://civicpermit.example.com/health" },
+      repo,
+      latestAnalysis: completedAnalysis,
+      latestHealthCheck: healthyCheck,
+      readiness: { ...readiness, top_gaps: [], items: [] },
+      artifacts: [artifact],
+      latestLaunchDecision: null,
+    });
+
+    expect(actions.at(-1)).toMatchObject({
+      title: "Record a human launch decision.",
+      targetId: "launch-decision",
     });
   });
 
@@ -363,6 +469,7 @@ describe("project setup progress and next actions", () => {
       "Review readiness gap: Add CI evidence.",
       "Complete manual readiness review items.",
       "Link artifacts to readiness evidence.",
+      "Record a human launch decision.",
     ]);
   });
 
@@ -376,7 +483,7 @@ describe("project setup progress and next actions", () => {
       artifacts: [],
     });
 
-    expect(actions.at(-1)).toMatchObject({
+    expect(actions.find((action) => action.id === "add-project-artifact")).toMatchObject({
       title: "Add a project note or runbook.",
       targetId: "artifacts",
     });
@@ -395,8 +502,9 @@ describe("project setup progress and next actions", () => {
     expect(actions.map((action) => action.title)).toEqual([
       "Complete manual readiness review items.",
       "Link artifacts to readiness evidence.",
+      "Record a human launch decision.",
     ]);
-    expect(actions.at(-1)).toMatchObject({
+    expect(actions.find((action) => action.id === "link-readiness-artifacts")).toMatchObject({
       targetId: "readiness",
       priority: 75,
     });

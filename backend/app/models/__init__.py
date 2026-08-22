@@ -14,6 +14,7 @@ from app.models.project_artifact import (
 from app.models.readiness import ProjectReadinessArtifactEvidence, ProjectReadinessItem, ReadinessItem
 from app.models.repo_analysis import RepoAnalysis, RepoAnalysisStatus
 from app.models.repo_integration import RepoIntegration, RepoProvider
+from app.models.user import User, UserStatus
 
 __all__ = [
     "HealthCheck",
@@ -34,4 +35,6 @@ __all__ = [
     "RepoAnalysisStatus",
     "RepoIntegration",
     "RepoProvider",
+    "User",
+    "UserStatus",
 ]

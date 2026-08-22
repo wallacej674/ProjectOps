@@ -1,4 +1,6 @@
-export type ApiErrorKind = "validation" | "not-found" | "network" | "configuration" | "unknown";
+import { getStoredAuthToken } from "./authStorage";
+
+export type ApiErrorKind = "validation" | "not-found" | "network" | "configuration" | "auth" | "unknown";
 
 export class ApiError extends Error {
   constructor(
@@ -6,6 +8,8 @@ export class ApiError extends Error {
     readonly kind: ApiErrorKind,
     readonly status?: number,
     readonly detail?: unknown,
+    readonly requestId?: string,
+    readonly retryAfter?: string,
   ) {
     super(message);
     this.name = "ApiError";
@@ -32,13 +36,37 @@ function messageFromDetail(detail: unknown): string {
   return "The request could not be completed.";
 }
 
+function shouldAttachAuth(path: string): boolean {
+  return !path.startsWith("/api/v1/auth") && path !== "/api/v1/demo-data/status" && !path.startsWith("/health");
+}
+
+function buildHeaders(path: string, initHeaders: HeadersInit | undefined): Record<string, string> {
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (initHeaders instanceof Headers) {
+    initHeaders.forEach((value, key) => {
+      headers[key] = value;
+    });
+  } else if (Array.isArray(initHeaders)) {
+    initHeaders.forEach(([key, value]) => {
+      headers[key] = value;
+    });
+  } else if (initHeaders) {
+    Object.assign(headers, initHeaders);
+  }
+  const token = getStoredAuthToken();
+  if (token && shouldAttachAuth(path) && !("Authorization" in headers)) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+}
+
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const baseUrl = resolveApiBaseUrl();
   let response: Response;
   try {
     response = await fetch(`${baseUrl}${path}`, {
       ...init,
-      headers: { "Content-Type": "application/json", ...init.headers },
+      headers: buildHeaders(path, init.headers),
     });
   } catch {
     throw new ApiError("ProjectOps could not reach the API.", "network");
@@ -48,8 +76,15 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   const data: unknown = text ? (() => { try { return JSON.parse(text); } catch { return text; } })() : undefined;
   if (!response.ok) {
     const detail = typeof data === "object" && data !== null && "detail" in data ? (data as { detail: unknown }).detail : data;
-    const kind: ApiErrorKind = response.status === 422 ? "validation" : response.status === 404 ? "not-found" : "unknown";
-    throw new ApiError(messageFromDetail(detail), kind, response.status, detail);
+    const kind: ApiErrorKind = response.status === 422 ? "validation" : response.status === 404 ? "not-found" : response.status === 401 ? "auth" : "unknown";
+    throw new ApiError(
+      messageFromDetail(detail),
+      kind,
+      response.status,
+      detail,
+      response.headers.get("X-Request-ID") ?? undefined,
+      response.headers.get("Retry-After") ?? undefined,
+    );
   }
   return data as T;
 }

@@ -1,4 +1,5 @@
 import {
+  getReadinessEvidenceCoverage,
   linkReadinessArtifact,
   listReadinessItemArtifacts,
   unlinkReadinessArtifact,
@@ -12,6 +13,12 @@ const evidence = {
   artifact: {
     id: 12,
     project_id: 7,
+    created_by_user_id: 3,
+    created_by_user: {
+      id: 3,
+      email: "reviewer@example.com",
+      display_name: "Release Reviewer",
+    },
     title: "Deployment runbook",
     artifact_type: "runbook",
     source_type: "external_url",
@@ -24,6 +31,39 @@ const evidence = {
     updated_at: "2026-01-02T00:00:00Z",
   },
   created_at: "2026-01-03T00:00:00Z",
+};
+
+const coverage = {
+  active_artifacts: 2,
+  linked_active_artifacts: 1,
+  unlinked_active_artifacts: 1,
+  readiness_items_with_linked_artifacts: 1,
+  readiness_items_without_linked_artifacts: 8,
+  total_evidence_links: 1,
+  artifact_usage: [
+    {
+      artifact: evidence.artifact,
+      linked_item_count: 1,
+      readiness_items: [
+        {
+          readiness_item_id: 9,
+          item_key: "deployment_docs_reviewed",
+          label: "Deployment Docs Reviewed",
+          status: "unknown",
+        },
+      ],
+    },
+  ],
+  readiness_items: [
+    {
+      readiness_item_id: 9,
+      item_key: "deployment_docs_reviewed",
+      label: "Deployment Docs Reviewed",
+      status: "unknown",
+      linked_artifact_count: 1,
+      artifacts: [evidence.artifact],
+    },
+  ],
 };
 
 const json = (body: unknown, status = 200) =>
@@ -42,6 +82,17 @@ describe("Project readiness artifact evidence API", () => {
     await expect(listReadinessItemArtifacts("7", "deployment_docs_reviewed")).resolves.toEqual([evidence]);
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/v1/projects/7/readiness/items/deployment_docs_reviewed/artifacts",
+      expect.any(Object),
+    );
+  });
+
+  it("gets project-level readiness evidence coverage", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(json(coverage));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getReadinessEvidenceCoverage("7")).resolves.toEqual(coverage);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/v1/projects/7/readiness/evidence-coverage",
       expect.any(Object),
     );
   });

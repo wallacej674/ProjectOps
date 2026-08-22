@@ -1,4 +1,4 @@
-from sqlalchemy import inspect
+from sqlalchemy import inspect, text
 
 from app.core.database import engine
 
@@ -31,6 +31,8 @@ def test_create_project_artifact(client):
             "summary": "Steps for production deploys.",
             "content": "Use the blue-green deploy checklist.",
             "tags": "deployment,runbook",
+            "created_by_user_id": 999,
+            "created_by_user": {"id": 999, "email": "attacker@example.com", "display_name": "Attacker"},
         },
     )
 
@@ -46,6 +48,12 @@ def test_create_project_artifact(client):
     assert artifact["content"] == "Use the blue-green deploy checklist."
     assert artifact["tags"] == "deployment,runbook"
     assert artifact["status"] == "active"
+    assert artifact["created_by_user_id"] == 1
+    assert artifact["created_by_user"] == {
+        "id": 1,
+        "email": "test-user@example.com",
+        "display_name": "Test User",
+    }
     assert artifact["created_at"] is not None
     assert artifact["updated_at"] is not None
 
@@ -87,9 +95,17 @@ def test_project_artifact_table_exists_with_expected_columns(db):
         "summary",
         "tags",
         "status",
+        "created_by_user_id",
         "created_at",
         "updated_at",
     }.issubset(columns)
+
+    foreign_keys = inspector.get_foreign_keys("project_artifacts")
+    assert any(
+        foreign_key["referred_table"] == "users"
+        and foreign_key["constrained_columns"] == ["created_by_user_id"]
+        for foreign_key in foreign_keys
+    )
 
 
 def test_create_project_artifact_missing_project_returns_404(client):
@@ -346,6 +362,30 @@ def test_get_project_artifact_success(client):
 
     assert response.status_code == 200
     assert response.json()["title"] == "Decision record"
+    assert response.json()["created_by_user"]["email"] == "test-user@example.com"
+
+
+def test_historical_project_artifact_without_creator_remains_readable(client, db):
+    project = create_project(client)
+    db.execute(
+        text(
+            """
+            insert into project_artifacts
+            (project_id, title, artifact_type, source_type, status)
+            values (:project_id, 'Historical note', 'note', 'manual', 'active')
+            """
+        ),
+        {"project_id": project["id"]},
+    )
+    db.commit()
+
+    response = client.get(f"/api/v1/projects/{project['id']}/artifacts")
+
+    assert response.status_code == 200
+    artifact = response.json()[0]
+    assert artifact["title"] == "Historical note"
+    assert artifact["created_by_user_id"] is None
+    assert artifact["created_by_user"] is None
 
 
 def test_get_project_artifact_wrong_project_returns_404(client):
@@ -394,6 +434,195 @@ def test_patch_project_artifact_success(client):
     assert updated["artifact_type"] == "risk"
     assert updated["summary"] == "Payment provider migration risk."
     assert updated["tags"] == "risk,payments"
+    assert updated["created_by_user_id"] == artifact["created_by_user_id"]
+
+
+def test_patch_project_artifact_cannot_change_creator(client):
+    project = create_project(client)
+    create_response = client.post(
+        f"/api/v1/projects/{project['id']}/artifacts",
+        json={
+            "title": "Risk note",
+            "artifact_type": "risk",
+            "source_type": "manual",
+        },
+    )
+    artifact = create_response.json()
+
+    response = client.patch(
+        f"/api/v1/projects/{project['id']}/artifacts/{artifact['id']}",
+        json={
+            "title": "Updated risk note",
+            "created_by_user_id": 999,
+            "created_by_user": {"id": 999, "email": "attacker@example.com", "display_name": "Attacker"},
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["created_by_user_id"] == artifact["created_by_user_id"]
+    assert response.json()["created_by_user"]["email"] == "test-user@example.com"
+
+
+def test_generic_decision_artifact_without_launch_markers_remains_valid(client):
+    project = create_project(client)
+
+    response = client.post(
+        f"/api/v1/projects/{project['id']}/artifacts",
+        json={
+            "title": "Architecture decision",
+            "artifact_type": "decision",
+            "source_type": "manual",
+            "summary": "Use managed Postgres.",
+            "tags": "architecture,adr",
+        },
+    )
+
+    assert response.status_code == 201
+    assert response.json()["title"] == "Architecture decision"
+
+
+def test_valid_launch_decisions_are_accepted(client):
+    project = create_project(client)
+
+    for decision_tag, summary in [
+        ("go", ""),
+        ("no-go", "CI and ownership checks must pass before launch."),
+        ("defer", "Wait for hosted smoke evidence."),
+    ]:
+        response = client.post(
+            f"/api/v1/projects/{project['id']}/artifacts",
+            json={
+                "title": f"Launch decision: {decision_tag}",
+                "artifact_type": "decision",
+                "source_type": "manual",
+                "summary": summary,
+                "tags": f"launch-decision,go-no-go,{decision_tag}",
+            },
+        )
+
+        assert response.status_code == 201
+
+
+def test_launch_decision_requires_manual_decision_contract(client):
+    project = create_project(client)
+
+    cases = [
+        {
+            "title": "Wrong type",
+            "artifact_type": "note",
+            "source_type": "manual",
+            "summary": "Launch context.",
+            "tags": "launch-decision,go-no-go,go",
+        },
+        {
+            "title": "Wrong source",
+            "artifact_type": "decision",
+            "source_type": "system",
+            "summary": "Launch context.",
+            "tags": "launch-decision,go-no-go,go",
+        },
+        {
+            "title": "Missing decision value",
+            "artifact_type": "decision",
+            "source_type": "manual",
+            "summary": "Launch context.",
+            "tags": "launch-decision,go-no-go",
+        },
+        {
+            "title": "Multiple decision values",
+            "artifact_type": "decision",
+            "source_type": "manual",
+            "summary": "Launch context.",
+            "tags": "launch-decision,go-no-go,go,defer",
+        },
+        {
+            "title": "No-go without notes",
+            "artifact_type": "decision",
+            "source_type": "manual",
+            "summary": " ",
+            "tags": "launch-decision,go-no-go,no-go",
+        },
+        {
+            "title": "Defer without notes",
+            "artifact_type": "decision",
+            "source_type": "manual",
+            "summary": "",
+            "tags": "launch-decision,go-no-go,defer",
+        },
+    ]
+
+    for payload in cases:
+        response = client.post(f"/api/v1/projects/{project['id']}/artifacts", json=payload)
+
+        assert response.status_code == 422
+        assert "Launch Decision" in response.json()["detail"]
+
+
+def test_patch_validates_effective_launch_decision_state(client):
+    project = create_project(client)
+    create_response = client.post(
+        f"/api/v1/projects/{project['id']}/artifacts",
+        json={
+            "title": "Launch decision: No-go",
+            "artifact_type": "decision",
+            "source_type": "manual",
+            "summary": "CI is still failing.",
+            "tags": "launch-decision,go-no-go,no-go",
+        },
+    )
+    artifact = create_response.json()
+
+    invalid_response = client.patch(
+        f"/api/v1/projects/{project['id']}/artifacts/{artifact['id']}",
+        json={"summary": " ", "tags": "launch-decision,go-no-go,no-go"},
+    )
+
+    assert invalid_response.status_code == 422
+    assert "No-go Launch Decision records require notes." in invalid_response.json()["detail"]
+
+    remove_marker_response = client.patch(
+        f"/api/v1/projects/{project['id']}/artifacts/{artifact['id']}",
+        json={"summary": "CI is still failing.", "tags": "go-no-go,no-go"},
+    )
+
+    assert remove_marker_response.status_code == 422
+    assert "launch-decision" in remove_marker_response.json()["detail"]
+
+    valid_response = client.patch(
+        f"/api/v1/projects/{project['id']}/artifacts/{artifact['id']}",
+        json={"summary": "Hosted smoke proof is still missing.", "tags": "launch-decision,go-no-go,defer"},
+    )
+
+    assert valid_response.status_code == 200
+    assert valid_response.json()["tags"] == "launch-decision,go-no-go,defer"
+
+
+def test_patch_normal_artifact_into_valid_launch_decision(client):
+    project = create_project(client)
+    create_response = client.post(
+        f"/api/v1/projects/{project['id']}/artifacts",
+        json={
+            "title": "Launch note",
+            "artifact_type": "note",
+            "source_type": "manual",
+        },
+    )
+    artifact = create_response.json()
+
+    response = client.patch(
+        f"/api/v1/projects/{project['id']}/artifacts/{artifact['id']}",
+        json={
+            "title": "Launch decision: Defer",
+            "artifact_type": "decision",
+            "source_type": "manual",
+            "summary": "Wait for hosted smoke evidence.",
+            "tags": "launch-decision,go-no-go,defer",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json()["artifact_type"] == "decision"
+    assert response.json()["tags"] == "launch-decision,go-no-go,defer"
 
 
 def test_patch_project_artifact_validation_error(client):

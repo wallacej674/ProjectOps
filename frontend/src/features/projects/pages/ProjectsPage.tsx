@@ -15,10 +15,15 @@ import { ProjectsTable } from "../components/ProjectsTable";
 import { defaultSort, sortProjects } from "../projectSort";
 import type { SortKey } from "../projectSort";
 
+type ApiErrorState = {
+  message: string;
+  requestId?: string;
+};
+
 /** The Project Registry: list, search, filter, view switch, and archive. */
 export function ProjectsPage() {
   const [projects, setProjects] = useState<Project[] | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<ApiErrorState | null>(null);
   const [query, setQuery] = useState("");
   const [status, setStatus] = useState("all");
   const [sort, setSort] = useState<SortKey>(defaultSort);
@@ -28,11 +33,11 @@ export function ProjectsPage() {
 
   const load = () => {
     setProjects(null);
-    setError("");
+    setError(null);
     projectsApi
       .list(includeArchived)
       .then(setProjects)
-      .catch((e: ApiError) => setError(e.message));
+      .catch((e: ApiError) => setError({ message: e.message, requestId: e.requestId }));
   };
   useEffect(load, [includeArchived]);
 
@@ -73,8 +78,8 @@ export function ProjectsPage() {
           onView={setView}
         />
         {error ? (
-          <ErrorState title="Projects could not load">
-            <p>{error}</p>
+          <ErrorState title="Projects could not load" requestId={error.requestId}>
+            <p>{error.message}</p>
             <button className="button" type="button" onClick={load}>
               Try again
             </button>

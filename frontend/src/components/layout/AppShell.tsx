@@ -1,6 +1,7 @@
 import { useCallback, useState } from "react";
 import type { ReactNode } from "react";
 import { useTheme } from "../../hooks/useTheme";
+import { useAuth } from "../../features/auth/AuthContext";
 import { MobileNavigation } from "./MobileNavigation";
 import { Sidebar } from "./Sidebar";
 import { TopBar } from "./TopBar";
@@ -10,6 +11,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [theme, setTheme] = useTheme();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const auth = useAuth();
   const closeMobile = useCallback(() => setMobileOpen(false), []);
 
   return (
@@ -24,6 +26,8 @@ export function AppShell({ children }: { children: ReactNode }) {
           onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
           mobileOpen={mobileOpen}
           onOpenMobileNav={() => setMobileOpen(true)}
+          currentUser={auth.user}
+          onLogout={auth.logout}
         />
         {children}
       </main>

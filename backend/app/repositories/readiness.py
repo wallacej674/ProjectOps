@@ -91,6 +91,22 @@ class ReadinessRepository:
         )
         return list(db.scalars(statement).all())
 
+    def list_project_artifact_evidence_links(
+        self,
+        db: Session,
+        project_id: int,
+    ) -> list[ProjectReadinessArtifactEvidence]:
+        statement = (
+            select(ProjectReadinessArtifactEvidence)
+            .options(
+                selectinload(ProjectReadinessArtifactEvidence.item),
+                selectinload(ProjectReadinessArtifactEvidence.artifact),
+            )
+            .where(ProjectReadinessArtifactEvidence.project_id == project_id)
+            .order_by(ProjectReadinessArtifactEvidence.created_at.desc(), ProjectReadinessArtifactEvidence.id.desc())
+        )
+        return list(db.scalars(statement).all())
+
     def create_artifact_evidence_link(
         self,
         db: Session,

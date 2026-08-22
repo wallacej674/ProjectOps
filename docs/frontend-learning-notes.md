@@ -979,9 +979,9 @@ after they happen. It is not:
 - a notification inbox
 - audit-grade compliance history
 
-Those features need authentication, users, preferences, delivery channels, and
-stronger event semantics. Milestone 18 intentionally stops at refresh-based
-activity surfacing.
+Those features need preferences, delivery channels, and stronger event
+semantics on top of the authentication foundation added later. Milestone 18
+intentionally stops at refresh-based activity surfacing.
 
 Future milestones can add:
 
@@ -989,7 +989,7 @@ Future milestones can add:
 - related-resource links
 - event detail pages
 - backfill tools
-- user attribution after authentication exists
+- user attribution beyond the current Project owner
 - notification rules only if users need active interruption
 
 Audit history would require stricter guarantees than this milestone provides:
@@ -1015,3 +1015,48 @@ The important control flow is:
 
 This keeps the production bundle from silently calling localhost while
 preserving the easy local development path.
+
+## Milestone 22: Auth routing and owned workspaces
+
+The frontend now wraps `/app/*` routes in an auth boundary. Anonymous users are
+redirected to `/login?redirect=/app/...`, and signed-in users are redirected
+away from `/login` and `/register` back into the app.
+
+The API client reads the current bearer token from `localStorage` at request
+time and attaches it only to protected backend paths. It intentionally skips
+auth endpoints, public demo-data status, and health checks.
+
+The important route behavior is:
+
+1. `ProtectedRoute` preserves the intended `/app` path as a redirect target.
+2. `AuthPage` signs in or registers, stores the session through `AuthContext`,
+   and navigates to a safe internal `/app` redirect.
+3. `AppShell` reads the authenticated user and exposes sign out in the top bar.
+4. Signing out clears local session state; the protected route boundary then
+   returns the user to sign in.
+
+Redirect targets are constrained to `/app...` paths. That keeps the flow useful
+for deep links without turning auth redirects into a generic open redirect.
+
+This milestone keeps session persistence browser-local. There is no account
+settings UI, team switcher, refresh-token flow, or server-side token revocation
+yet.
+
+## Milestone 23: Frontend error boundary and request IDs
+
+The frontend API client now reads `X-Request-ID` from failed backend responses
+and stores it on `ApiError`. Most screens should still show plain user-facing
+messages, but high-level failure panels can include `Request ID: ...` when that
+helps support connect the browser failure to backend logs and monitoring events.
+
+The app also has a top-level React error boundary. If a render crash reaches the
+boundary, ProjectOps shows a safe fallback with:
+
+- a clear heading
+- a reload action
+- a return-to-Overview action
+- a request ID only when the thrown error includes one
+
+The fallback intentionally does not show stack traces, raw exception messages,
+tokens, or request details. Frontend monitoring is optional and only starts when
+`VITE_ENABLE_ERROR_MONITORING=true` and `VITE_SENTRY_DSN` are configured.

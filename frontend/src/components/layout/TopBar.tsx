@@ -1,4 +1,5 @@
 import type { Theme } from "../../hooks/useTheme";
+import type { AuthUser } from "../../api/authTypes";
 
 /** Top bar: mobile menu trigger, workspace context, theme, and profile utilities. */
 export function TopBar({
@@ -6,11 +7,15 @@ export function TopBar({
   onToggleTheme,
   mobileOpen,
   onOpenMobileNav,
+  currentUser,
+  onLogout,
 }: {
   theme: Theme;
   onToggleTheme: () => void;
   mobileOpen: boolean;
   onOpenMobileNav: () => void;
+  currentUser: AuthUser | null;
+  onLogout: () => void;
 }) {
   const next = theme === "dark" ? "light" : "dark";
   return (
@@ -39,13 +44,10 @@ export function TopBar({
         >
           Theme: {theme === "dark" ? "Dark" : "Light"}
         </button>
-        <div
-          className="profile-placeholder"
-          title="Workspace profile controls are coming later"
-          aria-label="Workspace profile placeholder"
-        >
-          PO
-        </div>
+        {currentUser && <span className="account-label">{currentUser.display_name || currentUser.email}</span>}
+        <button className="button ghost" type="button" onClick={onLogout}>
+          Sign out
+        </button>
       </div>
     </header>
   );

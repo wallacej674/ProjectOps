@@ -11,6 +11,7 @@ light theme).
 - Vite (dev server and production build)
 - React Router (routing)
 - Native `fetch` (no HTTP client dependency)
+- Optional Sentry-backed frontend error monitoring
 - Tailwind CSS v4 (utility layer) + a hand-authored semantic token system in `src/styles/index.css`
 - Vitest + React Testing Library (tests)
 - ESLint + `typescript-eslint`
@@ -18,8 +19,9 @@ light theme).
 No state-management, data-fetching, form, component, animation, or charting
 library is used. The mobile drawer, modal, focus management, sorting,
 repository connection UI, CodeMap Lite analysis UI, Manual Health Monitoring UI,
-Production Readiness UI, Project Artifacts UI, Overview activity surfacing, and Recent Activity UI are all built with plain
-React and CSS.
+Production Readiness UI, Launch Report UI, Guided Launch Checklist UI, Launch Decision UI, Project Artifacts UI, Overview activity surfacing,
+first-run demo workspace onboarding, auth route guards, account display, and
+Recent Activity UI are all built with plain React and CSS.
 
 ## Local development
 
@@ -50,6 +52,22 @@ The client calls `http://127.0.0.1:8000` by default; override with
 Production builds require `VITE_API_BASE_URL`; otherwise the API client reports
 a configuration error instead of silently calling localhost.
 
+Frontend error monitoring is disabled by default. To enable provider-backed
+render crash capture in a deployed environment, set:
+
+```text
+VITE_ENABLE_ERROR_MONITORING=true
+VITE_SENTRY_DSN=<provider dsn>
+VITE_SENTRY_ENVIRONMENT=production
+```
+
+Do not commit a real DSN. The error boundary and API request ID surfacing work
+locally with monitoring disabled.
+
+Create or sign in to a local account before using `/app/*`. The frontend stores
+the JWT bearer token in `localStorage` for local/demo persistence and attaches
+it to protected API calls.
+
 ## Commands
 
 | Command | Purpose |
@@ -58,6 +76,7 @@ a configuration error instead of silently calling localhost.
 | `npm run build` | Type-check (`tsc -b`) and produce a production build |
 | `npm run preview` | Serve the built `dist/` output locally |
 | `npm run lint` | Run ESLint |
+| `npm run audit` | Fail on high-or-critical npm dependency advisories |
 | `npm run test` | Run the Vitest suite once |
 | `npm run test:watch` | Run Vitest in watch mode |
 
@@ -91,29 +110,35 @@ out. `App.tsx` mounts the router; each page composes the shared `AppShell`.
 ```
 src/
   app/
-    App.tsx                 # mounts <AppRouter/>
-    router.tsx              # route map (BrowserRouter + Routes)
+    App.tsx                 # mounts <AppRouter/> inside the top-level error boundary
+    ErrorBoundary.tsx       # safe render-crash fallback + monitoring capture
+    router.tsx              # route map (BrowserRouter + auth guards + Routes)
   api/
-    client.ts               # fetch wrapper + ApiError (validation/not-found/network/configuration/unknown)
+    auth.ts                 # auth endpoint helpers
+    authStorage.ts          # localStorage session helpers
+    authTypes.ts            # auth DTOs
+    client.ts               # fetch wrapper + ApiError (validation/not-found/network/configuration/auth/unknown)
     projects.ts             # Projects endpoint methods
   components/
     layout/                 # AppShell, Sidebar, TopBar, MobileNavigation, navItems, navIcons
     ui/                     # StatusBadge, Mark, ViewToggle, EmptyState, ErrorState, LoadingSkeleton
   features/
+    auth/                   # AuthProvider, ProtectedRoute, AuthPage
     landing/                # LandingPage (marketing)
     overview/               # OverviewPage (engineering overview metrics + cross-Project activity)
     projects/
-      api/                  # Project-scoped RepoIntegration, RepoAnalysis, HealthCheck, Readiness, Artifact, and Activity API helpers
+      api/                  # Project-scoped RepoIntegration, RepoAnalysis, HealthCheck, Readiness, Launch Report, Launch Checklist, Artifact, and Activity API helpers
       components/           # ProjectCard, ProjectsTable, ProjectForm, ProjectFilters, ArchiveProjectModal
                             # RepositoryConnectionCard, RepositoryAttachForm, RepositoryRemoveModal
-                            # CodeMapAnalysisCard, HealthMonitoringCard, ReadinessAssessmentCard, ProjectArtifactsCard
+                            # CodeMapAnalysisCard, HealthMonitoringCard, ReadinessAssessmentCard, LaunchReportCard, LaunchChecklistCard, ProjectArtifactsCard
                             # ProjectActivityTimeline
       hooks/                # Project-scoped feature hooks such as useProjectArtifacts
       pages/                # ProjectsPage, CreateProjectPage, ProjectDetailPage, EditProjectPage
       projectForm.ts        # form constants + input normalization
       projectSort.ts        # sort options + deterministic comparator
   hooks/                    # useTheme (persisted), useFocusTrap (drawer + modal)
-  types/                    # Project / RepoIntegration / RepoAnalysis / HealthCheck / Readiness / ProjectArtifact / ProjectActivity
+  observability/            # optional frontend monitoring setup and capture helpers
+  types/                    # Project / RepoIntegration / RepoAnalysis / HealthCheck / Readiness / LaunchReport / LaunchChecklist / ProjectArtifact / ProjectActivity
   utils/                    # formatDate
   styles/index.css          # semantic CSS tokens + component styles
   test/                     # setup + shared API mocks (mockApi.ts)
@@ -124,11 +149,13 @@ src/
 | Route | Page | Notes |
 | --- | --- | --- |
 | `/` | Landing | Marketing page + command-center preview |
+| `/login` | Sign in | Public-only; redirects signed-in users into the app |
+| `/register` | Create account | Public-only; redirects signed-in users into the app |
 | `/app` | — | Redirects to `/app/overview` |
-| `/app/overview` | Overview | Project metrics, cross-Project Recent Activity, Recently Active Projects |
+| `/app/overview` | Overview | Project metrics, first-run onboarding, cross-Project Recent Activity, Recently Active Projects |
 | `/app/projects` | Project Registry | List, search, filter, sort, card/table views, archive |
 | `/app/projects/new` | Create Project | |
-| `/app/projects/:projectId` | Project detail | Identity, metadata, setup progress, repository connection, CodeMap Lite analysis, Manual Health Monitoring, Production Readiness, Project Artifacts, Recent Activity |
+| `/app/projects/:projectId` | Project detail | Identity, metadata, setup progress, repository connection, CodeMap Lite analysis, Manual Health Monitoring, Production Readiness, Launch Report, Guided Launch Checklist, Launch Decision, Project Artifacts, Recent Activity |
 | `/app/projects/:projectId/edit` | Edit Project | |
 | `*` | — | Redirects to `/` |
 
@@ -151,6 +178,18 @@ tokens defined per theme.
   drawer traps focus, closes on Escape / backdrop click / close button / route
   change, restores focus to the trigger, and respects `prefers-reduced-motion`.
 - A "Skip to main content" link is the first focusable element.
+
+### Authentication
+
+`AuthProvider` owns the browser session and initializes from `localStorage` keys
+scoped to ProjectOps. `ProtectedRoute` wraps app routes and redirects anonymous
+users to sign in while preserving safe `/app` deep links. `PublicOnlyRoute`
+keeps signed-in users out of the auth screens.
+
+The top bar shows the current account email or display name and a sign-out
+button. Sign-out clears the local token; it does not revoke tokens server-side
+because this milestone does not include a backend denylist or refresh-token
+model.
 
 ### Project sorting
 
@@ -265,13 +304,105 @@ show manual save controls. Saving a manual item calls
 returned row in the current checklist.
 
 Checklist rows can also show linked Project Artifacts as supporting evidence.
-The link control uses existing active artifacts from the same Project and calls
+Project detail loads project-level evidence coverage from
+`GET /api/v1/projects/:projectId/readiness/evidence-coverage`, then uses that
+coverage to show linked artifacts per readiness item and a compact summary of
+linked/unlinked active artifacts and readiness items with or without supporting
+artifact links. The link control uses existing active artifacts from the same
+Project and calls
 `POST /api/v1/projects/:projectId/readiness/items/:itemKey/artifacts`.
 Unlinking calls
 `DELETE /api/v1/projects/:projectId/readiness/items/:itemKey/artifacts/:artifactId`.
 Linked artifacts are team-supplied references; they do not automatically mark a
 readiness item passed, and ProjectOps does not verify artifact contents in
 DataForge Lite.
+
+### Launch Report
+
+The Project detail page includes a real Launch Report section backed by
+`/api/v1/projects/:projectId/launch-report`. The report is a current snapshot
+that summarizes readiness score, evidence coverage, blockers, and recommended
+launch-review actions from existing ProjectOps signals.
+
+States shown in the UI:
+
+- Loading: the section announces that the report is loading.
+- No report: the section explains that ProjectOps could not build the snapshot.
+- Current report: decision, headline, readiness score, generated timestamp,
+  evidence coverage, blockers, and recommended actions are displayed.
+- Error: launch-report errors remain scoped to the card while Project metadata
+  and other detail sections stay usable.
+
+The Launch Report refreshes after actions that can change its evidence, such as
+repository changes, CodeMap Lite runs, manual health checks, readiness
+evaluation, manual readiness edits, readiness evidence links, and artifact
+changes.
+
+Evidence coverage in the Launch Report includes active artifact counts, linked
+and unlinked active artifacts, readiness items with or without supporting
+artifact links, and total evidence links. These are coverage signals only; they
+do not prove evidence quality or sufficiency.
+
+The report is intentionally read-only and does not store an immutable approval
+record. It does not certify production safety, perform security review, run
+deployments, create releases, or replace a human go/no-go decision.
+
+### Guided Launch Checklist
+
+The Project detail page includes a real Guided Launch Checklist section backed
+by `/api/v1/projects/:projectId/launch-checklist`. The checklist turns the same
+ProjectOps evidence used by the Launch Report into concrete operator items with
+`done`, `needs attention`, and `todo` states.
+
+States shown in the UI:
+
+- Loading: the section announces that the checklist is loading.
+- No checklist: the section explains that no checklist is available.
+- Current checklist: status counts, generated timestamp, checklist rows, and
+  action links are displayed.
+- Error: checklist errors remain scoped to the card while Project metadata and
+  other detail sections stay usable.
+
+The checklist is derived, not stored. It refreshes with the Launch Report after
+repository changes, CodeMap Lite runs, manual health checks, readiness changes,
+readiness evidence changes, and artifact changes. It does not create a permanent
+approval record or replace the deployment owner's go/no-go decision.
+
+The checklist includes a supporting-evidence item. It is `done` when evidence
+links exist, `needs attention` when active artifacts exist but none are linked
+to readiness, and `todo` when no active artifacts exist.
+
+### Launch Decision
+
+The Project detail page includes a Launch Decision section that uses the existing
+Project Artifacts API. Recording a decision creates a normal Project Artifact
+with `artifact_type=decision`, `source_type=manual`, and tags including
+`launch-decision`, `go-no-go`, and the selected decision value.
+
+States shown in the UI:
+
+- Loading: the section announces that the current launch decision is loading.
+- No decision: the section says no launch decision has been recorded yet.
+- Latest decision: decision value, artifact title, notes preview, recorded
+  timestamp, status, artifact ID, and recorder attribution are displayed.
+- Decision history: active launch decision artifacts are shown newest-first by
+  recorded time, with a link back to Project Artifacts.
+- Error: decision loading or submit errors remain scoped to the card.
+
+The operator can record `Go`, `No-go`, or `Defer`. `Go` notes are optional but
+recommended. `No-go` and `Defer` require notes so future review has context. The
+form reminds users not to paste secrets into decision notes.
+
+The command center includes a Launch Decision summary card and next actions.
+No-go and Defer are surfaced ahead of advisory readiness actions because the
+human decision is the recorded launch decision. A Go decision is shown as
+recorded, not certified or approved.
+
+This is a persisted artifact record for launch review, not deployment
+automation, approval enforcement, role approval, an immutable audit trail, or a
+compliance sign-off system. New Project Artifact records expose authenticated
+creator attribution when available, so the UI shows `Recorded by` for known
+recorders and an honest historical fallback when attribution is unavailable.
 
 ### Project Artifacts
 
@@ -285,10 +416,10 @@ States shown in the UI:
 - Loading: the Artifacts section announces that records are loading.
 - Empty: the section says no artifacts exist yet and offers Add Artifact.
 - List: artifact title, type, source, status, URL, summary/content preview,
-  tags, updated date, and artifact ID are displayed.
+  tags, readiness evidence usage, updated date, and artifact ID are displayed.
 - Search/filter: search scans artifact metadata and text fields; tag chips,
-  artifact type, source type, and include-archived filters compose through the
-  backend list route.
+  artifact type, source type, evidence usage, and include-archived filters
+  compose with the backend list route.
 - No results: the section distinguishes "no artifacts yet" from "no artifacts
   match these filters."
 - Error: artifact loading errors stay scoped to the Artifacts section while
@@ -301,6 +432,11 @@ still stored as comma-separated text in DataForge Lite; filtering normalizes tag
 tokens case-insensitively and uses any-match semantics. The form validates
 required title and optional HTTP/HTTPS URL format before submission, and backend
 validation errors are shown in the section.
+
+Artifact evidence usage labels show whether an artifact supports readiness
+items or is not currently linked to readiness evidence. The Evidence Usage
+filter can show all artifacts, linked artifacts, or artifacts not currently
+linked to readiness evidence.
 
 Project Artifacts do not upload files, preview documents, parse PDFs, run OCR,
 create embeddings, perform semantic search, verify evidence, or use AI
@@ -344,6 +480,25 @@ counts and badges are recent indicators, not user-specific unread state. The
 frontend does not use WebSockets, server-sent events, background polling,
 notification inboxes, or AI summaries.
 
+### First-run demo workspace
+
+When `/app/overview` loads with no Projects at all, the page shows a first-run
+panel. Users can create their first Project or, when the backend says demo data
+is enabled, load a sample workspace.
+
+The frontend calls:
+
+```text
+GET  /api/v1/demo-data/status
+POST /api/v1/demo-data/seed
+```
+
+Loading demo data opens the seeded Project command center. Demo records are
+sample material for local exploration: they do not call live GitHub APIs, run a
+live health check, process files, use AI, or certify production safety.
+Seeding requires a signed-in account outside production and is idempotent for
+that account.
+
 ## Functional vs. preview UI
 
 Real, backed-by-the-API functionality: Project list, create, read, update, and
@@ -357,7 +512,13 @@ readiness artifact evidence link/list/unlink views, and Project Artifact
 create/list/update/archive/search/filter views
 (`/api/v1/projects/:projectId/artifacts`), cross-Project Activity list/filter
 views (`/api/v1/activity`), plus Project Activity list/filter views
-(`/api/v1/projects/:projectId/activity`).
+(`/api/v1/projects/:projectId/activity`), Launch Report current-snapshot views
+(`/api/v1/projects/:projectId/launch-report`), Guided Launch Checklist views
+(`/api/v1/projects/:projectId/launch-checklist`), and environment-gated demo
+workspace status/seed views (`/api/v1/demo-data/status`,
+`/api/v1/demo-data/seed`).
+Auth views and route guards are backed by `/api/v1/auth/register`,
+`/api/v1/auth/login`, `/api/v1/auth/me`, and `/api/v1/auth/logout`.
 Everything else surfaced in the UI is clearly labeled as a **future-state preview**
 and is intentionally not wired to a frontend in this milestone:
 
@@ -381,9 +542,16 @@ and is intentionally not wired to a frontend in this milestone:
   included. Responsive behavior was reviewed manually at 1440 / 834 / 390 px.
 - Theme persistence is per-browser via `localStorage`; there is no account-level
   preference.
+- Auth persistence is per-browser via `localStorage`; there is no refresh-token
+  flow, password reset, OAuth, team switcher, role management, or server-side
+  token revocation.
 - Manual readiness item saves update the checklist row locally but do not
   recalculate aggregate counts until readiness is re-evaluated or reloaded.
 - There is no readiness history view or standalone Readiness route.
+- There is no persisted launch approval, launch checklist editing, or standalone
+  Launch route.
+- Launch Decision records are Project Artifacts; there is no separate approval
+  workflow, signer model, or immutable decision ledger.
 - There is no standalone Artifacts route, artifact pagination, file upload,
   document parsing, semantic search, or artifact-based automatic readiness
   passing.
@@ -400,7 +568,8 @@ flows, repository attach/replace/remove behavior, the mobile drawer, theme
 behavior, readiness API/client behavior, Project detail readiness behavior,
 artifact API/client behavior, Project detail artifact behavior, and layout
 activity API/client behavior, Project detail activity behavior, and layout
-accessibility (skip link, current-page marking, navigation landmark).
+accessibility (skip link, current-page marking, navigation landmark), auth API
+helpers, auth route guards, bearer-token attachment, and sign-out behavior.
 
 Manual repository verification:
 

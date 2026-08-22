@@ -9,6 +9,12 @@ import {
 const artifact = {
   id: 12,
   project_id: 7,
+  created_by_user_id: 3,
+  created_by_user: {
+    id: 3,
+    email: "reviewer@example.com",
+    display_name: "Release Reviewer",
+  },
   title: "Deployment runbook",
   artifact_type: "runbook",
   source_type: "external_url",

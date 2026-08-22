@@ -2,6 +2,12 @@
 
 ProjectOps is a command center for managing software project workspaces and preparing them for production.
 
+## Current Planning Reference
+
+Use `docs/projectops-remaining-work-handoff.md` as the current source of truth for remaining ProjectOps work, milestone order, private-beta readiness, ship criteria, scope boundaries, and Codex working process.
+
+Do not begin a milestone automatically from that handoff. Use it as guidance when planning future approved work.
+
 ## Language
 
 **Project**:

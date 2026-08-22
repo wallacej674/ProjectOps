@@ -8,6 +8,13 @@ from app.models.readiness import ProjectReadinessArtifactEvidence, ProjectReadin
 from app.repositories.readiness import readiness_repository
 from app.repositories.repo_analyses import repo_analysis_repository
 from app.repositories.health_checks import health_check_repository
+from app.schemas.project_artifact import ProjectArtifactRead
+from app.schemas.readiness import (
+    ProjectReadinessEvidenceCoverage,
+    ReadinessEvidenceArtifactUsageRead,
+    ReadinessEvidenceItemCoverageRead,
+    ReadinessEvidenceItemUsageRead,
+)
 from app.services.project_artifacts import project_artifact_service
 from app.services.projects import project_service
 
@@ -178,6 +185,67 @@ class ReadinessService:
         score = calculate_readiness_score(statuses)
         score.top_gaps = compute_top_gaps(assessments, catalog)
         return assessments, score
+
+    def get_evidence_coverage(self, db: Session, project_id: int) -> ProjectReadinessEvidenceCoverage:
+        project_service.get_project(db, project_id)
+        active_artifacts = project_artifact_service.list_project_artifacts(db, project_id)
+        assessments = readiness_repository.get_project_assessments(db, project_id)
+        links = readiness_repository.list_project_artifact_evidence_links(db, project_id)
+
+        links_by_artifact_id: dict[int, list[ProjectReadinessArtifactEvidence]] = {}
+        links_by_item_id: dict[int, list[ProjectReadinessArtifactEvidence]] = {}
+        for link in links:
+            links_by_artifact_id.setdefault(link.artifact_id, []).append(link)
+            links_by_item_id.setdefault(link.readiness_item_id, []).append(link)
+
+        linked_active_artifact_ids = {
+            artifact.id
+            for artifact in active_artifacts
+            if links_by_artifact_id.get(artifact.id)
+        }
+        artifact_usage = [
+            ReadinessEvidenceArtifactUsageRead(
+                artifact=ProjectArtifactRead.model_validate(artifact),
+                linked_item_count=len(links_by_artifact_id.get(artifact.id, [])),
+                readiness_items=[
+                    ReadinessEvidenceItemUsageRead(
+                        readiness_item_id=link.readiness_item_id,
+                        item_key=link.item.key,
+                        label=link.item.label,
+                        status=_assessment_status(assessments, link.readiness_item_id),
+                    )
+                    for link in links_by_artifact_id.get(artifact.id, [])
+                ],
+            )
+            for artifact in active_artifacts
+        ]
+
+        readiness_item_rows = [
+            ReadinessEvidenceItemCoverageRead(
+                readiness_item_id=assessment.readiness_item_id,
+                item_key=assessment.item.key,
+                label=assessment.item.label,
+                status=assessment.status,  # type: ignore[arg-type]
+                linked_artifact_count=len(links_by_item_id.get(assessment.readiness_item_id, [])),
+                artifacts=[
+                    ProjectArtifactRead.model_validate(link.artifact)
+                    for link in links_by_item_id.get(assessment.readiness_item_id, [])
+                ],
+            )
+            for assessment in assessments
+        ]
+
+        readiness_items_with_links = sum(1 for row in readiness_item_rows if row.linked_artifact_count > 0)
+        return ProjectReadinessEvidenceCoverage(
+            active_artifacts=len(active_artifacts),
+            linked_active_artifacts=len(linked_active_artifact_ids),
+            unlinked_active_artifacts=len(active_artifacts) - len(linked_active_artifact_ids),
+            readiness_items_with_linked_artifacts=readiness_items_with_links,
+            readiness_items_without_linked_artifacts=len(readiness_item_rows) - readiness_items_with_links,
+            total_evidence_links=len(links),
+            artifact_usage=artifact_usage,
+            readiness_items=readiness_item_rows,
+        )
 
     def update_manual_item(
         self,
@@ -380,6 +448,13 @@ def _source_for_item(key: str) -> str:
     if key == "latest_health_check_healthy":
         return "health_check"
     return "manual"
+
+
+def _assessment_status(assessments: list[ProjectReadinessItem], readiness_item_id: int) -> str | None:
+    for assessment in assessments:
+        if assessment.readiness_item_id == readiness_item_id:
+            return assessment.status
+    return None
 
 
 readiness_service = ReadinessService()

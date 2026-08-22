@@ -22,7 +22,7 @@ export function LandingPage() {
           <a href="#product">Product</a>
           <a href="#how-it-works">How it works</a>
           <a href="#transparency">Transparency</a>
-          <span title="Authentication is coming later">Sign in</span>
+          <Link to="/login">Sign in</Link>
         </nav>
         <Link className="button primary" to="/app/overview">
           Open ProjectOps

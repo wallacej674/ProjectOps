@@ -4,7 +4,7 @@ from datetime import datetime
 from enum import Enum
 
 from sqlalchemy import CheckConstraint, DateTime, ForeignKey, Integer, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -57,6 +57,11 @@ class ProjectArtifact(Base):
         nullable=False,
         index=True,
     )
+    created_by_user_id: Mapped[int | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+    )
     title: Mapped[str] = mapped_column(String(200), nullable=False)
     artifact_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
     source_type: Mapped[str] = mapped_column(String(32), nullable=False, index=True)
@@ -81,3 +86,4 @@ class ProjectArtifact(Base):
         onupdate=func.now(),
         nullable=False,
     )
+    created_by_user: Mapped["User | None"] = relationship("User")

@@ -55,6 +55,39 @@ class ReadinessArtifactEvidenceRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+class ReadinessEvidenceItemUsageRead(BaseModel):
+    readiness_item_id: int
+    item_key: str
+    label: str
+    status: ReadinessStatus | None
+
+
+class ReadinessEvidenceArtifactUsageRead(BaseModel):
+    artifact: ProjectArtifactRead
+    linked_item_count: int
+    readiness_items: list[ReadinessEvidenceItemUsageRead]
+
+
+class ReadinessEvidenceItemCoverageRead(BaseModel):
+    readiness_item_id: int
+    item_key: str
+    label: str
+    status: ReadinessStatus
+    linked_artifact_count: int
+    artifacts: list[ProjectArtifactRead]
+
+
+class ProjectReadinessEvidenceCoverage(BaseModel):
+    active_artifacts: int
+    linked_active_artifacts: int
+    unlinked_active_artifacts: int
+    readiness_items_with_linked_artifacts: int
+    readiness_items_without_linked_artifacts: int
+    total_evidence_links: int
+    artifact_usage: list[ReadinessEvidenceArtifactUsageRead]
+    readiness_items: list[ReadinessEvidenceItemCoverageRead]
+
+
 class ProjectReadinessSummary(BaseModel):
     score: int | None
     status: str

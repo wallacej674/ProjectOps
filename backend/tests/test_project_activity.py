@@ -1,6 +1,7 @@
 import httpx
 
 from app.models.project import Project
+from app.models.user import User
 from app.services.github_repo_tree_fetcher import RepoTreeFetchError
 from app.services.health_checks import health_check_service
 from app.services.repo_analyses import repo_analysis_service
@@ -50,7 +51,9 @@ def create_project(client, name="ProjectOps"):
 
 
 def create_project_without_activity(db, name="ProjectOps"):
+    owner = db.query(User).filter(User.email == "test-user@example.com").one()
     project = Project(
+        owner_user_id=owner.id,
         name=name,
         description="A software project command center.",
         repo_url="https://github.com/example/projectops",

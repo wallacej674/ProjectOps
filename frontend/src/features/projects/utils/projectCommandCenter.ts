@@ -5,6 +5,11 @@ import type { ProjectArtifact } from "../../../types/projectArtifact";
 import type { ProjectReadinessItem, ProjectReadinessSummary } from "../../../types/readiness";
 import type { RepoAnalysis } from "../../../types/repoAnalysis";
 import type { RepoIntegration } from "../../../types/repoIntegration";
+import {
+  getLaunchDecisionNotes,
+  getLaunchDecisionValue,
+  launchDecisionLabels,
+} from "./launchDecisionArtifacts";
 
 export type CommandCenterTone = "neutral" | "info" | "success" | "warning" | "danger";
 
@@ -25,6 +30,8 @@ export type ProjectSectionId =
   | "codemap"
   | "health"
   | "readiness"
+  | "launch-report"
+  | "launch-decision"
   | "artifacts"
   | "activity"
   | "details";
@@ -53,6 +60,7 @@ export interface ProjectCommandCenterInput {
   readiness: ProjectReadinessSummary | null;
   artifacts?: ProjectArtifact[];
   activityEvents?: ProjectActivityEvent[];
+  latestLaunchDecision?: ProjectArtifact | null;
 }
 
 const readinessLabels: Record<string, string> = {
@@ -297,6 +305,42 @@ export function getActivitySummary(activityEvents: ProjectActivityEvent[] | null
   };
 }
 
+export function getLaunchDecisionSummary(latestLaunchDecision: ProjectArtifact | null | undefined): CommandCenterSummary {
+  if (!latestLaunchDecision) {
+    return {
+      state: "none",
+      label: "No decision",
+      title: "No launch decision recorded",
+      detail: "Record the human go/no-go/defer decision when launch review is complete.",
+      tone: "neutral",
+      targetId: "launch-decision",
+    };
+  }
+
+  const decision = getLaunchDecisionValue(latestLaunchDecision);
+  if (!decision) {
+    return {
+      state: "unknown",
+      label: "Decision recorded",
+      title: latestLaunchDecision.title,
+      detail: getLaunchDecisionNotes(latestLaunchDecision) || "A launch decision artifact was recorded.",
+      timestamp: latestLaunchDecision.created_at,
+      tone: "info",
+      targetId: "launch-decision",
+    };
+  }
+
+  return {
+    state: decision,
+    label: `${launchDecisionLabels[decision]} recorded`,
+    title: `Latest decision: ${launchDecisionLabels[decision]}`,
+    detail: getLaunchDecisionNotes(latestLaunchDecision) || "No decision notes have been recorded.",
+    timestamp: latestLaunchDecision.created_at,
+    tone: decision === "go" ? "success" : decision === "no_go" ? "danger" : "warning",
+    targetId: "launch-decision",
+  };
+}
+
 export function getProjectSetupSteps({
   project,
   repo,
@@ -390,11 +434,30 @@ export function getProjectSetupSteps({
 }
 
 export function getProjectNextActions(input: ProjectCommandCenterInput): ProjectNextAction[] {
-  const { project, repo, latestAnalysis, latestHealthCheck, readiness } = input;
+  const { project, repo, latestAnalysis, latestHealthCheck, readiness, latestLaunchDecision } = input;
   const actions: ProjectNextAction[] = [];
   const activeArtifactCount = Array.isArray(input.artifacts)
     ? input.artifacts.filter((artifact) => artifact.status === "active").length
     : 0;
+  const launchDecision = latestLaunchDecision ? getLaunchDecisionValue(latestLaunchDecision) : null;
+
+  if (launchDecision === "no_go") {
+    actions.push({
+      id: "review-no-go-launch-decision",
+      title: "Review latest No-go launch notes.",
+      detail: "The latest human launch decision says the team should not launch yet.",
+      targetId: "launch-decision",
+      priority: 5,
+    });
+  } else if (launchDecision === "defer") {
+    actions.push({
+      id: "review-deferred-launch-decision",
+      title: "Review deferred launch context.",
+      detail: "The latest human launch decision deferred launch until more context is available.",
+      targetId: "launch-decision",
+      priority: 6,
+    });
+  }
 
   if (!repo) {
     actions.push({
@@ -494,6 +557,16 @@ export function getProjectNextActions(input: ProjectCommandCenterInput): Project
       detail: "Artifacts keep important project knowledge and supporting references visible.",
       targetId: "artifacts",
       priority: 80,
+    });
+  }
+
+  if (!latestLaunchDecision) {
+    actions.push({
+      id: "record-launch-decision",
+      title: "Record a human launch decision.",
+      detail: "Launch Report and Guided Checklist are advisory inputs; the final decision is a human record.",
+      targetId: "launch-decision",
+      priority: 90,
     });
   }
 

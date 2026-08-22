@@ -9,24 +9,34 @@ import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { formatDate } from "../../../utils/formatDate";
 import type { Project } from "../../../types/project";
 import type { ProjectActivityCategory, ProjectActivityEvent } from "../../../types/projectActivity";
-import type { ProjectArtifactCreate, ProjectArtifactUpdate } from "../../../types/projectArtifact";
+import type { ProjectArtifact, ProjectArtifactCreate, ProjectArtifactUpdate } from "../../../types/projectArtifact";
 import type { HealthCheck } from "../../../types/healthCheck";
-import type { ProjectReadinessSummary, ReadinessArtifactEvidence, ReadinessStatus } from "../../../types/readiness";
+import type { ProjectLaunchChecklist, ProjectLaunchReport } from "../../../types/launchReport";
+import type {
+  ProjectReadinessEvidenceCoverage,
+  ProjectReadinessSummary,
+  ReadinessStatus,
+} from "../../../types/readiness";
 import type { RepoAnalysis } from "../../../types/repoAnalysis";
 import type { RepoIntegration } from "../../../types/repoIntegration";
 import { getLatestProjectAnalysis, listProjectAnalyses, runProjectAnalysis } from "../api/projectAnalyses";
 import { listProjectActivity } from "../api/projectActivity";
+import { listProjectArtifacts } from "../api/projectArtifacts";
 import { getLatestProjectHealthCheck, listProjectHealthChecks, runProjectHealthCheck } from "../api/projectHealthChecks";
+import { getProjectLaunchChecklist, getProjectLaunchReport } from "../api/projectLaunchReport";
 import { evaluateProjectReadiness, getProjectReadiness, updateProjectReadinessItem } from "../api/projectReadiness";
 import {
+  getReadinessEvidenceCoverage,
   linkReadinessArtifact,
-  listReadinessItemArtifacts,
   unlinkReadinessArtifact,
 } from "../api/projectReadinessArtifacts";
 import { attachProjectRepo, getProjectRepo, removeProjectRepo } from "../api/projectRepo";
 import { ArchiveProjectModal } from "../components/ArchiveProjectModal";
 import { CodeMapAnalysisCard } from "../components/CodeMapAnalysisCard";
 import { HealthMonitoringCard } from "../components/HealthMonitoringCard";
+import { LaunchChecklistCard } from "../components/LaunchChecklistCard";
+import { LaunchDecisionCard, type LaunchDecisionValue } from "../components/LaunchDecisionCard";
+import { LaunchReportCard } from "../components/LaunchReportCard";
 import { ProjectArtifactsCard } from "../components/ProjectArtifactsCard";
 import { ProjectActivityTimeline } from "../components/ProjectActivityTimeline";
 import { ProjectCommandCenterHeader } from "../components/ProjectCommandCenterHeader";
@@ -43,11 +53,17 @@ import {
   getActivitySummary,
   getArtifactsSummary,
   getHealthSummary,
+  getLaunchDecisionSummary,
   getProjectNextActions,
   getProjectSetupSteps,
   getReadinessSummary,
   getRepositorySummary,
 } from "../utils/projectCommandCenter";
+import {
+  getLaunchDecisionHistory,
+  launchDecisionLabels,
+  launchDecisionTags,
+} from "../utils/launchDecisionArtifacts";
 
 /** Single-Project dashboard: identity, metadata, and setup progress. */
 function repoErrorMessage(error: unknown) {
@@ -126,6 +142,20 @@ function isReadinessSummary(value: unknown): value is ProjectReadinessSummary {
   );
 }
 
+function isReadinessEvidenceCoverage(value: unknown): value is ProjectReadinessEvidenceCoverage {
+  return (
+    isRecord(value) &&
+    typeof value.active_artifacts === "number" &&
+    typeof value.linked_active_artifacts === "number" &&
+    typeof value.unlinked_active_artifacts === "number" &&
+    typeof value.readiness_items_with_linked_artifacts === "number" &&
+    typeof value.readiness_items_without_linked_artifacts === "number" &&
+    typeof value.total_evidence_links === "number" &&
+    Array.isArray(value.artifact_usage) &&
+    Array.isArray(value.readiness_items)
+  );
+}
+
 function isProjectActivityEvent(value: unknown): value is ProjectActivityEvent {
   return (
     isRecord(value) &&
@@ -136,6 +166,67 @@ function isProjectActivityEvent(value: unknown): value is ProjectActivityEvent {
     typeof value.message === "string" &&
     typeof value.created_at === "string"
   );
+}
+
+function isProjectArtifact(value: unknown): value is ProjectArtifact {
+  return (
+    isRecord(value) &&
+    typeof value.id === "number" &&
+    typeof value.project_id === "number" &&
+    typeof value.title === "string" &&
+    typeof value.artifact_type === "string" &&
+    typeof value.source_type === "string" &&
+    typeof value.status === "string" &&
+    typeof value.created_at === "string" &&
+    typeof value.updated_at === "string"
+  );
+}
+
+function isLaunchReport(value: unknown): value is ProjectLaunchReport {
+  return (
+    isRecord(value) &&
+    (value.decision === "ready" || value.decision === "review" || value.decision === "not_ready") &&
+    typeof value.headline === "string" &&
+    typeof value.generated_at === "string" &&
+    isRecord(value.evidence_summary) &&
+    isRecord(value.readiness) &&
+    Array.isArray(value.blockers) &&
+    Array.isArray(value.recommended_actions)
+  );
+}
+
+function isLaunchChecklist(value: unknown): value is ProjectLaunchChecklist {
+  return (
+    isRecord(value) &&
+    typeof value.generated_at === "string" &&
+    isRecord(value.summary) &&
+    Array.isArray(value.items) &&
+    value.items.every(
+      (item) =>
+        isRecord(item) &&
+        typeof item.key === "string" &&
+        typeof item.label === "string" &&
+        (item.status === "done" || item.status === "needs_attention" || item.status === "todo") &&
+        typeof item.description === "string" &&
+        typeof item.action === "string" &&
+        typeof item.target === "string",
+    )
+  );
+}
+
+function normalizeCoverageCounts(coverage: ProjectReadinessEvidenceCoverage): ProjectReadinessEvidenceCoverage {
+  const activeArtifacts = coverage.artifact_usage.filter((row) => row.artifact.status === "active");
+  const linkedActiveArtifacts = activeArtifacts.filter((row) => row.linked_item_count > 0);
+  const readinessItemsWithLinks = coverage.readiness_items.filter((row) => row.linked_artifact_count > 0);
+  return {
+    ...coverage,
+    active_artifacts: activeArtifacts.length,
+    linked_active_artifacts: linkedActiveArtifacts.length,
+    unlinked_active_artifacts: activeArtifacts.length - linkedActiveArtifacts.length,
+    readiness_items_with_linked_artifacts: readinessItemsWithLinks.length,
+    readiness_items_without_linked_artifacts: coverage.readiness_items.length - readinessItemsWithLinks.length,
+    total_evidence_links: coverage.readiness_items.reduce((total, row) => total + row.linked_artifact_count, 0),
+  };
 }
 
 export function ProjectDetailPage() {
@@ -170,8 +261,18 @@ export function ProjectDetailPage() {
   const [readinessLoading, setReadinessLoading] = useState(false);
   const [readinessError, setReadinessError] = useState("");
   const [readinessEvaluating, setReadinessEvaluating] = useState(false);
-  const [readinessEvidence, setReadinessEvidence] = useState<Record<string, ReadinessArtifactEvidence[]>>({});
+  const [readinessEvidenceCoverage, setReadinessEvidenceCoverage] = useState<ProjectReadinessEvidenceCoverage | null>(null);
   const [readinessEvidenceLoading, setReadinessEvidenceLoading] = useState(false);
+  const [launchReport, setLaunchReport] = useState<ProjectLaunchReport | null>(null);
+  const [launchReportLoading, setLaunchReportLoading] = useState(false);
+  const [launchReportError, setLaunchReportError] = useState("");
+  const [launchChecklist, setLaunchChecklist] = useState<ProjectLaunchChecklist | null>(null);
+  const [launchChecklistLoading, setLaunchChecklistLoading] = useState(false);
+  const [launchChecklistError, setLaunchChecklistError] = useState("");
+  const [latestLaunchDecision, setLatestLaunchDecision] = useState<ProjectArtifact | null>(null);
+  const [launchDecisionHistory, setLaunchDecisionHistory] = useState<ProjectArtifact[]>([]);
+  const [launchDecisionLoading, setLaunchDecisionLoading] = useState(false);
+  const [launchDecisionError, setLaunchDecisionError] = useState("");
   const [activityEvents, setActivityEvents] = useState<ProjectActivityEvent[]>([]);
   const [activitySummaryEvents, setActivitySummaryEvents] = useState<ProjectActivityEvent[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
@@ -208,6 +309,70 @@ export function ProjectDetailPage() {
     await Promise.all([loadActivity(), loadActivitySummary()]);
   }, [loadActivity, loadActivitySummary]);
 
+  const loadLaunchReport = useCallback(async () => {
+    setLaunchReportLoading(true);
+    setLaunchReportError("");
+    try {
+      const nextReport = await getProjectLaunchReport(projectId);
+      setLaunchReport(isLaunchReport(nextReport) ? nextReport : null);
+    } catch (e) {
+      setLaunchReport(null);
+      setLaunchReportError(e instanceof Error ? e.message : "Launch report could not load.");
+    } finally {
+      setLaunchReportLoading(false);
+    }
+  }, [projectId]);
+
+  const loadLaunchChecklist = useCallback(async () => {
+    setLaunchChecklistLoading(true);
+    setLaunchChecklistError("");
+    try {
+      const nextChecklist = await getProjectLaunchChecklist(projectId);
+      setLaunchChecklist(isLaunchChecklist(nextChecklist) ? nextChecklist : null);
+    } catch (e) {
+      setLaunchChecklist(null);
+      setLaunchChecklistError(e instanceof Error ? e.message : "Launch checklist could not load.");
+    } finally {
+      setLaunchChecklistLoading(false);
+    }
+  }, [projectId]);
+
+  const refreshLaunchReview = useCallback(async () => {
+    await Promise.all([loadLaunchReport(), loadLaunchChecklist()]);
+  }, [loadLaunchChecklist, loadLaunchReport]);
+
+  const loadReadinessEvidenceCoverage = useCallback(async () => {
+    setReadinessEvidenceLoading(true);
+    try {
+      const coverage = await getReadinessEvidenceCoverage(projectId);
+      setReadinessEvidenceCoverage(isReadinessEvidenceCoverage(coverage) ? coverage : null);
+    } catch {
+      setReadinessEvidenceCoverage(null);
+    } finally {
+      setReadinessEvidenceLoading(false);
+    }
+  }, [projectId]);
+
+  const loadLaunchDecision = useCallback(async () => {
+    setLaunchDecisionLoading(true);
+    setLaunchDecisionError("");
+    try {
+      const decisions = await listProjectArtifacts(projectId, {
+        artifactType: "decision",
+        tags: ["launch-decision"],
+      });
+      const history = getLaunchDecisionHistory(decisions.filter(isProjectArtifact));
+      setLaunchDecisionHistory(history);
+      setLatestLaunchDecision(history[0] ?? null);
+    } catch (e) {
+      setLaunchDecisionHistory([]);
+      setLatestLaunchDecision(null);
+      setLaunchDecisionError(e instanceof Error ? e.message : "Launch decision could not load.");
+    } finally {
+      setLaunchDecisionLoading(false);
+    }
+  }, [projectId]);
+
   useEffect(() => {
     projectsApi
       .get(projectId)
@@ -224,37 +389,8 @@ export function ProjectDetailPage() {
   }, [loadActivitySummary]);
 
   useEffect(() => {
-    const items = readiness?.items ?? [];
-    if (items.length === 0) {
-      setReadinessEvidence({});
-      setReadinessEvidenceLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setReadinessEvidenceLoading(true);
-    Promise.all(
-      items.map(async (item) => {
-        try {
-          const evidence = await listReadinessItemArtifacts(projectId, item.item.key);
-          return [item.item.key, evidence.filter((entry) => entry.item_key === item.item.key)] as const;
-        } catch {
-          return [item.item.key, []] as const;
-        }
-      }),
-    )
-      .then((entries) => {
-        if (cancelled) return;
-        setReadinessEvidence(Object.fromEntries(entries));
-      })
-      .finally(() => {
-        if (!cancelled) setReadinessEvidenceLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [projectId, readiness]);
+    void loadReadinessEvidenceCoverage();
+  }, [loadReadinessEvidenceCoverage]);
 
   useEffect(() => {
     setRepoLoading(true);
@@ -363,6 +499,14 @@ export function ProjectDetailPage() {
       .finally(() => setReadinessLoading(false));
   }, [projectId]);
 
+  useEffect(() => {
+    void refreshLaunchReview();
+  }, [refreshLaunchReview]);
+
+  useEffect(() => {
+    void loadLaunchDecision();
+  }, [loadLaunchDecision]);
+
   async function runAnalysis() {
     setAnalysisRunning(true);
     setAnalysisError("");
@@ -370,7 +514,7 @@ export function ProjectDetailPage() {
       const analysis = await runProjectAnalysis(projectId);
       setLatestAnalysis(analysis);
       setAnalysisHistory((currentHistory) => [analysis, ...currentHistory.filter((item) => item.id !== analysis.id)]);
-      await refreshActivity();
+      await Promise.all([refreshActivity(), refreshLaunchReview()]);
     } catch (e) {
       setAnalysisError(e instanceof Error ? e.message : "CodeMap Lite analysis could not run.");
     } finally {
@@ -385,7 +529,7 @@ export function ProjectDetailPage() {
       const healthCheck = await runProjectHealthCheck(projectId, overrideUrl ? { url: overrideUrl } : undefined);
       setLatestHealthCheck(healthCheck);
       setHealthHistory((currentHistory) => [healthCheck, ...currentHistory.filter((item) => item.id !== healthCheck.id)]);
-      await refreshActivity();
+      await Promise.all([refreshActivity(), refreshLaunchReview()]);
     } catch (e) {
       setHealthError(runHealthErrorMessage(e));
     } finally {
@@ -399,7 +543,7 @@ export function ProjectDetailPage() {
     try {
       const nextReadiness = await evaluateProjectReadiness(projectId);
       setReadiness(nextReadiness);
-      await refreshActivity();
+      await Promise.all([loadReadinessEvidenceCoverage(), refreshActivity(), refreshLaunchReview()]);
     } catch (e) {
       setReadinessError(e instanceof Error ? e.message : "Readiness evaluation could not run.");
     } finally {
@@ -416,25 +560,96 @@ export function ProjectDetailPage() {
         items: currentReadiness.items.map((item) => (item.id === updatedItem.id ? updatedItem : item)),
       };
     });
-    await refreshActivity();
+    await Promise.all([refreshActivity(), refreshLaunchReview()]);
   }
 
   async function linkArtifactEvidence(itemKey: string, artifactId: number) {
     const evidence = await linkReadinessArtifact(projectId, itemKey, artifactId);
-    setReadinessEvidence((currentEvidence) => ({
-      ...currentEvidence,
-      [itemKey]: [...(currentEvidence[itemKey] ?? []), evidence],
-    }));
-    await refreshActivity();
+    setReadinessEvidenceCoverage((currentCoverage) => {
+      if (!currentCoverage) return currentCoverage;
+      const readinessItem = readiness?.items.find((item) => item.item.key === itemKey);
+      const itemLabel = readinessItem?.item.label ?? itemKey;
+      const itemStatus = readinessItem?.status ?? "unknown";
+      const nextReadinessItems = currentCoverage.readiness_items.some((row) => row.item_key === itemKey)
+        ? currentCoverage.readiness_items.map((row) => {
+            if (row.item_key !== itemKey || row.artifacts.some((artifact) => artifact.id === evidence.artifact.id)) {
+              return row;
+            }
+            const artifacts = [...row.artifacts, evidence.artifact];
+            return { ...row, linked_artifact_count: artifacts.length, artifacts };
+          })
+        : [
+            ...currentCoverage.readiness_items,
+            {
+              readiness_item_id: evidence.readiness_item_id,
+              item_key: itemKey,
+              label: itemLabel,
+              status: itemStatus,
+              linked_artifact_count: 1,
+              artifacts: [evidence.artifact],
+            },
+          ];
+      const nextArtifactUsage = currentCoverage.artifact_usage.some((row) => row.artifact.id === evidence.artifact.id)
+        ? currentCoverage.artifact_usage.map((row) => {
+            if (row.artifact.id !== evidence.artifact.id || row.readiness_items.some((item) => item.item_key === itemKey)) {
+              return row;
+            }
+            const readinessItems = [
+              ...row.readiness_items,
+              {
+                readiness_item_id: evidence.readiness_item_id,
+                item_key: itemKey,
+                label: itemLabel,
+                status: itemStatus,
+              },
+            ];
+            return { ...row, linked_item_count: readinessItems.length, readiness_items: readinessItems };
+          })
+        : [
+            ...currentCoverage.artifact_usage,
+            {
+              artifact: evidence.artifact,
+              linked_item_count: 1,
+              readiness_items: [
+                {
+                  readiness_item_id: evidence.readiness_item_id,
+                  item_key: itemKey,
+                  label: itemLabel,
+                  status: itemStatus,
+                },
+              ],
+            },
+          ];
+      return normalizeCoverageCounts({
+        ...currentCoverage,
+        artifact_usage: nextArtifactUsage,
+        readiness_items: nextReadinessItems,
+      });
+    });
+    await Promise.all([refreshActivity(), refreshLaunchReview()]);
   }
 
   async function unlinkArtifactEvidence(itemKey: string, artifactId: number) {
     await unlinkReadinessArtifact(projectId, itemKey, artifactId);
-    setReadinessEvidence((currentEvidence) => ({
-      ...currentEvidence,
-      [itemKey]: (currentEvidence[itemKey] ?? []).filter((entry) => entry.artifact.id !== artifactId),
-    }));
-    await refreshActivity();
+    setReadinessEvidenceCoverage((currentCoverage) => {
+      if (!currentCoverage) return currentCoverage;
+      const nextReadinessItems = currentCoverage.readiness_items.map((row) => {
+        if (row.item_key !== itemKey) return row;
+        const artifacts = row.artifacts.filter((artifact) => artifact.id !== artifactId);
+        return { ...row, linked_artifact_count: artifacts.length, artifacts };
+      });
+      const nextArtifactUsage = currentCoverage.artifact_usage.map((row) => {
+        if (row.artifact.id !== artifactId) return row;
+        const readinessItems = row.readiness_items.filter((item) => item.item_key !== itemKey);
+        return { ...row, linked_item_count: readinessItems.length, readiness_items: readinessItems };
+      });
+      return normalizeCoverageCounts({
+        ...currentCoverage,
+        artifact_usage: nextArtifactUsage,
+        readiness_items: nextReadinessItems,
+      });
+    });
+    await Promise.all([refreshActivity(), refreshLaunchReview()]);
   }
 
   async function attachRepo(repoUrl: string) {
@@ -448,7 +663,7 @@ export function ProjectDetailPage() {
       setHistoryError("");
       setRepo(nextRepo);
       setRepoReplaceMode(false);
-      await refreshActivity();
+      await Promise.all([refreshActivity(), refreshLaunchReview()]);
     } catch (e) {
       setRepoError(e instanceof Error ? e.message : "Repository could not be attached.");
     } finally {
@@ -467,7 +682,7 @@ export function ProjectDetailPage() {
       setHistoryError("");
       setRepo(null);
       setRepoRemoveOpen(false);
-      await refreshActivity();
+      await Promise.all([refreshActivity(), refreshLaunchReview()]);
     } catch (e) {
       setRepoRemoveError(e instanceof Error ? e.message : "Repository connection could not be removed.");
     } finally {
@@ -477,17 +692,32 @@ export function ProjectDetailPage() {
 
   async function createArtifactAndRefreshActivity(input: ProjectArtifactCreate) {
     await projectArtifacts.createArtifact(input);
-    await refreshActivity();
+    await Promise.all([loadReadinessEvidenceCoverage(), refreshActivity(), refreshLaunchReview()]);
   }
 
   async function updateArtifactAndRefreshActivity(artifactId: number, input: ProjectArtifactUpdate) {
     await projectArtifacts.updateArtifact(artifactId, input);
-    await refreshActivity();
+    await Promise.all([loadReadinessEvidenceCoverage(), refreshActivity(), refreshLaunchReview()]);
   }
 
   async function archiveArtifactAndRefreshActivity(artifactId: number) {
     await projectArtifacts.archiveArtifact(artifactId);
-    await refreshActivity();
+    await Promise.all([loadReadinessEvidenceCoverage(), refreshActivity(), refreshLaunchReview()]);
+  }
+
+  async function recordLaunchDecision(decision: LaunchDecisionValue, notes: string) {
+    const trimmedNotes = notes.trim();
+    const summary = trimmedNotes || `Launch decision recorded as ${launchDecisionLabels[decision]}.`;
+    await projectArtifacts.createArtifact({
+      title: `Launch decision: ${launchDecisionLabels[decision]}`,
+      artifact_type: "decision",
+      source_type: "manual",
+      url: null,
+      summary,
+      content: `Decision: ${launchDecisionTags[decision]}\n\nNotes:\n${summary}`,
+      tags: `launch-decision,go-no-go,${launchDecisionTags[decision]}`,
+    });
+    await Promise.all([loadLaunchDecision(), loadReadinessEvidenceCoverage(), refreshActivity(), refreshLaunchReview()]);
   }
 
   if (error)
@@ -518,6 +748,7 @@ export function ProjectDetailPage() {
   const readinessSummary = getReadinessSummary(readiness);
   const artifactsSummary = getArtifactsSummary(projectArtifacts.artifacts);
   const activitySummary = getActivitySummary(activitySummaryEvents);
+  const launchDecisionSummary = getLaunchDecisionSummary(latestLaunchDecision);
   const commandCenterInput = {
     project,
     repo,
@@ -526,6 +757,7 @@ export function ProjectDetailPage() {
     readiness,
     artifacts: projectArtifacts.artifacts,
     activityEvents: activitySummaryEvents,
+    latestLaunchDecision,
   };
   const nextActions = getProjectNextActions(commandCenterInput);
   const setupSteps = getProjectSetupSteps(commandCenterInput);
@@ -548,6 +780,7 @@ export function ProjectDetailPage() {
               { label: "CodeMap", summary: codeMapSummary },
               { label: "Health", summary: healthSummary },
               { label: "Readiness", summary: readinessSummary },
+              { label: "Launch Decision", summary: launchDecisionSummary },
               { label: "Artifacts", summary: artifactsSummary },
               { label: "Activity", summary: activitySummary },
             ]}
@@ -612,12 +845,30 @@ export function ProjectDetailPage() {
               error={readinessError}
               evaluating={readinessEvaluating}
               artifacts={projectArtifacts.artifacts}
-              evidenceByItemKey={readinessEvidence}
+              evidenceCoverage={readinessEvidenceCoverage}
               evidenceLoading={readinessEvidenceLoading}
               onEvaluate={runReadinessEvaluation}
               onUpdateManualItem={updateManualReadinessItem}
               onLinkArtifactEvidence={linkArtifactEvidence}
               onUnlinkArtifactEvidence={unlinkArtifactEvidence}
+            />
+          </div>
+          <div id="launch-report" className="section-anchor">
+            <LaunchReportCard report={launchReport} loading={launchReportLoading} error={launchReportError} />
+          </div>
+          <LaunchChecklistCard
+            checklist={launchChecklist}
+            loading={launchChecklistLoading}
+            error={launchChecklistError}
+          />
+          <div id="launch-decision" className="section-anchor">
+            <LaunchDecisionCard
+              decisionHistory={launchDecisionHistory}
+              latestDecision={latestLaunchDecision}
+              loading={launchDecisionLoading}
+              error={launchDecisionError}
+              pending={projectArtifacts.mutationPending}
+              onRecord={recordLaunchDecision}
             />
           </div>
           <div id="artifacts" className="section-anchor">
@@ -630,6 +881,7 @@ export function ProjectDetailPage() {
               sourceTypeFilter={projectArtifacts.sourceTypeFilter}
               search={projectArtifacts.search}
               selectedTags={projectArtifacts.selectedTags}
+              evidenceCoverage={readinessEvidenceCoverage}
               pending={projectArtifacts.mutationPending}
               onIncludeArchivedChange={projectArtifacts.setIncludeArchived}
               onArtifactTypeFilterChange={projectArtifacts.setArtifactTypeFilter}

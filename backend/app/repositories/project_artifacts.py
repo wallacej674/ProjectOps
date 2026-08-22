@@ -6,9 +6,17 @@ from app.schemas.project_artifact import ProjectArtifactCreate, ProjectArtifactU
 
 
 class ProjectArtifactRepository:
-    def create(self, db: Session, project_id: int, artifact_in: ProjectArtifactCreate) -> ProjectArtifact:
+    def create(
+        self,
+        db: Session,
+        project_id: int,
+        artifact_in: ProjectArtifactCreate,
+        *,
+        created_by_user_id: int | None = None,
+    ) -> ProjectArtifact:
         artifact = ProjectArtifact(
             project_id=project_id,
+            created_by_user_id=created_by_user_id,
             title=artifact_in.title,
             artifact_type=artifact_in.artifact_type.value,
             source_type=artifact_in.source_type.value,
