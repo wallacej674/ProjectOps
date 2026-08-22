@@ -11,7 +11,11 @@ def test_local_auth_secret_uses_documented_development_default():
 
 
 def test_production_requires_explicit_auth_secret():
-    settings = Settings(environment="production", cors_allowed_origins="https://projectops.example")
+    settings = Settings(
+        environment="production",
+        cors_allowed_origins="https://projectops.example",
+        auth_secret_key="",
+    )
 
     with pytest.raises(ValueError, match="PROJECTOPS_AUTH_SECRET_KEY"):
         settings.validate_auth_settings()
@@ -21,7 +25,7 @@ def test_production_rejects_development_auth_secret():
     settings = Settings(
         environment="production",
         cors_allowed_origins="https://projectops.example",
-        auth_secret_key=Settings().auth_secret_key,
+        auth_secret_key=Settings.DEVELOPMENT_AUTH_SECRET,
     )
 
     with pytest.raises(ValueError, match="PROJECTOPS_AUTH_SECRET_KEY"):
