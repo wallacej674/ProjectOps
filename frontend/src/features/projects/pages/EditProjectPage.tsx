@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../../../api/client";
 import { projectsApi } from "../../../api/projects";
 import { AppShell } from "../../../components/layout/AppShell";
+import { useBreadcrumb } from "../../../components/layout/BreadcrumbContext";
 import { ErrorState } from "../../../components/ui/ErrorState";
 import { SkeletonPanel } from "../../../components/ui/LoadingSkeleton";
 import type { Project } from "../../../types/project";
@@ -14,6 +15,7 @@ export function EditProjectPage() {
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [error, setError] = useState("");
+  useBreadcrumb(project ? ["Projects", project.name, "Edit"] : null);
 
   useEffect(() => {
     projectsApi

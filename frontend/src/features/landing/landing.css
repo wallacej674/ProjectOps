@@ -3,23 +3,24 @@
    :root[data-theme="light"] via plain custom-property inheritance. */
 .landing {
   color-scheme: dark;
-  --bg: #090b0f;
-  --surface: #11151c;
-  --elevated: #171c25;
-  --muted: #202734;
-  --border: #293242;
-  --text: #f4f7fb;
-  --secondary: #a9b4c5;
-  --quiet: #738096;
-  --accent: #55c7e8;
-  --accent-hover: #8bdef5;
-  --success: #58c88c;
-  --warning: #f0b45b;
-  --danger: #ef7474;
-  --shadow: 0 18px 45px rgba(0, 0, 0, .22);
-  --terminal-bg: #05070a;
-  --terminal-border: #1b2330;
-  --tile-bg: color-mix(in srgb, var(--surface) 80%, transparent);
+  --bg: #15130f;
+  --surface: #1c1912;
+  --elevated: #211d16;
+  --muted: #29241b;
+  --border: #34302a;
+  --text: #f3f1ec;
+  --secondary: #ded9ce;
+  --quiet: #8a8478;
+  --accent: #f3f1ec;
+  --accent-hover: #d9d4c8;
+  --on-accent: #15130f;
+  --success: #6fa87f;
+  --warning: #c99a5b;
+  --danger: #c17662;
+  --shadow: none;
+  --terminal-bg: #100e0a;
+  --terminal-border: #2a261f;
+  --tile-bg: var(--surface);
   --font-mono: "JetBrains Mono Variable", ui-monospace, SFMono-Regular, Consolas, monospace;
   color: var(--text);
   overflow: hidden;
@@ -33,15 +34,15 @@
 
 .hero { padding: clamp(56px, 9vw, 120px) clamp(18px, 7vw, 110px) 56px; display: grid; grid-template-columns: 1.05fr minmax(380px, .95fr); gap: clamp(28px, 5vw, 64px); align-items: center; }
 .hero-eyebrow { font-family: var(--font-mono); font-size: 12px; letter-spacing: .16em; text-transform: uppercase; color: var(--accent); margin: 0 0 18px; }
-.hero h1 { font-size: clamp(40px, 5.4vw, 72px); line-height: 1.04; letter-spacing: -.035em; font-weight: 640; margin: 0 0 20px; max-width: 640px; }
+.hero h1 { font-size: clamp(40px, 5.4vw, 72px); line-height: 1.04; letter-spacing: -.01em; font-weight: 640; margin: 0 0 20px; max-width: 640px; }
 .hero-sub { color: var(--secondary); font-size: 17px; line-height: 1.6; max-width: 560px; margin: 0; }
 .hero-actions { display: flex; gap: 10px; margin-top: 30px; flex-wrap: wrap; }
 
 /* Terminal replay. The full script is in the DOM from first paint; un-revealed
    lines are visibility:hidden so the terminal never changes height. */
-.terminal { background: var(--terminal-bg); border: 1px solid var(--terminal-border); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow), 0 0 70px color-mix(in srgb, var(--accent) 8%, transparent); }
-.terminal-titlebar { display: flex; align-items: center; gap: 7px; padding: 11px 14px; border-bottom: 1px solid #141b26; }
-.terminal-dot { width: 9px; height: 9px; border-radius: 50%; background: #232c3b; }
+.terminal { background: var(--terminal-bg); border: 1px solid var(--terminal-border); border-radius: 12px; overflow: hidden; box-shadow: none; }
+.terminal-titlebar { display: flex; align-items: center; gap: 7px; padding: 11px 14px; border-bottom: 1px solid var(--terminal-border); }
+.terminal-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); }
 .terminal-title { font-family: var(--font-mono); font-size: 12px; color: var(--quiet); margin-left: 8px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .terminal-body { padding: 16px 18px 18px; font-family: var(--font-mono); font-size: 13px; line-height: 1.95; min-height: 308px; }
 .terminal-line { visibility: hidden; }
@@ -54,7 +55,7 @@
 .t-dim { color: var(--quiet); }
 .t-text { color: var(--secondary); }
 .t-strong { color: var(--text); }
-.replay-bar { display: inline-block; width: 130px; height: 7px; margin-left: 10px; border-radius: 4px; background: #151d29; overflow: hidden; vertical-align: 1px; }
+.replay-bar { display: inline-block; width: 130px; height: 7px; margin-left: 10px; border-radius: 4px; background: var(--muted); overflow: hidden; vertical-align: 1px; }
 .replay-bar-fill { display: block; height: 100%; width: 0; border-radius: 4px; background: var(--accent); transition: width .9s ease .15s; }
 .terminal-cursor { display: inline-block; width: 8px; height: 15px; background: var(--accent); vertical-align: -2px; animation: cursor-blink 1.1s steps(1) infinite; }
 .terminal-cursor.static { animation: none; }
@@ -65,19 +66,19 @@
 .stat-value { font-variant-numeric: tabular-nums; }
 
 .landing-section { padding: 76px clamp(18px, 7vw, 110px); border-top: 1px solid var(--border); }
-.landing-section h2 { font-size: clamp(26px, 3.6vw, 44px); letter-spacing: -.03em; font-weight: 620; margin: 10px 0 12px; max-width: 680px; }
+.landing-section h2 { font-size: clamp(26px, 3.6vw, 44px); letter-spacing: -.01em; font-weight: 620; margin: 10px 0 12px; max-width: 680px; }
 .section-lede { color: var(--secondary); line-height: 1.6; max-width: 600px; margin: 0 0 36px; }
 
 .tile-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
 .tile { background: var(--tile-bg); border: 1px solid var(--border); border-radius: 12px; padding: 18px; min-height: 196px; display: flex; flex-direction: column; gap: 9px; opacity: 0; transform: translateY(14px); transition: opacity .5s ease var(--reveal-delay, 0s), transform .5s ease var(--reveal-delay, 0s); }
 .tile-grid.is-visible .tile { opacity: 1; transform: none; }
 .tile-label { font-family: var(--font-mono); font-size: 11px; letter-spacing: .13em; text-transform: uppercase; color: var(--quiet); }
-.tile-value { font-size: 33px; letter-spacing: -.03em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+.tile-value { font-size: 30px; font-family: var(--font-mono); letter-spacing: normal; font-variant-numeric: tabular-nums; line-height: 1.1; }
 .tile-value small { font-size: 14px; color: var(--quiet); letter-spacing: 0; }
 .tile-value.ok { color: var(--success); }
 .tile-value.accent { color: var(--accent); }
 .tile-meta { color: var(--secondary); font-size: 13px; }
-.tile-bar { height: 5px; border-radius: 3px; background: #1a212e; }
+.tile-bar { height: 5px; border-radius: 3px; background: var(--muted); }
 .tile-bar-fill { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--accent); transition: width .9s ease .35s; }
 .tile-grid.is-visible .tile-bar-fill { width: 67%; }
 .tile-checklist { font-family: var(--font-mono); font-size: 12.5px; line-height: 2; margin: 0; padding: 0; list-style: none; color: var(--secondary); }

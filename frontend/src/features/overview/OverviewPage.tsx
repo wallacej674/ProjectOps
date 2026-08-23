@@ -112,16 +112,8 @@ export function OverviewPage() {
     }
   }
 
-  const active = projects?.filter((p) => p.status !== "archived") ?? [];
-  const setup = active.filter((p) => !p.repo_url || !p.production_url);
   const recentProjects = recentlyActiveProjects(activityEvents);
   const hasActiveActivityFilters = Boolean(activityCategoryFilter);
-  const metrics: [string, string | number, string][] = [
-    ["Active projects", active.length, "Projects not archived"],
-    ["Projects with recent activity", recentProjects.length, "Projects represented in the current activity window"],
-    ["Recent activity events", activityEvents.length, "Refresh-based product history"],
-    ["Need setup", setup.length, "Missing a repository or production URL"],
-  ];
 
   return (
     <AppShell>
@@ -171,20 +163,14 @@ export function OverviewPage() {
                 </div>
               </section>
             )}
-            <section className="metrics">
-              {metrics.map(([label, value, text]) => (
-                <article className="panel metric" key={label}>
-                  <div className="eyebrow">{label}</div>
-                  <div className="value">{projects ? value : ""}</div>
-                  <p>{text}</p>
-                </article>
-              ))}
-            </section>
             <div className="overview-activity-grid">
               <section className="panel detail-panel activity-panel" aria-labelledby="overview-activity-title">
                 <div className="row activity-heading">
                   <div>
-                    <h2 id="overview-activity-title">Recent Activity Across Projects</h2>
+                    <h2 id="overview-activity-title">
+                      <span className="section-dot activity" aria-hidden="true" />
+                      Recent Activity Across Projects
+                    </h2>
                     <p className="activity-intro">
                       Activity updates when ProjectOps actions are recorded. This is product history, not realtime
                       notifications.
@@ -268,7 +254,10 @@ export function OverviewPage() {
                 )}
               </section>
               <section className="panel detail-panel recently-active-panel" aria-labelledby="recently-active-projects-title">
-                <h2 id="recently-active-projects-title">Recently Active Projects</h2>
+                <h2 id="recently-active-projects-title">
+                  <span className="section-dot projects" aria-hidden="true" />
+                  Recently Active Projects
+                </h2>
                 <p className="activity-intro">
                   Projects represented in the latest activity window. Counts are recent indicators, not unread state.
                 </p>

@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import { BreadcrumbProvider } from "../components/layout/BreadcrumbContext";
 import { AuthProvider } from "../features/auth/AuthContext";
 import { AuthPage } from "../features/auth/AuthPage";
 import { ProtectedRoute, PublicOnlyRoute } from "../features/auth/ProtectedRoute";
@@ -14,18 +15,20 @@ export function AppRouter() {
   return (
     <BrowserRouter>
       <AuthProvider>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<PublicOnlyRoute><AuthPage mode="login" /></PublicOnlyRoute>} />
-          <Route path="/register" element={<PublicOnlyRoute><AuthPage mode="register" /></PublicOnlyRoute>} />
-          <Route path="/app" element={<ProtectedRoute><Navigate to="/app/overview" replace /></ProtectedRoute>} />
-          <Route path="/app/overview" element={<ProtectedRoute><OverviewPage /></ProtectedRoute>} />
-          <Route path="/app/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
-          <Route path="/app/projects/new" element={<ProtectedRoute><CreateProjectPage /></ProtectedRoute>} />
-          <Route path="/app/projects/:projectId" element={<ProtectedRoute><ProjectDetailPage /></ProtectedRoute>} />
-          <Route path="/app/projects/:projectId/edit" element={<ProtectedRoute><EditProjectPage /></ProtectedRoute>} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <BreadcrumbProvider>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<PublicOnlyRoute><AuthPage mode="login" /></PublicOnlyRoute>} />
+            <Route path="/register" element={<PublicOnlyRoute><AuthPage mode="register" /></PublicOnlyRoute>} />
+            <Route path="/app" element={<ProtectedRoute><Navigate to="/app/overview" replace /></ProtectedRoute>} />
+            <Route path="/app/overview" element={<ProtectedRoute><OverviewPage /></ProtectedRoute>} />
+            <Route path="/app/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
+            <Route path="/app/projects/new" element={<ProtectedRoute><CreateProjectPage /></ProtectedRoute>} />
+            <Route path="/app/projects/:projectId" element={<ProtectedRoute><ProjectDetailPage /></ProtectedRoute>} />
+            <Route path="/app/projects/:projectId/edit" element={<ProtectedRoute><EditProjectPage /></ProtectedRoute>} />
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </BreadcrumbProvider>
       </AuthProvider>
     </BrowserRouter>
   );

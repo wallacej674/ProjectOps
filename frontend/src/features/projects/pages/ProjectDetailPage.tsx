@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../../../api/client";
 import { projectsApi } from "../../../api/projects";
 import { AppShell } from "../../../components/layout/AppShell";
+import { useBreadcrumb } from "../../../components/layout/BreadcrumbContext";
 import { ErrorState } from "../../../components/ui/ErrorState";
 import { SkeletonPanel } from "../../../components/ui/LoadingSkeleton";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
@@ -234,6 +235,7 @@ export function ProjectDetailPage() {
   const navigate = useNavigate();
   const [project, setProject] = useState<Project | null>(null);
   const [error, setError] = useState("");
+  useBreadcrumb(project ? ["Projects", project.name] : null);
   const [archive, setArchive] = useState(false);
   const [repo, setRepo] = useState<RepoIntegration | null>(null);
   const [repoLoading, setRepoLoading] = useState(true);
