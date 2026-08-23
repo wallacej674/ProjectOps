@@ -51,6 +51,7 @@ Implemented:
 - Safe backend 500 responses and frontend error-boundary request ID surfacing.
 - Backup/restore and private-beta deployment drill documentation.
 - Safe backend smoke-check helper for hosted `/health` and `/health/db`.
+- Backend Dockerfile for the selected AWS App Runner private-beta path.
 - React + TypeScript frontend for Project Registry, Overview, Project detail
   command center, auth flows, readiness, artifacts, Launch Report, Guided
   Launch Checklist, Launch Decision, and activity surfaces.
@@ -183,6 +184,11 @@ proof, backup/PITR status, rollback notes, and go/no-go decision.
 The shorter operator to-do checklist lives in
 `docs/private-beta-hosting-todo-checklist.md`. Use it as the step-by-step list
 while performing the hosted private-beta deployment.
+
+The selected private-beta hosting path is Vercel for the frontend, AWS App
+Runner for the backend container, and Amazon RDS PostgreSQL for the managed
+database. AWS/Vercel-specific setup steps live in
+`docs/aws-app-runner-vercel-deployment.md`.
 
 After deploying a backend, run the safe unauthenticated health smoke helper:
 

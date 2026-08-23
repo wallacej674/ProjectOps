@@ -26,16 +26,16 @@ Record the chosen provider stack before running the drill:
 
 | Layer | Provider | URL or project name | Status |
 | --- | --- | --- | --- |
-| Frontend static host | Pending | Do not paste credentials | Pending |
-| Backend web service host | Pending | Do not paste credentials | Pending |
-| Managed PostgreSQL | Pending | Do not paste database URL | Pending |
+| Frontend static host | Vercel selected | Do not paste credentials | Pending deploy |
+| Backend web service host | AWS App Runner selected | Do not paste credentials | Pending deploy |
+| Managed PostgreSQL | Amazon RDS PostgreSQL selected | Do not paste database URL | Pending setup |
 | Monitoring | Pending | Do not paste Sentry DSN | Pending |
 
 Recommended provider shape:
 
-- Frontend: Vercel, Netlify, Azure Static Web Apps, or similar.
-- Backend: Render, Railway, Fly.io, Azure App Service, or similar.
-- Database: Neon, Supabase Postgres, Railway Postgres, or similar.
+- Frontend: Vercel.
+- Backend: AWS App Runner using `backend/Dockerfile`.
+- Database: Amazon RDS PostgreSQL.
 - Monitoring: Sentry or equivalent.
 
 ## Backend Deployment Settings

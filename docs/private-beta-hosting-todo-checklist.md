@@ -15,9 +15,12 @@ or screenshots containing credentials into the repository.
 Recommended private-beta stack:
 
 - Frontend: Vercel
-- Backend: Render or Railway
-- Database: Neon Postgres or provider-managed PostgreSQL
+- Backend: AWS App Runner
+- Database: Amazon RDS PostgreSQL
 - Monitoring: Sentry
+
+AWS/Vercel-specific setup notes live in
+`docs/aws-app-runner-vercel-deployment.md`.
 
 ## 2. Database Setup
 
@@ -46,10 +49,11 @@ Recommended private-beta stack:
 
 ## 4. Backend Deploy
 
-- [ ] Configure backend working directory.
-- [ ] Configure Python version.
-- [ ] Configure backend install command.
-- [ ] Configure backend start command.
+- [ ] Build the backend container from `backend/Dockerfile`.
+- [ ] Push the image to Amazon ECR.
+- [ ] Create or update the AWS App Runner service from the ECR image.
+- [ ] Configure App Runner container port `8000`.
+- [ ] Configure App Runner HTTP health check path `/health`.
 - [ ] Deploy the backend service.
 - [ ] Run Alembic migrations against the hosted database.
 - [ ] Record migration timestamp and result.
