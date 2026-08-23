@@ -101,7 +101,9 @@ describe("Overview activity", () => {
     mockFetch((url, init) => {
       const method = (init.method ?? "GET").toUpperCase();
       if (url.endsWith("/api/v1/projects?include_archived=true") && method === "GET") return json(projects);
-      if (url.endsWith("/api/v1/activity?limit=25") && method === "GET") return pendingActivity;
+      if (url.endsWith("/api/v1/activity?limit=25") && method === "GET") {
+        return pendingActivity.then((response) => response.clone());
+      }
       return json([]);
     });
     goOverview();

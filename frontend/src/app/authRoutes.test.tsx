@@ -25,6 +25,7 @@ describe("auth routes", () => {
   });
 
   it("lets an authenticated user access overview and see their account", async () => {
+    const user = userEvent.setup();
     signInTestUser();
     mockProjectsApi({ list: [makeProject()] });
     go("/app/overview");
@@ -32,6 +33,7 @@ describe("auth routes", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: /understand what needs attention/i })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Account menu" }));
     expect(screen.getByText("engineer@example.com")).toBeInTheDocument();
   });
 
@@ -73,7 +75,8 @@ describe("auth routes", () => {
     go("/app/projects");
     render(<App />);
 
-    await user.click(await screen.findByRole("button", { name: "Sign out" }));
+    await user.click(await screen.findByRole("button", { name: "Account menu" }));
+    await user.click(screen.getByRole("menuitem", { name: "Sign out" }));
 
     expect(await screen.findByRole("heading", { name: "Sign in to ProjectOps" })).toBeInTheDocument();
     expect(localStorage.getItem("projectops.auth.token")).toBeNull();

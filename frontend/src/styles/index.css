@@ -379,6 +379,10 @@
 }
 
 /* App Overview activity surfacing: real cross-Project product history. */
+.overview-metrics { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:18px 0 16px; }
+.metric { border:1px solid var(--border); border-radius:8px; background:color-mix(in srgb,var(--surface) 88%,transparent); padding:14px; display:grid; gap:8px; min-width:0; }
+.metric span { color:var(--secondary); font-size:13px; line-height:1.35; overflow-wrap:anywhere; }
+.metric strong { font-family:"JetBrains Mono Variable",ui-monospace,SFMono-Regular,Consolas,monospace; font-size:24px; line-height:1; }
 .overview-activity-grid { display:grid; grid-template-columns:minmax(0,1.35fr) minmax(300px,.65fr); gap:16px; margin-top:16px; align-items:start; }
 .first-run-panel { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:18px; align-items:center; padding:22px; margin-bottom:18px; background:var(--surface); }
 .first-run-panel h2 { margin:6px 0 8px; font-size:22px; letter-spacing:-.01em; }
@@ -395,6 +399,7 @@
 .recently-active-list time { color:var(--quiet); font-size:12px; }
 
 @media(max-width:1100px){
+  .overview-metrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .overview-activity-grid { grid-template-columns:1fr; }
   .first-run-panel { grid-template-columns:1fr; }
   .first-run-actions { justify-content:flex-start; }
@@ -402,6 +407,7 @@
 }
 
 @media(max-width:560px){
+  .overview-metrics { grid-template-columns:1fr; }
   .overview-activity-grid { margin-top:18px; }
   .first-run-actions .button { width:100%; justify-content:center; }
   .overview-activity-grid .activity-heading { align-items:flex-start; flex-direction:column; }

@@ -80,6 +80,7 @@ export function TopBar({
           onClick={onToggleTheme}
         >
           <ThemeIcon theme={theme} />
+          <span>Theme: {theme === "dark" ? "Dark" : "Light"}</span>
         </button>
         {currentUser && <AccountMenu user={currentUser} onLogout={onLogout} />}
       </div>

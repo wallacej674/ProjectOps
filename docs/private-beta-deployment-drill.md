@@ -160,6 +160,18 @@ If a migration fails:
 
 ## Health Check Results
 
+## Local Preflight Evidence
+
+Recorded on 2026-08-23 before provider selection. These checks do not replace
+hosted private-beta evidence.
+
+| Check | Result | Notes |
+| --- | --- | --- |
+| Backend `/health` on `http://127.0.0.1:8000` | Passed | Returned `{"status":"ok","service":"ProjectOps Backend","environment":"local"}`. |
+| Frontend production build | Passed | Built with `VITE_API_BASE_URL=http://127.0.0.1:8000`. |
+| Browser click-through on `http://127.0.0.1:5173` | Passed | Signed in with a disposable local account, created Project `Browser Smoke 1787498377641`, confirmed Project Registry search/table view, toggled theme, opened account menu, and signed out. Browser console error count: `0`. |
+| Preview origin `http://127.0.0.1:4173` | Blocked by local config | Backend CORS rejected the preview origin, and `frontend/.env.local` pointed at `http://127.0.0.1:8010`. Hosted deployment must set `PROJECTOPS_CORS_ALLOWED_ORIGINS` to the deployed frontend origin and `VITE_API_BASE_URL` to the deployed backend origin. |
+
 Local helper:
 
 ```powershell

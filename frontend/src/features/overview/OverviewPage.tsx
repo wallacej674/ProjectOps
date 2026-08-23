@@ -114,6 +114,8 @@ export function OverviewPage() {
 
   const recentProjects = recentlyActiveProjects(activityEvents);
   const hasActiveActivityFilters = Boolean(activityCategoryFilter);
+  const activeProjects = projects?.filter((project) => project.status !== "archived") ?? [];
+  const needsSetupCount = activeProjects.filter((project) => !project.repo_url || !project.production_url).length;
 
   return (
     <AppShell>
@@ -134,6 +136,26 @@ export function OverviewPage() {
           </ErrorState>
         ) : (
           <>
+            {projects && (
+              <section className="overview-metrics" aria-label="Project overview metrics">
+                <div className="metric">
+                  <span>Active projects</span>
+                  <strong>{activeProjects.length}</strong>
+                </div>
+                <div className="metric">
+                  <span>Recently active Projects</span>
+                  <strong>{recentProjects.length}</strong>
+                </div>
+                <div className="metric">
+                  <span>Recent activity events</span>
+                  <strong>{activityEvents.length}</strong>
+                </div>
+                <div className="metric">
+                  <span>Needs setup</span>
+                  <strong>{needsSetupCount}</strong>
+                </div>
+              </section>
+            )}
             {projects && projects.length === 0 && (
               <section className="panel first-run-panel" aria-labelledby="first-run-title">
                 <div>
