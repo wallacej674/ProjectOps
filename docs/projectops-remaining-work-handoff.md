@@ -852,6 +852,15 @@ At minimum verify:
 
 This may be possible without a full browser framework.
 
+## Current implementation
+
+The lightweight hosted-shell version is implemented as
+`frontend/scripts/preview-smoke.mjs` and wired into CI through
+`npm run smoke:preview`. It starts Vite preview from the production `dist/`
+output and verifies `/`, `/app`, and `/app/projects/1/edit` return the SPA
+shell. It intentionally does not install Playwright/Cypress or run full account
+workflows.
+
 ---
 
 ## Optional browser automation

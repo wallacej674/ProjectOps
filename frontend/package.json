@@ -8,6 +8,7 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
+    "smoke:preview": "node scripts/preview-smoke.mjs",
     "audit": "npm audit --audit-level=high",
     "test": "vitest run",
     "test:watch": "vitest"

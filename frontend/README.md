@@ -75,6 +75,7 @@ it to protected API calls.
 | `npm run dev` | Start the Vite dev server |
 | `npm run build` | Type-check (`tsc -b`) and produce a production build |
 | `npm run preview` | Serve the built `dist/` output locally |
+| `npm run smoke:preview` | Start Vite preview and verify `/`, `/app`, and a deep `/app/*` route serve the SPA shell |
 | `npm run lint` | Run ESLint |
 | `npm run audit` | Fail on high-or-critical npm dependency advisories |
 | `npm run test` | Run the Vitest suite once |

@@ -49,10 +49,13 @@ The frontend job uses Node.js 20 and installs dependencies with `npm ci` from
 npm test
 npm run lint
 npm run build
+npm run smoke:preview
 ```
 
 `VITE_API_BASE_URL` is set to `http://127.0.0.1:8000` so the production build
 exercises the deployment-aware API URL guard without relying on a real backend.
+The preview smoke starts Vite preview from the built `dist/` output and verifies
+`/`, `/app`, and `/app/projects/1/edit` return the SPA shell.
 
 ### Dependency Security Scan
 
@@ -134,6 +137,7 @@ npm test
 npm run lint
 $env:VITE_API_BASE_URL = "http://127.0.0.1:8000"
 npm run build
+npm run smoke:preview
 npm run audit
 ```
 
