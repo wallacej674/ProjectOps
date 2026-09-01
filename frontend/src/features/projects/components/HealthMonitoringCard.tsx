@@ -32,8 +32,32 @@ function HealthCheckStatusBadge({ status }: { status: HealthCheckStatus }) {
   );
 }
 
+function healthTone(status: HealthCheckStatus): "success" | "warning" | "danger" {
+  if (status === "healthy") return "success";
+  if (status === "unhealthy") return "danger";
+  return "warning";
+}
+
+const healthTileNote: Record<HealthCheckStatus, string> = {
+  healthy: "2xx or 3xx response",
+  unhealthy: "4xx or 5xx response",
+  timeout: "no response in time",
+  error: "network or client error",
+};
+
+const healthTileCode: Record<HealthCheckStatus, string> = {
+  healthy: "OK",
+  unhealthy: "ERR",
+  timeout: "TIMEOUT",
+  error: "ERR",
+};
+
 function HealthCheckResult({ check, projectTargetUrl }: { check: HealthCheck; projectTargetUrl: string }) {
   const showResultTarget = check.target_url !== projectTargetUrl;
+  const tone = healthTone(check.status);
+  const latencyPct =
+    check.response_time_ms !== null ? Math.max(4, Math.min(100, Math.round((check.response_time_ms / 1000) * 100))) : 0;
+  const hasLog = Boolean(check.response_preview || check.error_message);
 
   return (
     <section className="health-section latest-health" aria-labelledby="latest-health-title">
@@ -42,42 +66,87 @@ function HealthCheckResult({ check, projectTargetUrl }: { check: HealthCheck; pr
         <HealthCheckStatusBadge status={check.status} />
       </div>
       <p>{statusMeanings[check.status]}</p>
-      <dl className="health-metadata">
-        {showResultTarget && (
-          <div className="definition">
-            <dt>Checked URL</dt>
-            <dd className="mono">{check.target_url}</dd>
+
+      <div className="readout">
+        <div className="readout-titlebar">
+          <span className="readout-dot" aria-hidden="true" />
+          <span className="readout-dot" aria-hidden="true" />
+          <span className="readout-dot" aria-hidden="true" />
+          <span className="readout-title">health &mdash; {showResultTarget ? check.target_url : projectTargetUrl || "target"}</span>
+        </div>
+        <div className="readout-body">
+          <p className="readout-cmd">
+            <span className="prompt" aria-hidden="true">
+              &gt;
+            </span>{" "}
+            health check --execution {check.execution_source === "scheduled" ? "scheduled" : "manual"}
+          </p>
+
+          <div className="readout-tiles">
+            <div className="readout-tile">
+              <span className="readout-tile-label">Status</span>
+              <span className={`readout-tile-value tone-${tone}`}>{healthTileCode[check.status]}</span>
+              <span className="readout-tile-note">{healthTileNote[check.status]}</span>
+            </div>
+            <div className="readout-tile">
+              <span className="readout-tile-label">HTTP</span>
+              <span className="readout-tile-value">{check.http_status_code ?? "—"}</span>
+            </div>
+            <div className="readout-tile">
+              <span className="readout-tile-label">Latency</span>
+              <span className="readout-tile-value">
+                {check.response_time_ms !== null ? (
+                  <>
+                    {check.response_time_ms}
+                    <small>ms</small>
+                  </>
+                ) : (
+                  "—"
+                )}
+              </span>
+              <div className="readout-tile-bar">
+                <span className="readout-tile-bar-fill" style={{ width: `${latencyPct}%` }} />
+              </div>
+            </div>
+            <div className="readout-tile">
+              <span className="readout-tile-label">Checked</span>
+              <span className="readout-tile-value is-text">{formatDate(check.checked_at)}</span>
+            </div>
           </div>
-        )}
-        <div className="definition">
-          <dt>Execution</dt>
-          <dd>{check.execution_source === "scheduled" ? "Scheduled check" : "Manual check"}</dd>
+
+          {hasLog && (
+            <div className="readout-log">
+              {check.response_preview && (
+                <>
+                  <p className="readout-log-heading" id="health-response-preview-title">
+                    <span className="prompt" aria-hidden="true">
+                      &rsaquo;
+                    </span>{" "}
+                    response preview
+                  </p>
+                  <pre className="readout-pre" aria-labelledby="health-response-preview-title">
+                    {check.response_preview}
+                  </pre>
+                </>
+              )}
+              {check.error_message && (
+                <>
+                  <p className="readout-log-heading" id="health-error-message-title">
+                    <span className="prompt" aria-hidden="true">
+                      &rsaquo;
+                    </span>{" "}
+                    error
+                  </p>
+                  <p className="readout-error" role="alert" aria-labelledby="health-error-message-title">
+                    {check.error_message}
+                  </p>
+                </>
+              )}
+              <span className="readout-cursor" aria-hidden="true" />
+            </div>
+          )}
         </div>
-        <div className="definition">
-          <dt>HTTP status</dt>
-          <dd>{check.http_status_code ? `HTTP ${check.http_status_code}` : "No HTTP status"}</dd>
-        </div>
-        <div className="definition">
-          <dt>Response time</dt>
-          <dd>{check.response_time_ms !== null ? `${check.response_time_ms} ms` : "No response time"}</dd>
-        </div>
-        <div className="definition">
-          <dt>Last checked</dt>
-          <dd>{formatDate(check.checked_at)}</dd>
-        </div>
-      </dl>
-      {check.response_preview && (
-        <section className="health-section" aria-labelledby="health-response-preview-title">
-          <h4 id="health-response-preview-title">Response Preview</h4>
-          <pre className="response-preview">{check.response_preview}</pre>
-        </section>
-      )}
-      {check.error_message && (
-        <section className="health-section error" aria-labelledby="health-error-message-title">
-          <h4 id="health-error-message-title">Error Message</h4>
-          <p className="error-text">{check.error_message}</p>
-        </section>
-      )}
+      </div>
     </section>
   );
 }
@@ -268,6 +337,19 @@ export function HealthMonitoringCard({
             <>
               <h3>No health check has been run yet.</h3>
               <p>Run a manual health check to see whether this endpoint responds.</p>
+              <div className="readout is-idle" aria-hidden="true">
+                <div className="readout-titlebar">
+                  <span className="readout-dot" />
+                  <span className="readout-dot" />
+                  <span className="readout-dot" />
+                  <span className="readout-title">health &mdash; {productionUrl}</span>
+                </div>
+                <div className="readout-body">
+                  <p className="readout-cmd">
+                    <span className="prompt">$</span> awaiting first check <span className="readout-cursor" />
+                  </p>
+                </div>
+              </div>
             </>
           )}
           <label className="check-row">

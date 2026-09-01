@@ -56,24 +56,57 @@ export function RepositoryConnectionCard({
             <strong>{repo.repo_owner}/{repo.repo_name}</strong>
             <span className="badge healthy">Connected</span>
           </div>
-          <dl>
-            <div className="definition">
-            <dt>Provider</dt>
-              <dd>{repo.provider}{repo.is_private ? " (private)" : ""}</dd>
+
+          <div className="readout">
+            <div className="readout-titlebar">
+              <span className="readout-dot" aria-hidden="true" />
+              <span className="readout-dot" aria-hidden="true" />
+              <span className="readout-dot" aria-hidden="true" />
+              <span className="readout-title">
+                repo &mdash; {repo.repo_owner}/{repo.repo_name}
+              </span>
             </div>
-            <div className="definition">
-              <dt>Repository URL</dt>
-              <dd className="mono">{repo.repo_url}</dd>
+            <div className="readout-body">
+              <p className="readout-cmd">
+                <span className="prompt" aria-hidden="true">
+                  &gt;
+                </span>{" "}
+                repo view {repo.repo_owner}/{repo.repo_name}
+              </p>
+
+              <div className="readout-tiles">
+                <div className="readout-tile">
+                  <span className="readout-tile-label">Provider</span>
+                  <span className="readout-tile-value is-text">{repo.provider}</span>
+                </div>
+                <div className="readout-tile">
+                  <span className="readout-tile-label">Visibility</span>
+                  <span className="readout-tile-value is-text">{repo.is_private ? "Private" : "Public"}</span>
+                </div>
+                <div className="readout-tile">
+                  <span className="readout-tile-label">Default branch</span>
+                  <span className="readout-tile-value is-text">{repo.default_branch || "Not verified"}</span>
+                </div>
+                <div className="readout-tile">
+                  <span className="readout-tile-label">Last verified</span>
+                  <span className="readout-tile-value is-text">
+                    {repo.last_verified_at ? formatDate(repo.last_verified_at) : "Not verified"}
+                  </span>
+                </div>
+              </div>
+
+              <div className="readout-log">
+                <p className="readout-log-heading">
+                  <span className="prompt" aria-hidden="true">
+                    &rsaquo;
+                  </span>{" "}
+                  url
+                </p>
+                <p className="readout-pre mono">{repo.repo_url}</p>
+                <span className="readout-cursor" aria-hidden="true" />
+              </div>
             </div>
-            <div className="definition">
-              <dt>Default branch</dt>
-              <dd>{repo.default_branch || "Not verified yet"}</dd>
-            </div>
-            <div className="definition">
-              <dt>Last verified</dt>
-              <dd>{repo.last_verified_at ? formatDate(repo.last_verified_at) : "Not verified yet"}</dd>
-            </div>
-          </dl>
+          </div>
           {replaceMode ? (
             <div className="repo-replace">
               <p className="meta">

@@ -1,5 +1,7 @@
 # Milestone 5: Manual Health Monitor
 
+> Historical milestone record. Scheduled monitoring is now implemented separately; see `projectops-remaining-work-handoff.md`.
+
 Milestone 5 adds Manual Health Monitor, a small backend feature for running and storing on-demand Health Checks for Projects.
 
 The main routes are:

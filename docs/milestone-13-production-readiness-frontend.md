@@ -1,5 +1,7 @@
 # Milestone 13: Production Readiness Frontend
 
+> Historical milestone record. Scope and exclusions describe this milestone at delivery; see `projectops-remaining-work-handoff.md` for current capabilities.
+
 Milestone 13 connects the existing Production Readiness backend to Project
 detail. Readiness is an advisory checklist based on available ProjectOps
 evidence. It does not certify that a project is safe for production.

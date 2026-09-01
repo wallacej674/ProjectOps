@@ -1,5 +1,8 @@
 # Milestone 34: Scheduled Health Monitoring
 
+Status: implemented. Current deployment validation remains part of the hosted
+private-beta milestone in `projectops-remaining-work-handoff.md`.
+
 Milestone 34 turns the existing safe manual URL check into an opt-in recurring
 operational signal. A Project owner chooses a cadence of 15 minutes, hourly,
 every 6 hours, or daily.

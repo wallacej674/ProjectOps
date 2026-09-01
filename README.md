@@ -298,7 +298,7 @@ current account. Existing rows may have a nullable owner during migration
 compatibility, but Projects created through the API are account-owned.
 
 The launch report endpoint returns a current, read-only launch-review projection
-built from Project metadata, repository connection, latest CodeMap Lite result,
+built from Project metadata, repository connection, latest Repo Analysis result,
 latest health check, readiness summary, artifact count, and activity count. The
 guided launch checklist endpoint returns a current operator checklist from the
 same evidence. Neither endpoint persists immutable approvals or certifies
@@ -325,9 +325,12 @@ contents in DataForge Lite.
 
 - `docs/projectops-remaining-work-handoff.md`: current remaining-work roadmap,
   ship criteria, milestone process, and private-beta readiness boundary.
+- `docs/README.md`: documentation index and historical/current status guidance.
 - `frontend/README.md`: frontend architecture, route map, behavior notes, manual
   verification, and limitations.
 - `docs/deployment-readiness.md`: provider-neutral deployment readiness guide.
+- `docs/render-vercel-deployment.md`: selected provider setup for the API,
+  scheduler, database, and frontend.
 - `docs/private-beta-deployment-drill.md`: evidence log for the real hosted
   deployment drill.
 - `docs/private-beta-hosting-todo-checklist.md`: shorter operator checklist for
@@ -337,6 +340,12 @@ contents in DataForge Lite.
   expectations.
 - `docs/ci-quality-gate.md`: GitHub Actions quality gate.
 - `docs/authentication-ownership.md`: local auth and Project ownership model.
+- `docs/github-app-private-repositories.md`: read-only GitHub App setup and
+  private-repository token lifecycle.
+- `docs/milestone-34-scheduled-health-monitoring.md`: schedule API, worker, UI,
+  and deployment boundary.
+- `docs/milestone-40-codemap-medium-repository-insights.md`: bounded manifest
+  inspection and compatibility behavior.
 - `docs/launch-decision-records.md`: Launch Decision artifact storage,
   history behavior, limitations, and future hardening options.
 - `docs/milestone-28-artifact-evidence-coverage-traceability.md`: evidence
@@ -358,15 +367,20 @@ Important current terms:
 - `Repo Integration`: a connection record between one Project and an external
   code repository.
 - `GitHub Repo Intake`: the workflow that attaches, normalizes, retrieves, or
-  removes a public GitHub repository connection.
+  removes a public repository connection or an authorized read-only GitHub App
+  repository connection.
 - `Repo Analysis`: a stored snapshot of rule-based observations about an
   attached repository.
-- `CodeMap Lite`: the workflow that fetches public GitHub repository paths and
-  turns those paths into a Repo Analysis.
-- `Health Check`: a stored result of one manual reachability check against a
-  Project URL.
+- `CodeMap Lite`: the original path-only repository analysis workflow. Existing
+  snapshots remain readable.
+- `Repository Insights`: CodeMap Medium observations derived from repository
+  paths and a bounded allowlist of manifests and operational configuration.
+- `Health Check`: a stored result of one manual or scheduled reachability check
+  against a Project URL.
 - `Manual Health Monitor`: the workflow that runs and stores an on-demand Health
   Check.
+- `Scheduled Health Monitor`: an opt-in recurring check against the saved
+  production URL; it is not an uptime guarantee or alerting system.
 - `Readiness`: an advisory checklist combining available ProjectOps evidence and
   manual review.
 - `Launch Report`: a current launch-review projection built from ProjectOps

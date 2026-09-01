@@ -3,6 +3,12 @@
 These notes explain how the ProjectOps frontend is organized and how new features
 should fit into the existing architecture.
 
+The file retains milestone-by-milestone learning history. Current extensions
+include GitHub App private-repository selection, CodeMap Medium Repository
+Insights, and scheduled Health Monitoring; older sections that describe
+CodeMap Lite or manual-only checks remain useful background rather than current
+feature limits.
+
 ## Frontend folder structure
 
 `frontend/src/app` owns application entry and routing. Shared chrome lives in
@@ -1060,3 +1066,25 @@ boundary, ProjectOps shows a safe fallback with:
 The fallback intentionally does not show stack traces, raw exception messages,
 tokens, or request details. Frontend monitoring is optional and only starts when
 `VITE_ENABLE_ERROR_MONITORING=true` and `VITE_SENTRY_DSN` are configured.
+
+## Current extension: GitHub App repository selection
+
+Repository Connection can start a user-authorized GitHub App flow, return
+through `/app/github/callback`, list repositories visible to the selected
+installation, and attach a public or private repository. The frontend never
+receives or stores the installation token.
+
+## Current extension: CodeMap Medium
+
+The Repository Analysis UI renders the existing path signals plus structured
+Repository Insights, evidence-file mappings, inspected files, analysis version,
+and bounded-inspection warnings. Older `codemap_lite_v1` snapshots remain valid
+and render without fabricated insight fields.
+
+## Current extension: Scheduled Health Monitoring
+
+`ProjectDetailPage` loads schedule state independently from latest-check and
+history state. `HealthMonitoringCard` lets the user select a supported cadence,
+enable or update the schedule, and pause it. History and latest-result rows show
+whether each attempt was manual or scheduled. Schedule errors remain scoped to
+the Health Monitoring section so the rest of the command center stays usable.

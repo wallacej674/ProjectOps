@@ -1,5 +1,7 @@
 # Milestone 4: CodeMap Lite
 
+> Historical milestone record. CodeMap Medium now extends this foundation; see `projectops-remaining-work-handoff.md` for current capabilities.
+
 Milestone 4 adds CodeMap Lite, a small rule-based repository path analyzer for Projects that already have an attached GitHub repository.
 
 The main routes are:

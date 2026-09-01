@@ -1,5 +1,7 @@
 # Milestone 10: GitHub Repo Intake Frontend
 
+> Historical milestone record. Private repository selection is now supported through the GitHub App; see `projectops-remaining-work-handoff.md`.
+
 Milestone 10 connects the existing GitHub Repo Intake backend to the ProjectOps
 frontend. The experience lives on the Project detail page.
 

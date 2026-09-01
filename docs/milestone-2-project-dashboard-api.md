@@ -1,5 +1,7 @@
 # Milestone 2: Project Dashboard API
 
+> Historical milestone record. Scope and exclusions describe this milestone at delivery; see `projectops-remaining-work-handoff.md` for current capabilities.
+
 Milestone 2 adds the first Project Dashboard endpoint:
 
 ```text

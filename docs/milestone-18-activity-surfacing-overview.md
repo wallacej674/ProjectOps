@@ -1,5 +1,7 @@
 # Milestone 18: Activity Surfacing and Overview Upgrade
 
+> Historical milestone record. Future boundaries describe this milestone at delivery; see `projectops-remaining-work-handoff.md` for current priorities.
+
 Milestone 18 makes Recent Activity visible beyond one Project detail page.
 
 The goal is refresh-based product history across Projects: users can see what

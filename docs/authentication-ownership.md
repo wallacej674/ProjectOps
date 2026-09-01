@@ -1,6 +1,6 @@
 # Authentication and Project Ownership
 
-Milestone 22 adds the first real identity boundary for ProjectOps: local
+Milestone 22 added the first real identity boundary for ProjectOps: local
 email/password accounts, JWT bearer authentication, and account-owned Projects.
 It intentionally stays smaller than a production identity platform.
 
@@ -16,11 +16,15 @@ Implemented:
 - Signed JWT bearer access tokens through `PyJWT`.
 - Protected Project, activity, readiness, repository, analysis, health, and
   artifact routes.
+- Protected scheduled Health Monitor routes and Project ownership checks.
+- Protected GitHub App authorization, repository-selection, and callback
+  association flows.
 - Account-owned Project creation and listing.
 - Per-user demo workspace seeding outside production.
 - Production-disabled demo seeding.
 - Fixed-window rate limiting for login, registration, demo seed, CodeMap run,
-  and manual health-check run endpoints.
+  and manual health-check run endpoints. Scheduled executions are initiated by
+  the trusted worker and still operate only on owner-scoped Project data.
 
 Not implemented:
 

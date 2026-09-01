@@ -32,12 +32,11 @@ Set the following backend runtime configuration:
 Configuration is all-or-nothing. ProjectOps rejects partial GitHub App
 configuration and hides the connection action when it is not configured.
 
-Do not commit the client secret or private key. For the selected AWS hosting
-path, keep them in AWS Secrets Manager and resolve them only at process runtime
-through the repository-required `asm-exec` workflow using Secrets Manager
-dynamic references such as
-`{{resolve:secretsmanager:secret-id:SecretString:json-key}}`. The actual secret
-identifier and key names are deployment-specific and must not be committed.
+Do not commit the client secret or private key. For the selected Render hosting
+path, store them only in Render's protected environment-variable settings. Keep
+the multiline private-key formatting intact and never expose either value to
+Vercel or a browser-visible `VITE_` variable. If the deployment returns to AWS,
+follow the repository's AWS secret-safety requirements for runtime resolution.
 
 ## Authorization and Token Lifecycle
 

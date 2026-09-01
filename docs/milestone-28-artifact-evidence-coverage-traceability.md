@@ -1,5 +1,7 @@
 # Milestone 28: Artifact Evidence Coverage and Traceability
 
+> Historical milestone record. This milestone is complete; see `projectops-remaining-work-handoff.md` for remaining work.
+
 Milestone 28 makes existing DataForge Lite evidence links easier to inspect
 across Production Readiness, Project Artifacts, Launch Report, and Guided
 Launch Checklist.

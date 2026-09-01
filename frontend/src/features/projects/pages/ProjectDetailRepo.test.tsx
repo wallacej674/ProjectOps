@@ -77,7 +77,8 @@ describe("Project detail repository connection", () => {
     await user.selectOptions(select, "91:22");
     await user.click(within(section).getByRole("button", { name: "Attach selected repository" }));
     expect(await within(section).findByText("acme/private-api")).toBeInTheDocument();
-    expect(within(section).getByText("github (private)")).toBeInTheDocument();
+    expect(within(section).getByText("github")).toBeInTheDocument();
+    expect(within(section).getByText("Private")).toBeInTheDocument();
   });
 
   it("shows a loading state while repository connection state loads", async () => {

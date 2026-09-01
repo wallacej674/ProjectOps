@@ -1,5 +1,7 @@
 # Milestone 11: CodeMap Lite Frontend
 
+> Historical milestone record. CodeMap Medium now extends this UI and data contract; see `projectops-remaining-work-handoff.md`.
+
 Milestone 11 connects the existing CodeMap Lite backend to the Project detail
 frontend.
 

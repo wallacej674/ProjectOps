@@ -1,5 +1,7 @@
 # Milestone 14: Project Dashboard Unification
 
+> Historical milestone record. Future boundaries describe this milestone at delivery; see `projectops-remaining-work-handoff.md` for the current command center.
+
 Milestone 14 turns Project detail into a unified engineering command center. It
 keeps the existing Repository Connection, CodeMap Lite, Manual Health Monitoring,
 Production Readiness, and Project metadata sections, then adds a scannable

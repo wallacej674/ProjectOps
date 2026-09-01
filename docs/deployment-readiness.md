@@ -4,16 +4,16 @@ ProjectOps now has a selected private-beta deployment path:
 
 - Frontend: Vercel, built from `frontend/`.
 - Backend: Render Docker Web Service, built from `backend/Dockerfile`.
+- Scheduler: Render Cron Job, built from the backend image.
 - Database: Render Postgres using the same-region private connection string.
 
-The root `render.yaml` declares the backend and database lifecycle. Follow
+The root `render.yaml` declares the backend, scheduler, and database lifecycle. Follow
 `docs/render-vercel-deployment.md` for provider setup. The guidance below
 retains the provider-neutral operational requirements behind that selection.
 
 ProjectOps has local email/password authentication and account-owned Projects.
 It does not yet have teams, organizations, roles, OAuth, password reset,
-distributed rate limiting, scheduled monitoring, metrics dashboards, or
-production alerting.
+distributed rate limiting, metrics dashboards, or production alerting.
 
 ## Required Services
 
@@ -33,7 +33,7 @@ Backend variables use the `PROJECTOPS_` prefix.
 | `PROJECTOPS_ENVIRONMENT` | No | `local` | Use `production` for deployed backend instances. |
 | `PROJECTOPS_DATABASE_URL` | Yes | Docker Compose local database | Use the managed PostgreSQL connection string. Keep it secret. |
 | `PROJECTOPS_TEST_DATABASE_URL` | Tests only | Docker Compose test database | Used by pytest; not needed in production. |
-| `PROJECTOPS_HEALTH_CHECK_TIMEOUT_SECONDS` | No | `5` | Timeout for manual Project URL checks. |
+| `PROJECTOPS_HEALTH_CHECK_TIMEOUT_SECONDS` | No | `5` | Timeout for manual and scheduled Project URL checks. |
 | `PROJECTOPS_LOG_LEVEL` | No | `INFO` | Backend log threshold. Use `INFO` for normal production request logs. |
 | `PROJECTOPS_ENABLE_ERROR_MONITORING` | No | `false` | Set to `true` only when a monitoring provider DSN is configured. |
 | `PROJECTOPS_SENTRY_DSN` | No | Empty | Optional Sentry DSN for backend unhandled exception capture. Keep it secret. |
@@ -46,8 +46,8 @@ Backend variables use the `PROJECTOPS_` prefix.
 | `PROJECTOPS_RATE_LIMIT_AUTH_REGISTER_WINDOW_SECONDS` | No | `3600` | Registration rate-limit window in seconds. |
 | `PROJECTOPS_RATE_LIMIT_DEMO_SEED_ATTEMPTS` | No | `3` | Demo seed attempts allowed per user within the demo seed window. |
 | `PROJECTOPS_RATE_LIMIT_DEMO_SEED_WINDOW_SECONDS` | No | `3600` | Demo seed rate-limit window in seconds. |
-| `PROJECTOPS_RATE_LIMIT_CODEMAP_RUN_ATTEMPTS` | No | `5` | CodeMap Lite runs allowed per user and Project within the CodeMap window. |
-| `PROJECTOPS_RATE_LIMIT_CODEMAP_RUN_WINDOW_SECONDS` | No | `300` | CodeMap Lite run rate-limit window in seconds. |
+| `PROJECTOPS_RATE_LIMIT_CODEMAP_RUN_ATTEMPTS` | No | `5` | Repo Analysis runs allowed per user and Project within the CodeMap window. |
+| `PROJECTOPS_RATE_LIMIT_CODEMAP_RUN_WINDOW_SECONDS` | No | `300` | Repo Analysis run rate-limit window in seconds. |
 | `PROJECTOPS_RATE_LIMIT_HEALTH_CHECK_RUN_ATTEMPTS` | No | `10` | Manual health checks allowed per user and Project within the health-check window. |
 | `PROJECTOPS_RATE_LIMIT_HEALTH_CHECK_RUN_WINDOW_SECONDS` | No | `300` | Manual health-check rate-limit window in seconds. |
 | `PROJECTOPS_CORS_ALLOWED_ORIGINS` | Yes | Local Vite origins | Comma-separated deployed frontend origins. `*` is rejected in production. |
@@ -309,7 +309,7 @@ account and does not print secrets.
 6. Create a Project.
 7. Edit the Project.
 8. Attach a public GitHub repository URL.
-9. Run CodeMap Lite.
+9. Run CodeMap Medium Repository Analysis.
 10. Add a production URL.
 11. Run a manual health check.
 12. Evaluate readiness.
@@ -373,7 +373,7 @@ rollback notes, and the private-beta go/no-go decision.
 Reviewed in Milestone 19:
 
 - CORS is explicit and wildcard origins are rejected in production.
-- SSRF protection remains in the manual health-check URL validator.
+- SSRF protection applies to manual and scheduled Health Check targets.
 - Frontend production builds require `VITE_API_BASE_URL`.
 - Production config rejects the checked-in local auth secret and requires a
   production-only `PROJECTOPS_AUTH_SECRET_KEY`.
@@ -407,7 +407,7 @@ remain future hardening work.
 For demos, create a Project named `ProjectOps` inside ProjectOps:
 
 1. Attach this repository.
-2. Run CodeMap Lite.
+2. Run CodeMap Medium Repository Analysis.
 3. Add the deployed backend health URL as the production URL.
 4. Run a health check.
 5. Evaluate readiness.
@@ -428,12 +428,13 @@ seed uses stored sample snapshots and is disabled in production.
   tracing platform, or incident workflow exists yet.
 - Provider-specific private-beta deployment evidence is tracked in
   `docs/private-beta-deployment-drill.md`; hosted checks remain pending until a
-  provider stack is selected and exercised.
+  selected Render/Vercel stack is provisioned and exercised.
 - Backup, restore, and migration rollback procedures are documented, but
   provider-managed backup automation and restore drills still must be configured
   per deployment.
 - No CI/CD deployment pipeline.
-- Manual health checks are on-demand only; there are no background jobs.
+- Scheduled Health Checks require the Render cron worker; there is no
+  general-purpose background job system.
 - Recent Activity is product history, not audit-grade compliance logging.
 
 ## Future Hardening Checklist
@@ -448,11 +449,11 @@ seed uses stored sample snapshots and is disabled in production.
 - CI/CD deploy workflow.
 - Secrets management policy.
 - HTTPS enforcement through hosting providers.
-- Background job system if scheduled checks are added.
+- Worker metrics and failure alerting for the scheduled Health Monitor.
 - Real audit logging if compliance history becomes a product requirement.
 
 ## Next Boundary
 
-Future milestones should keep teams, roles, OAuth, scheduled monitoring, CI/CD
-deployment automation, alerting, and broader production observability as
+Future milestones should keep teams, roles, OAuth, CI/CD deployment automation,
+health alert delivery, and broader production observability as
 explicit product or operations slices.

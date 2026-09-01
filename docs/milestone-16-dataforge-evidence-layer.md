@@ -1,5 +1,7 @@
 # Milestone 16: DataForge Evidence Layer
 
+> Historical milestone record. Scope and exclusions describe this milestone at delivery; see `projectops-remaining-work-handoff.md` for current capabilities.
+
 Milestone 16 strengthens Project Artifacts as a searchable DataForge Lite
 evidence layer.
 

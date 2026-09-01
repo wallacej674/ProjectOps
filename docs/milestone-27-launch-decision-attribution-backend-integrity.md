@@ -1,5 +1,7 @@
 # Milestone 27: Launch Decision Attribution and Backend Integrity
 
+> Historical milestone record. This milestone is complete; see `projectops-remaining-work-handoff.md` for remaining work.
+
 Milestone 27 makes the backend authoritative for Project Artifact creator
 attribution and Launch Decision semantic validation.
 

@@ -1,5 +1,7 @@
 # Milestone 17: Recent Engineering Activity Timeline
 
+> Historical milestone record. Future boundaries describe this milestone at delivery; see `projectops-remaining-work-handoff.md` for current priorities.
+
 Milestone 17 adds a Project-scoped Recent Activity timeline to ProjectOps.
 
 The goal is product history: users can see meaningful actions that happened

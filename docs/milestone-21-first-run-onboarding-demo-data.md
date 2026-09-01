@@ -1,5 +1,7 @@
 # Milestone 21: First-Run Onboarding and Demo Data
 
+> Historical milestone record. Scope and exclusions describe this milestone at delivery; see `projectops-remaining-work-handoff.md` for current capabilities.
+
 Milestone 21 makes a new ProjectOps workspace easier to understand before a
 team has entered its own project data.
 

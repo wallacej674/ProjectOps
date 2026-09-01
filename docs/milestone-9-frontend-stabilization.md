@@ -1,5 +1,7 @@
 # Milestone 9: Frontend Stabilization, Architecture Refactor, and Quality Completion
 
+> Historical milestone record. Scope and exclusions describe this milestone at delivery; see `projectops-remaining-work-handoff.md` for current capabilities.
+
 This milestone hardened the Milestone 8 frontend foundation before adding any
 new domain UI. It was a quality, architecture, responsive-design, testing, and
 accessibility milestone. No new backend product functionality was added.

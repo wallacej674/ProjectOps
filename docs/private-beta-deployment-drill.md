@@ -13,7 +13,7 @@ operator notes.
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Provider stack | Selected, pending provider access | Vercel frontend, Render Web Service, and Render Postgres are defined. |
+| Provider stack | Selected, pending provider access | Vercel frontend, Render Web Service, Render Cron Job, and Render Postgres are defined. |
 | Backend deploy | Pending provider access | Local backend verification passes; hosted deploy not yet run. |
 | Frontend deploy | Pending provider access | Vite build and Vercel SPA fallback config exist; hosted deploy not yet run. |
 | Managed database | Pending provider access | Provider backup/PITR settings must be confirmed in provider UI. |
@@ -28,6 +28,7 @@ Record the chosen provider stack before running the drill:
 | --- | --- | --- | --- |
 | Frontend static host | Vercel selected | Do not paste credentials | Pending deploy |
 | Backend web service host | Render selected | `projectops-api`; do not paste credentials | Pending deploy |
+| Scheduled monitor worker | Render selected | `projectops-health-monitor` cron job | Pending deploy |
 | Managed PostgreSQL | Render Postgres selected | `projectops-db`; do not paste database URL | Pending setup |
 | Monitoring | Pending | Do not paste Sentry DSN | Pending |
 
@@ -35,6 +36,7 @@ Recommended provider shape:
 
 - Frontend: Vercel.
 - Backend: Render using `backend/Dockerfile` and the root `render.yaml`.
+- Scheduler: Render cron using `python -m app.jobs.run_due_health_checks` every five minutes.
 - Database: Render Postgres through its private internal connection string.
 - Monitoring: Sentry or equivalent.
 
@@ -117,7 +119,7 @@ Record the managed PostgreSQL provider before running migrations:
 | SSL mode required | Pending provider access | Follow provider connection-string guidance. |
 | Migration command | Ready | `python -m alembic upgrade head` |
 | Current revision before deploy | Pending provider access | Run `python -m alembic current`. |
-| Revision after deploy | Pending provider access | Record after migration. |
+| Revision after deploy | Pending provider access | Must be `0013_health_monitor`. |
 | Backup before migration | Pending provider access | Confirm snapshot/backup exists before migration. |
 
 Do not run migrations against an unknown production database. Confirm the target
@@ -209,9 +211,12 @@ Run through the deployed frontend:
 - [ ] Load demo workspace only if the environment is non-production and demo
       seed controls are intentionally enabled.
 - [ ] Attach public GitHub repository.
-- [ ] Run CodeMap Lite.
+- [ ] Run CodeMap Medium Repository Analysis.
 - [ ] Add production URL.
 - [ ] Run Manual Health Monitor.
+- [ ] Enable Scheduled Health Monitor and confirm the cron worker stores a
+      result with `execution_source=scheduled`.
+- [ ] Pause Scheduled Health Monitor and confirm it remains paused.
 - [ ] Evaluate readiness.
 - [ ] Add Project Artifact.
 - [ ] Link artifact as readiness evidence.
@@ -329,6 +334,7 @@ Go only when:
 - [ ] Backend deploy completed.
 - [ ] Frontend deploy completed.
 - [ ] Managed database connected.
+- [ ] Scheduled monitor cron job completed a successful invocation.
 - [ ] Migrations ran successfully.
 - [ ] `/health` and `/health/db` pass.
 - [ ] Auth smoke test passes.

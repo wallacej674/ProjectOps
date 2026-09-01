@@ -16,6 +16,7 @@ Recommended private-beta stack:
 
 - Frontend: Vercel
 - Backend: Render Web Service
+- Scheduler: Render Cron Job
 - Database: Render Postgres
 - Monitoring: Sentry
 
@@ -52,10 +53,13 @@ Render/Vercel-specific setup notes live in
 - [ ] Build the backend container from `backend/Dockerfile`.
 - [ ] Create or sync the root `render.yaml` Blueprint.
 - [ ] Confirm the API and database are in the same Render region.
+- [ ] Confirm `projectops-health-monitor` is created from the Blueprint.
 - [ ] Confirm the database uses its private internal connection string.
 - [ ] Confirm Render HTTP health check path is `/health`.
 - [ ] Deploy the backend service.
 - [ ] Confirm the Render pre-deploy command runs Alembic migrations.
+- [ ] Confirm the deployed database revision is `0013_health_monitor`.
+- [ ] Confirm the cron command is `python -m app.jobs.run_due_health_checks`.
 - [ ] Record migration timestamp and result.
 - [ ] Confirm provider logs are accessible.
 - [ ] Confirm backend health check endpoint is configured as `/health`.
@@ -109,9 +113,12 @@ cd backend
 - [ ] Create a Project.
 - [ ] Edit the Project.
 - [ ] Attach a public GitHub repository.
-- [ ] Run CodeMap Lite.
+- [ ] Run CodeMap Medium Repository Analysis.
 - [ ] Add a production URL.
 - [ ] Run a manual health check.
+- [ ] Enable scheduled monitoring and wait for the Render cron worker to store a
+      scheduled result.
+- [ ] Pause scheduled monitoring and confirm the schedule reports paused.
 - [ ] Evaluate readiness.
 - [ ] Create an artifact.
 - [ ] Link the artifact as readiness evidence.

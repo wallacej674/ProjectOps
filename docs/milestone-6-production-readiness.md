@@ -1,5 +1,7 @@
 # Milestone 6: Production Readiness Checklist
 
+> Historical milestone record. Scope and exclusions describe this milestone at delivery; see `projectops-remaining-work-handoff.md` for current capabilities.
+
 Milestone 6 adds a transparent, advisory production-readiness checklist to ProjectOps. It combines existing CodeMap Lite signals, health-check results, and project metadata with manual engineering review items to produce a score and a per-item assessment.
 
 The score is advisory. It reflects posture based on available signals. It does not certify that a project is safe for production.

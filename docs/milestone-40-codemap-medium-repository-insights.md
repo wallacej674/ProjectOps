@@ -1,9 +1,12 @@
 # Milestone 40: CodeMap Medium Repository Insights
 
+Status: implemented. Current follow-up work is tracked in
+`projectops-remaining-work-handoff.md`.
+
 ## Goal
 
 Make repository analysis more useful by deriving deterministic, evidence-backed
-insights from selected public manifests and configuration files while retaining
+insights from selected manifests and configuration files while retaining
 the existing path-based CodeMap signals.
 
 ## Behavior
@@ -20,11 +23,13 @@ file, and 512 KiB in total. Unsupported source files are never fetched.
 
 ## Security and Product Boundaries
 
-- Public GitHub repositories only.
+- Public repositories and private repositories authorized through the read-only
+  GitHub App installation flow.
 - No repository cloning or archive extraction.
 - No script execution or dependency installation.
 - No arbitrary source-code inspection.
-- No private-repository token support.
+- No stored long-lived user or installation tokens; private analysis requests a
+  short-lived installation token at execution time.
 - No AI or AST analysis.
 - No vulnerability, license, or production-safety certification.
 - Manifest declarations are observations, not verification that tooling works.

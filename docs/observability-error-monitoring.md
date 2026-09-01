@@ -23,8 +23,8 @@ metrics, audit, tracing, or alerting platform.
 
 ## What Is Not Monitored Yet
 
-- Scheduled uptime checks.
-- Background jobs.
+- Render cron worker metrics and failure alerts.
+- General-purpose background jobs.
 - Metrics dashboards.
 - Distributed traces.
 - Alert routing, PagerDuty, Slack, email, or SMS notifications.
@@ -161,7 +161,7 @@ Do not log or send:
 ## Future Roadmap
 
 - Provider-specific alert routing after private-beta usage proves what matters.
-- Scheduled monitoring and health trends in a later milestone.
+- Scheduled Health Check failure/recovery alert semantics and health trends.
 - Multi-instance rate-limit backing store.
 - Deployment pipeline checks that verify monitoring environment variables are
   present for production-like environments.

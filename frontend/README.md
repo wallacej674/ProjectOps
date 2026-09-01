@@ -18,7 +18,7 @@ light theme).
 
 No state-management, data-fetching, form, component, animation, or charting
 library is used. The mobile drawer, modal, focus management, sorting,
-repository connection UI, CodeMap Lite analysis UI, Manual Health Monitoring UI,
+repository connection UI, CodeMap Medium analysis UI, manual and scheduled Health Monitoring UI,
 Production Readiness UI, Launch Report UI, Guided Launch Checklist UI, Launch Decision UI, Project Artifacts UI, Overview activity surfacing,
 first-run demo workspace onboarding, auth route guards, account display, and
 Recent Activity UI are all built with plain React and CSS.
@@ -31,7 +31,7 @@ repository, and attach it to a Project. The callback route is
 ## Local development
 
 The frontend talks to the ProjectOps FastAPI backend. Start the backend first
-(see `../backend/README` and the root `README.md`), **including the database
+(see the root `README.md`), **including the database
 migration** — an unmigrated database will make every Project request fail:
 
 ```bash
@@ -161,7 +161,7 @@ src/
 | `/app/overview` | Overview | Project metrics, first-run onboarding, cross-Project Recent Activity, Recently Active Projects |
 | `/app/projects` | Project Registry | List, search, filter, sort, card/table views, archive |
 | `/app/projects/new` | Create Project | |
-| `/app/projects/:projectId` | Project detail | Identity, metadata, setup progress, repository connection, CodeMap Lite analysis, Manual Health Monitoring, Production Readiness, Launch Report, Guided Launch Checklist, Launch Decision, Project Artifacts, Recent Activity |
+| `/app/projects/:projectId` | Project detail | Identity, metadata, setup progress, repository connection, CodeMap Medium analysis, manual and scheduled Health Monitoring, Production Readiness, Launch Report, Guided Launch Checklist, Launch Decision, Project Artifacts, Recent Activity |
 | `/app/projects/:projectId/edit` | Edit Project | |
 | `*` | — | Redirects to `/` |
 
@@ -226,7 +226,7 @@ Project detail page in this milestone.
 
 Removing a repository connection deletes only the ProjectOps connection record.
 It does not delete the GitHub repository. Repository analysis is handled separately
-by the CodeMap Lite section on the same Project detail page.
+by the Repository Analysis section on the same Project detail page.
 
 
 ### Repository analysis
@@ -239,25 +239,28 @@ States shown in the UI:
 
 - No repository connected: analysis is disabled and the user is pointed back to
   Repository Connection.
-- Repository connected, no analysis: the user can run CodeMap Lite and sees the
+- Repository connected, no analysis: the user can run Repository Analysis and sees the
   boundaries of the feature.
 - Completed analysis: summary, detected stack, architecture signals, evidence
   paths/folders, warnings, metadata, and history are displayed.
 - Failed analysis: the failed attempt, error message, timestamp, retry action,
   and history remain visible.
 
-Repository analysis does not clone repositories, inspect private code, perform deep
-file-content analysis, calculate production readiness, run health checks, or use
-AI-generated summaries. It uses public GitHub repository tree data and stores a
-`RepoAnalysis` snapshot returned by the backend.
+Repository analysis does not clone repositories, inspect arbitrary source code,
+calculate production readiness, run health checks, or use AI-generated
+summaries. CodeMap Medium uses repository paths plus a bounded allowlist of
+manifests and operational configuration files from public repositories or an
+authorized read-only GitHub App installation. It stores a `RepoAnalysis`
+snapshot returned by the backend.
 
-### Manual Health Monitoring
+### Health Monitoring
 
 The Project detail page includes a real Health Monitoring section backed by
-`/api/v1/projects/:projectId/health-checks`. Manual Health Monitoring means a
-user clicks a button, ProjectOps checks one target URL, and the backend stores a
-`HealthCheck` result. It is not scheduled uptime monitoring and does not create
-alerts.
+`/api/v1/projects/:projectId/health-checks` and
+`/api/v1/projects/:projectId/health-monitor`. A user can run an on-demand check
+or enable recurring checks at a supported cadence. Every result records whether
+its execution source was manual or scheduled. This is operational observation
+history, not an uptime guarantee, and it does not create alerts.
 
 States shown in the UI:
 
@@ -269,7 +272,10 @@ States shown in the UI:
   URL, HTTP status, response time, checked timestamp, response preview, and
   error message are displayed when available.
 - History: the newest stored attempts are shown in a compact list with status,
-  target URL, HTTP status, response time, and timestamp.
+  execution source, target URL, HTTP status, response time, and timestamp.
+- Scheduled monitoring: the user can choose 15 minutes, hourly, every 6 hours,
+  or daily, then enable, update, or pause the schedule. The UI shows the next
+  run and last scheduled result when available.
 
 Status meanings:
 
@@ -298,7 +304,7 @@ States shown in the UI:
 - Latest result: advisory score, backend status, counts, top gaps, and checklist
   rows are displayed.
 - Error: readiness errors remain scoped to the card, while Project metadata,
-  Repository Connection, CodeMap Lite, and Health Monitoring stay usable.
+  Repository Connection, Repository Analysis, and Health Monitoring stay usable.
 
 Checklist rows show item label, description, status, source, evidence, category,
 and notes when present. Evidence is deterministic: CodeMap signal evidence,
@@ -340,7 +346,7 @@ States shown in the UI:
   and other detail sections stay usable.
 
 The Launch Report refreshes after actions that can change its evidence, such as
-repository changes, CodeMap Lite runs, manual health checks, readiness
+repository changes, Repo Analysis runs, manual or scheduled health checks, readiness
 evaluation, manual readiness edits, readiness evidence links, and artifact
 changes.
 
@@ -370,7 +376,7 @@ States shown in the UI:
   other detail sections stay usable.
 
 The checklist is derived, not stored. It refreshes with the Launch Report after
-repository changes, CodeMap Lite runs, manual health checks, readiness changes,
+repository changes, Repo Analysis runs, manual or scheduled health checks, readiness changes,
 readiness evidence changes, and artifact changes. It does not create a permanent
 approval record or replace the deployment owner's go/no-go decision.
 
@@ -509,10 +515,11 @@ that account.
 
 Real, backed-by-the-API functionality: Project list, create, read, update, and
 archive (`/api/v1/projects`), GitHub repository attach/read/replace/remove for a
-single Project (`/api/v1/projects/:projectId/repo`), CodeMap Lite analysis
-run/latest/history views (`/api/v1/projects/:projectId/analyses`), and manual
-health-check run/latest/history views
-(`/api/v1/projects/:projectId/health-checks`), and Production Readiness
+single Project (`/api/v1/projects/:projectId/repo`), GitHub App repository
+selection, CodeMap Medium analysis run/latest/history views
+(`/api/v1/projects/:projectId/analyses`), manual health-check
+run/latest/history views (`/api/v1/projects/:projectId/health-checks`), scheduled
+monitoring controls (`/api/v1/projects/:projectId/health-monitor`), and Production Readiness
 evaluate/fetch/manual-item update views (`/api/v1/projects/:projectId/readiness`),
 readiness artifact evidence link/list/unlink views, and Project Artifact
 create/list/update/archive/search/filter views
@@ -589,12 +596,12 @@ Manual repository verification:
 8. Open removal confirmation, cancel, then reopen and remove.
 9. Confirm the Project still exists and the CodeMap section returns to the repository-required state.
 
-Manual CodeMap Lite verification:
+Manual CodeMap Medium verification:
 
 1. Create or open a Project without a repository connection.
-2. Confirm CodeMap Lite says a GitHub repository must be attached first.
+2. Confirm Repository Analysis says a GitHub repository must be attached first.
 3. Attach a valid public GitHub repository.
-4. Confirm CodeMap Lite changes to the ready-to-analyze state.
+4. Confirm Repository Analysis changes to the ready-to-analyze state.
 5. Click Run Analysis and confirm the button is disabled while pending.
 6. Confirm the latest analysis displays summary, files scanned, stack, signals,
    evidence, warnings, and metadata.
@@ -603,7 +610,7 @@ Manual CodeMap Lite verification:
 9. Test backend failure/no-repo responses and confirm failed attempts or errors
    are shown without hiding Project metadata.
 
-Manual Health Monitoring verification:
+Manual and scheduled Health Monitoring verification:
 
 1. Create or open a Project without a production URL.
 2. Confirm Health Monitoring says a production URL is required and the run
@@ -618,13 +625,14 @@ Manual Health Monitoring verification:
    without changing the saved Project production URL.
 9. Try a blocked local/private URL through the override and confirm the safety
    message is shown.
-10. Confirm the section does not claim scheduled monitoring, uptime percentage,
-    alerts, readiness, or production status pages exist.
+10. Enable a supported schedule, confirm its next-run state, then pause it.
+11. Confirm the section does not claim uptime percentage, alerts, readiness, or
+    production status pages exist.
 
 Manual Production Readiness verification:
 
 1. Create or open a Project.
-2. Confirm Project metadata, Repository Connection, CodeMap Lite, and Health
+2. Confirm Project metadata, Repository Connection, Repository Analysis, and Health
    Monitoring still load.
 3. Confirm Production Readiness says the assessment is advisory.
 4. Click Run Readiness Evaluation and confirm the button disables while pending.

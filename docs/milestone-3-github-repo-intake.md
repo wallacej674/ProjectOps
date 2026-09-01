@@ -1,5 +1,7 @@
 # Milestone 3: GitHub Repo Intake
 
+> Historical milestone record. Scope and exclusions describe this milestone at delivery; see `projectops-remaining-work-handoff.md` for current capabilities.
+
 Milestone 3 adds GitHub Repo Intake for Projects. A Project can now attach, read, replace, and remove one public GitHub repository connection.
 
 The main routes are:

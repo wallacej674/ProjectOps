@@ -1,5 +1,7 @@
 # Milestone 1: Backend Foundation
 
+> Historical milestone record. Scope and exclusions describe this milestone at delivery; see `projectops-remaining-work-handoff.md` for current capabilities.
+
 Milestone 1 establishes the backend foundation for ProjectOps with a narrow, production-minded slice: project CRUD plus archive behavior.
 
 ## What Was Built

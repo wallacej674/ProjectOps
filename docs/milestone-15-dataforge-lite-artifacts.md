@@ -1,5 +1,7 @@
 # Milestone 15: DataForge Lite Project Artifacts
 
+> Historical milestone record. Scope and exclusions describe this milestone at delivery; see `projectops-remaining-work-handoff.md` for current capabilities.
+
 Milestone 15 adds DataForge Lite, a Project-scoped artifact registry for notes,
 links, runbooks, decisions, requirements, risks, incidents, and evidence
 references.

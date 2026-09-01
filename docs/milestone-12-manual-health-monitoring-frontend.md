@@ -1,5 +1,7 @@
 # Milestone 12: Manual Health Monitoring Frontend
 
+> Historical milestone record. Scheduled monitoring controls now extend this section; see `projectops-remaining-work-handoff.md`.
+
 Milestone 12 connects the existing Manual Health Monitor backend to the Project
 detail frontend.
 

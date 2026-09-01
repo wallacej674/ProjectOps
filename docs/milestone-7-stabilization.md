@@ -1,5 +1,7 @@
 # Milestone 7: Backend Stabilization and Security Hardening
 
+> Historical milestone record. Findings reflect this review point; current debt is tracked in `projectops-remaining-work-handoff.md`.
+
 ## Summary
 
 This milestone resolves five code-review findings from Milestone 6 and adds two security hardening features (SSRF mitigation, bounded response reading). All changes follow TDD (red-green-refactor, vertical slices). 111 tests pass.

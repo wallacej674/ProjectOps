@@ -1,5 +1,10 @@
 # AWS App Runner Backend + Vercel Frontend Deployment
 
+> Alternative architecture only. ProjectOps selected Render Web Service,
+> Render Cron Job, Render Postgres, and Vercel for the private beta. Use
+> `render-vercel-deployment.md` unless the hosting decision is explicitly
+> changed back to AWS.
+
 Use this runbook for the selected private-beta hosting path:
 
 - Frontend: Vercel static hosting from `frontend/dist`.
