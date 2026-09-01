@@ -36,7 +36,9 @@ def analyze_repo_paths(paths: list[str]) -> CodeMapLiteResult:
     signals = {name: False for name in SIGNAL_NAMES}
 
     signals["has_readme"] = any(path == "readme.md" for path in normalized_paths)
-    signals["has_env_example"] = any(path == ".env.example" for path in normalized_paths)
+    signals["has_env_example"] = any(
+        path == ".env.example" or path.endswith("/.env.example") for path in normalized_paths
+    )
     signals["has_docker"] = any(path == "docker-compose.yml" or path.endswith("/dockerfile") for path in normalized_paths)
     signals["has_ci"] = any(path.startswith(".github/workflows/") for path in normalized_paths)
     signals["has_tests"] = any(path.startswith("tests/") or "/tests/" in path for path in normalized_paths)

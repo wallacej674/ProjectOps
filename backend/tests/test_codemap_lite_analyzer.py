@@ -20,6 +20,21 @@ def test_analyzer_detects_project_support_files_and_folders():
     assert result.total_files_scanned == 5
 
 
+def test_analyzer_detects_env_example_in_a_subdirectory():
+    # Monorepos commonly keep a .env.example per service (backend/, frontend/)
+    # rather than one at the repo root. has_ci/has_tests already search any
+    # depth; has_env_example should too, for the same reason.
+    result = analyze_repo_paths(
+        [
+            "README.md",
+            "backend/.env.example",
+            "frontend/.env.example",
+        ]
+    )
+
+    assert result.signals["has_env_example"] is True
+
+
 def test_analyzer_detects_python_backend_stack_signals():
     result = analyze_repo_paths(
         [

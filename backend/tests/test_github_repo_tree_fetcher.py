@@ -44,6 +44,35 @@ def test_repository_snapshot_fetches_only_supported_utf8_manifests(monkeypatch):
     assert snapshot.manifest_contents == {"package.json": '{"name":"demo"}'}
 
 
+def test_repository_snapshot_decodes_githubs_line_wrapped_base64_content(monkeypatch):
+    # GitHub's Contents API wraps base64 at 60 characters per line (embedded
+    # newlines), unlike base64.b64encode(). Regression for a real repo where
+    # every manifest failed with "GitHub repository manifest data was invalid."
+    raw_content = b'{"name":"demo","dependencies":{"react":"^18.0.0","typescript":"^5.0.0"}}'
+    encoded = base64.b64encode(raw_content).decode()
+    line_wrapped = "\n".join(encoded[i : i + 60] for i in range(0, len(encoded), 60)) + "\n"
+
+    responses = [
+        httpx.Response(200, json={"default_branch": "main"}),
+        httpx.Response(200, json={"tree": [{"type": "blob", "path": "package.json"}]}),
+        httpx.Response(200, json={"encoding": "base64", "content": line_wrapped}),
+    ]
+
+    class FakeClient:
+        def __init__(self, *args, **kwargs): pass
+        def __enter__(self): return self
+        def __exit__(self, *args): return None
+        def get(self, *args, **kwargs):
+            response = responses.pop(0)
+            response.request = httpx.Request("GET", "https://api.github.com")
+            return response
+
+    monkeypatch.setattr(httpx, "Client", FakeClient)
+    snapshot = GitHubRepoTreeFetcher().fetch_repository_snapshot("wallacej674", "thej-bsWEWILLGET")
+
+    assert snapshot.manifest_contents == {"package.json": raw_content.decode()}
+
+
 def test_truncated_tree_fails_before_manifest_fetch(monkeypatch):
     responses = [
         httpx.Response(200, json={"default_branch": "main"}),

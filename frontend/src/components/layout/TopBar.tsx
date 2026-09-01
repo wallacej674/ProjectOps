@@ -74,13 +74,16 @@ export function TopBar({
       </div>
       <div className="top-actions" aria-label="Workspace utilities">
         <button
-          className="button ghost icon-button"
+          className="button ghost theme-toggle"
           type="button"
           aria-label={`Switch to ${next} theme`}
           onClick={onToggleTheme}
         >
           <ThemeIcon theme={theme} />
-          <span>Theme: {theme === "dark" ? "Dark" : "Light"}</span>
+          <span>
+            <span className="theme-toggle-prefix">Theme: </span>
+            {theme === "dark" ? "Dark" : "Light"}
+          </span>
         </button>
         {currentUser && <AccountMenu user={currentUser} onLogout={onLogout} />}
       </div>

@@ -84,7 +84,10 @@ class GitHubRepoTreeFetcher:
                     if payload.get("encoding") != "base64" or not isinstance(payload.get("content"), str):
                         skipped.append(path)
                         continue
-                    raw = base64.b64decode(payload["content"], validate=True)
+                    # GitHub's Contents API line-wraps base64 at 60 chars (embedded
+                    # newlines); validate=False (the default) discards those instead
+                    # of rejecting them, which validate=True would do.
+                    raw = base64.b64decode(payload["content"])
                     if len(raw) > MAX_MANIFEST_FILE_BYTES or total_bytes + len(raw) > MAX_MANIFEST_TOTAL_BYTES:
                         skipped.append(path)
                         continue
