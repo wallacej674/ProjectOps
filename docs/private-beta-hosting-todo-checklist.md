@@ -280,3 +280,17 @@ release commit:
   high-confidence scan found no private keys, provider tokens, credentialed
   database URLs, or live Sentry ingestion URLs in the staged files.
 - Hosted cron execution and all provider-side evidence remain unverified.
+
+CI follow-up evidence recorded on 2026-09-01 for commit `8825190`:
+
+- GitHub Actions run 11 passed Backend, Frontend, and Diff Hygiene. Dependency
+  Security Scan failed because a newly published high-severity advisory covered
+  the lockfile's transitive `browserslist` version.
+- The same `npm audit --audit-level=high` failure was reproduced locally before
+  changing the lockfile.
+- A compatible lockfile-only refresh moved `browserslist` from `4.28.2` to
+  `4.28.8`. The live audit then reported 0 vulnerabilities.
+- After reinstalling from the updated dependency graph, all 258 frontend tests,
+  lint with 0 errors and 5 known warnings, and the production build passed.
+- A new commit and green GitHub Actions run are still required before provider
+  deployment.
