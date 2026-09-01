@@ -58,6 +58,28 @@ describe("Project detail repository connection", () => {
     expect(within(section).getByText(/ProjectOps stores the repository connection first/)).toBeInTheDocument();
   });
 
+  it("offers private repositories verified through the configured GitHub App", async () => {
+    mockFetch((url, init) => {
+      const method = (init.method ?? "GET").toUpperCase();
+      if (url.endsWith("/api/v1/projects/7") && method === "GET") return json(project);
+      if (url.endsWith("/api/v1/projects/7/repo") && method === "GET") return json({ detail: "missing" }, 404);
+      if (url.endsWith("/github-app/authorize")) return json({ enabled: true, authorize_url: "https://github.com/login/oauth/authorize" });
+      if (url.endsWith("/github-app/repositories")) return json([{ id: 22, installation_id: 91, full_name: "acme/private-api", html_url: "https://github.com/acme/private-api", default_branch: "main", private: true }]);
+      if (url.endsWith("/github-app/repo") && method === "POST") return json({ ...repo, repo_owner: "acme", repo_name: "private-api", is_private: true, connection_mode: "github_app" }, 201);
+      if (url.includes("/analyses")) return url.endsWith("/latest") ? json({ detail: "missing" }, 404) : json([]);
+      return json([]);
+    });
+    const user = userEvent.setup();
+    renderDetail();
+
+    const section = await screen.findByRole("region", { name: "Repository Connection" });
+    const select = await within(section).findByLabelText("Available repository");
+    await user.selectOptions(select, "91:22");
+    await user.click(within(section).getByRole("button", { name: "Attach selected repository" }));
+    expect(await within(section).findByText("acme/private-api")).toBeInTheDocument();
+    expect(within(section).getByText("github (private)")).toBeInTheDocument();
+  });
+
   it("shows a loading state while repository connection state loads", async () => {
     mockFetch((url, init) => {
       const method = (init.method ?? "GET").toUpperCase();

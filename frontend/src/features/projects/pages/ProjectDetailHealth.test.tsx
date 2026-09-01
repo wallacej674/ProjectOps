@@ -20,12 +20,26 @@ const healthyCheck = {
   project_id: 7,
   target_url: "https://civicpermit.example.com/health",
   status: "healthy",
+  execution_source: "manual",
   http_status_code: 200,
   response_time_ms: 184,
   checked_at: "2026-01-01T00:00:00Z",
   error_message: null,
   response_preview: "ok",
   created_at: "2026-01-01T00:00:01Z",
+};
+
+const disabledMonitor = {
+  project_id: 7,
+  enabled: false,
+  cadence_minutes: 60,
+  next_run_at: null,
+  last_started_at: null,
+  last_completed_at: null,
+  last_outcome: null,
+  consecutive_failures: 0,
+  created_at: null,
+  updated_at: null,
 };
 
 const unhealthyCheck = {
@@ -70,11 +84,13 @@ function mockProjectDetail({
   latestHealthResponse = json({ detail: "Project 7 does not have a health check yet." }, 404),
   healthHistoryResponse = json([]),
   runHealthResponse = json(healthyCheck, 201),
+  monitorResponse = json(disabledMonitor),
 }: {
   project?: ReturnType<typeof makeProject>;
   latestHealthResponse?: Response;
   healthHistoryResponse?: Response;
   runHealthResponse?: Response | Promise<Response>;
+  monitorResponse?: Response;
 } = {}) {
   return mockFetch((url, init) => {
     const method = (init.method ?? "GET").toUpperCase();
@@ -90,6 +106,15 @@ function mockProjectDetail({
     }
     if (url.endsWith("/api/v1/projects/7/health-checks") && method === "GET") {
       return responseClone(healthHistoryResponse);
+    }
+    if (url.endsWith("/api/v1/projects/7/health-monitor") && method === "GET") {
+      return responseClone(monitorResponse);
+    }
+    if (url.endsWith("/api/v1/projects/7/health-monitor") && method === "PUT") {
+      return json({ ...disabledMonitor, enabled: true, next_run_at: "2026-01-01T01:00:00Z" });
+    }
+    if (url.endsWith("/api/v1/projects/7/health-monitor") && method === "DELETE") {
+      return json(disabledMonitor);
     }
     return json([]);
   });
@@ -122,6 +147,24 @@ describe("Project detail Health Monitoring", () => {
     expect(within(section).getByRole("button", { name: "Run Health Check" })).toBeEnabled();
     expect(within(section).getByLabelText("Check a different URL this time")).toBeInTheDocument();
     expect(within(section).queryByText(/scheduled uptime monitoring is enabled/i)).not.toBeInTheDocument();
+  });
+
+  it("lets the user enable scheduled monitoring with a supported cadence", async () => {
+    const fetchMock = mockProjectDetail();
+    const user = userEvent.setup();
+
+    renderDetail();
+
+    const section = await screen.findByRole("region", { name: "Health Monitoring" });
+    expect(await within(section).findByText("Scheduled monitoring is paused.")).toBeInTheDocument();
+    await user.selectOptions(within(section).getByLabelText("Monitoring frequency"), "60");
+    await user.click(within(section).getByRole("button", { name: "Enable scheduled monitoring" }));
+
+    expect(await within(section).findByText("Scheduled monitoring is enabled.")).toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([url, init]) =>
+      String(url).endsWith("/health-monitor") && init?.method === "PUT" &&
+      init.body === JSON.stringify({ enabled: true, cadence_minutes: 60 })
+    )).toBe(true);
   });
 
   it("disables the Run Health Check button while pending and then shows the result", async () => {

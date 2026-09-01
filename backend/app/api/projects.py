@@ -9,11 +9,20 @@ from app.dependencies import enforce_rate_limit, get_current_user
 from app.models.user import User
 from app.schemas.dashboard import ProjectDashboardRead
 from app.schemas.health_check import HealthCheckRead, HealthCheckRunRequest
+from app.schemas.health_monitor_schedule import HealthMonitorScheduleRead, HealthMonitorScheduleUpdate
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
 from app.schemas.project_activity import ProjectActivityEventRead
 from app.schemas.project_artifact import ProjectArtifactCreate, ProjectArtifactRead, ProjectArtifactUpdate
 from app.schemas.repo_analysis import RepoAnalysisRead
 from app.schemas.repo_integration import RepoIntegrationCreate, RepoIntegrationRead
+from app.schemas.github_app import (
+    GitHubAppCallbackRead, GitHubAppCallbackRequest, GitHubAppStatusRead,
+    GitHubRepositoryAttachRequest, GitHubRepositoryChoiceRead,
+)
+from app.services.github_app import (
+    GitHubAppAuthorizationError, GitHubAppConfigurationError,
+    GitHubRepositorySelectionError, github_app_service,
+)
 from app.services.dashboard import dashboard_service
 from app.services.activity import activity_service
 from app.services.github_repo_parser import InvalidGitHubRepoUrlError
@@ -21,6 +30,10 @@ from app.services.health_checks import (
     HealthCheckNotFoundError,
     HealthCheckTargetUrlMissingError,
     health_check_service,
+)
+from app.services.health_monitor_schedules import (
+    HealthMonitorScheduleValidationError,
+    health_monitor_schedule_service,
 )
 from app.services.url_validator import HealthCheckUrlSafetyError
 from app.services.projects import ProjectNotFoundError, project_service
@@ -65,12 +78,81 @@ def _bad_request(error: HealthCheckTargetUrlMissingError) -> HTTPException:
     return HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(error))
 
 
+def _monitor_validation_error(error: HealthMonitorScheduleValidationError) -> HTTPException:
+    return HTTPException(status_code=422, detail=str(error))
+
+
 def _invalid_repo_url(error: InvalidGitHubRepoUrlError) -> HTTPException:
     return HTTPException(status_code=422, detail=str(error))
 
 
 def _ensure_owned_project(db: Session, project_id: int, current_user: User) -> None:
     project_service.get_project_for_user(db, project_id, current_user.id)
+
+
+@router.get("/{project_id}/github-app/authorize", response_model=GitHubAppStatusRead)
+def get_github_app_authorization(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> GitHubAppStatusRead:
+    _ensure_owned_project(db, project_id, current_user)
+    if not settings.github_app_enabled():
+        return GitHubAppStatusRead(enabled=False)
+    return GitHubAppStatusRead(
+        enabled=True,
+        authorize_url=github_app_service.authorization_url(settings, user_id=current_user.id, project_id=project_id),
+    )
+
+
+@router.post("/github-app/callback", response_model=GitHubAppCallbackRead)
+def complete_github_app_authorization(
+    callback: GitHubAppCallbackRequest,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> GitHubAppCallbackRead:
+    try:
+        project_id, count = github_app_service.complete_authorization(
+            db, settings, user_id=current_user.id, code=callback.code, state=callback.state
+        )
+        _ensure_owned_project(db, project_id, current_user)
+        return GitHubAppCallbackRead(project_id=project_id, installation_count=count)
+    except (GitHubAppConfigurationError, GitHubAppAuthorizationError) as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@router.get("/{project_id}/github-app/repositories", response_model=list[GitHubRepositoryChoiceRead])
+def list_github_app_repositories(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> list[GitHubRepositoryChoiceRead]:
+    _ensure_owned_project(db, project_id, current_user)
+    try:
+        return [GitHubRepositoryChoiceRead(**repo) for repo in github_app_service.list_repositories(db, settings, current_user.id)]
+    except GitHubAppConfigurationError as error:
+        raise HTTPException(status_code=400, detail=str(error)) from error
+
+
+@router.post("/{project_id}/github-app/repo", response_model=RepoIntegrationRead, status_code=201)
+def attach_github_app_repository(
+    project_id: int,
+    selection: GitHubRepositoryAttachRequest,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> RepoIntegrationRead:
+    _ensure_owned_project(db, project_id, current_user)
+    try:
+        return repo_integration_service.attach_github_app_repo(
+            db, project_id, user_id=current_user.id, installation_id=selection.installation_id,
+            repository_id=selection.repository_id, settings=settings,
+        )
+    except (GitHubAppConfigurationError, GitHubRepositorySelectionError) as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
 
 
 @router.post("", response_model=ProjectRead, status_code=status.HTTP_201_CREATED)
@@ -285,6 +367,48 @@ def list_project_health_checks(
     try:
         _ensure_owned_project(db, project_id, current_user)
         return health_check_service.list_project_health_checks(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+
+
+@router.get("/{project_id}/health-monitor", response_model=HealthMonitorScheduleRead)
+def get_project_health_monitor(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> HealthMonitorScheduleRead:
+    try:
+        _ensure_owned_project(db, project_id, current_user)
+        return health_monitor_schedule_service.get_for_project(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+
+
+@router.put("/{project_id}/health-monitor", response_model=HealthMonitorScheduleRead)
+def update_project_health_monitor(
+    project_id: int,
+    update: HealthMonitorScheduleUpdate,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> HealthMonitorScheduleRead:
+    try:
+        _ensure_owned_project(db, project_id, current_user)
+        return health_monitor_schedule_service.update_for_project(db, project_id, update)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+    except HealthMonitorScheduleValidationError as error:
+        raise _monitor_validation_error(error) from error
+
+
+@router.delete("/{project_id}/health-monitor", response_model=HealthMonitorScheduleRead)
+def pause_project_health_monitor(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> HealthMonitorScheduleRead:
+    try:
+        _ensure_owned_project(db, project_id, current_user)
+        return health_monitor_schedule_service.pause_for_project(db, project_id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
 

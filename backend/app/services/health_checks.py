@@ -7,7 +7,7 @@ import httpx
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.models.health_check import HealthCheck, HealthCheckStatus
+from app.models.health_check import HealthCheck, HealthCheckExecutionSource, HealthCheckStatus
 from app.repositories.health_checks import health_check_repository
 from app.schemas.health_check import HealthCheckRunRequest
 from app.services.projects import project_service
@@ -58,24 +58,41 @@ class HealthCheckService:
         project_id: int,
         health_check_in: HealthCheckRunRequest,
         http_client: HealthCheckHttpClient | None = None,
+        execution_source: HealthCheckExecutionSource = HealthCheckExecutionSource.manual,
     ) -> HealthCheck:
         project = project_service.get_project(db, project_id)
         target_url = health_check_in.url or project.production_url
         if not target_url:
             raise HealthCheckTargetUrlMissingError("Provide a URL or set production_url on the Project.")
 
-        validate_health_check_url(target_url, resolver=_resolve_url_addresses)
+        try:
+            validate_health_check_url(target_url, resolver=_resolve_url_addresses)
+        except HealthCheckUrlSafetyError as error:
+            if execution_source == HealthCheckExecutionSource.manual:
+                raise
+            return self._store_health_check(
+                db=db,
+                project_id=project_id,
+                target_url=target_url,
+                status=HealthCheckStatus.error.value,
+                http_status_code=None,
+                response_time_ms=None,
+                checked_at=datetime.now(timezone.utc),
+                error_message=str(error),
+                response_preview=None,
+                execution_source=execution_source,
+            )
 
         active_http_client = http_client or self.http_client
         if active_http_client is not None:
-            return self._run_with_client(db, project_id, target_url, active_http_client)
+            return self._run_with_client(db, project_id, target_url, active_http_client, execution_source)
 
         settings = get_settings()
         with httpx.Client(
             timeout=settings.health_check_timeout_seconds,
             follow_redirects=False,
         ) as client:
-            return self._run_with_client(db, project_id, target_url, client)
+            return self._run_with_client(db, project_id, target_url, client, execution_source)
 
     def get_latest_project_health_check(self, db: Session, project_id: int) -> HealthCheck:
         project_service.get_project(db, project_id)
@@ -94,6 +111,7 @@ class HealthCheckService:
         project_id: int,
         target_url: str,
         http_client: HealthCheckHttpClient,
+        execution_source: HealthCheckExecutionSource,
     ) -> HealthCheck:
         checked_at = datetime.now(timezone.utc)
         start = perf_counter()
@@ -112,6 +130,7 @@ class HealthCheckService:
                 checked_at=checked_at,
                 error_message=None,
                 response_preview=_preview_response(response.text[:MAX_RESPONSE_BODY_BYTES]),
+                execution_source=execution_source,
             )
         except httpx.TimeoutException as error:
             return self._store_health_check(
@@ -124,6 +143,7 @@ class HealthCheckService:
                 checked_at=checked_at,
                 error_message=str(error) or "Health check timed out.",
                 response_preview=None,
+                execution_source=execution_source,
             )
         except httpx.HTTPError as error:
             return self._store_health_check(
@@ -136,6 +156,7 @@ class HealthCheckService:
                 checked_at=checked_at,
                 error_message=str(error) or "Health check request failed.",
                 response_preview=None,
+                execution_source=execution_source,
             )
 
     def _store_health_check(
@@ -149,6 +170,7 @@ class HealthCheckService:
         checked_at: datetime,
         error_message: str | None,
         response_preview: str | None,
+        execution_source: HealthCheckExecutionSource,
     ) -> HealthCheck:
         health_check = health_check_repository.create(
             db,
@@ -161,6 +183,7 @@ class HealthCheckService:
                 checked_at=checked_at,
                 error_message=error_message,
                 response_preview=response_preview,
+                execution_source=execution_source.value,
             ),
         )
         from app.services.activity import activity_service
@@ -170,7 +193,7 @@ class HealthCheckService:
             project_id=project_id,
             event_type=f"health_check_{health_check.status}",
             event_category="health",
-            message=f"Manual health check returned {health_check.status}.",
+            message=f"{execution_source.value.title()} health check returned {health_check.status}.",
             related_resource_type="health_check",
             related_resource_id=health_check.id,
             metadata={
@@ -179,6 +202,7 @@ class HealthCheckService:
                 "http_status_code": health_check.http_status_code,
                 "response_time_ms": health_check.response_time_ms,
                 "error_message": health_check.error_message,
+                "execution_source": health_check.execution_source,
             },
         )
         return health_check

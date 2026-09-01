@@ -94,6 +94,20 @@ export function mockProjectsApi(opts: {
     if (url.includes("/analyses") && method === "GET") return json([]);
     if (url.includes("/health-checks/latest") && method === "GET") return json({ detail: "No health check yet." }, 404);
     if (url.includes("/health-checks") && method === "GET") return json([]);
+    if (url.includes("/health-monitor") && method === "GET") {
+      return json({
+        project_id: 7,
+        enabled: false,
+        cadence_minutes: 60,
+        next_run_at: null,
+        last_started_at: null,
+        last_completed_at: null,
+        last_outcome: null,
+        consecutive_failures: 0,
+        created_at: null,
+        updated_at: null,
+      });
+    }
     if (url.includes("/readiness/evidence-coverage") && method === "GET") {
       return json({
         project_id: 7,

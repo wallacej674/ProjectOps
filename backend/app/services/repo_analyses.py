@@ -4,8 +4,12 @@ from sqlalchemy.orm import Session
 
 from app.models.repo_analysis import RepoAnalysis, RepoAnalysisStatus
 from app.repositories.repo_analyses import repo_analysis_repository
+from app.services.codemap_medium_analyzer import analyze_manifest_contents
 from app.services.codemap_lite_analyzer import analyze_repo_paths
 from app.services.github_repo_tree_fetcher import RepoTreeFetchError, github_repo_tree_fetcher
+from app.services.github_repo_tree_fetcher import GitHubRepoTreeFetcher
+from app.services.github_app import github_app_service
+from app.core.config import get_settings
 from app.services.projects import project_service
 from app.services.repo_integrations import repo_integration_service
 
@@ -32,9 +36,22 @@ class RepoAnalysisService:
         project_service.get_project(db, project_id)
         repo_integration = repo_integration_service.get_project_repo(db, project_id)
         active_tree_fetcher = tree_fetcher or self.tree_fetcher
+        if tree_fetcher is None and repo_integration.github_installation_id is not None:
+            token = github_app_service.installation_token(get_settings(), repo_integration.github_installation_id)
+            active_tree_fetcher = GitHubRepoTreeFetcher(access_token=token)
 
         try:
-            paths = active_tree_fetcher.fetch_tree_paths(repo_integration.repo_owner, repo_integration.repo_name)
+            if hasattr(active_tree_fetcher, "fetch_repository_snapshot"):
+                snapshot = active_tree_fetcher.fetch_repository_snapshot(
+                    repo_integration.repo_owner, repo_integration.repo_name
+                )
+                paths = snapshot.paths
+                manifest_contents = snapshot.manifest_contents
+                skipped_files = snapshot.skipped_files
+            else:
+                paths = active_tree_fetcher.fetch_tree_paths(repo_integration.repo_owner, repo_integration.repo_name)
+                manifest_contents = {}
+                skipped_files = []
         except RepoTreeFetchError as error:
             analysis = repo_analysis_repository.create(
                 db,
@@ -50,12 +67,18 @@ class RepoAnalysisService:
                     warnings=[],
                     error_message=str(error),
                     total_files_scanned=0,
+                    analysis_version="codemap_medium_v1",
+                    insights={},
+                    evidence_files={},
+                    inspected_files=[],
                 ),
             )
             self._record_analysis_activity(db, analysis)
             return analysis
 
         result = analyze_repo_paths(paths)
+        medium_result = analyze_manifest_contents(manifest_contents, skipped_files)
+        combined_warnings = [*result.warnings, *medium_result.warnings]
         analysis = repo_analysis_repository.create(
             db,
             RepoAnalysis(
@@ -67,9 +90,13 @@ class RepoAnalysisService:
                 detected_files=result.detected_files,
                 detected_folders=result.detected_folders,
                 signals=result.signals,
-                warnings=result.warnings,
+                warnings=combined_warnings,
                 error_message=None,
                 total_files_scanned=result.total_files_scanned,
+                analysis_version="codemap_medium_v1",
+                insights=medium_result.insights,
+                evidence_files=medium_result.evidence_files,
+                inspected_files=sorted(manifest_contents),
             ),
         )
         self._record_analysis_activity(db, analysis)
@@ -95,13 +122,14 @@ class RepoAnalysisService:
             project_id=analysis.project_id,
             event_type="codemap_analysis_completed" if completed else "codemap_analysis_failed",
             event_category="codemap",
-            message="CodeMap Lite analysis completed." if completed else "CodeMap Lite analysis failed.",
+            message="Repository analysis completed." if completed else "Repository analysis failed.",
             related_resource_type="repo_analysis",
             related_resource_id=analysis.id,
             metadata={
                 "status": analysis.status,
                 "total_files_scanned": analysis.total_files_scanned,
                 "error_message": analysis.error_message,
+                "analysis_version": analysis.analysis_version,
             },
         )
 

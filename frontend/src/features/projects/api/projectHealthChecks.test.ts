@@ -1,7 +1,10 @@
 import {
   getLatestProjectHealthCheck,
+  getProjectHealthMonitor,
   listProjectHealthChecks,
+  pauseProjectHealthMonitor,
   runProjectHealthCheck,
+  updateProjectHealthMonitor,
 } from "./projectHealthChecks";
 
 const healthCheck = {
@@ -15,6 +18,19 @@ const healthCheck = {
   error_message: null,
   response_preview: "ok",
   created_at: "2026-01-01T00:00:01Z",
+};
+
+const healthMonitor = {
+  project_id: 7,
+  enabled: false,
+  cadence_minutes: 60 as const,
+  next_run_at: null,
+  last_started_at: null,
+  last_completed_at: null,
+  last_outcome: null,
+  consecutive_failures: 0,
+  created_at: null,
+  updated_at: null,
 };
 
 const json = (body: unknown, status = 200) =>
@@ -110,5 +126,26 @@ describe("Project health check API", () => {
       kind: "unknown",
       message: "Health check history unavailable.",
     });
+  });
+
+  it("reads, enables, and pauses the Project health monitor", async () => {
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(json(healthMonitor))
+      .mockResolvedValueOnce(json({ ...healthMonitor, enabled: true }))
+      .mockResolvedValueOnce(json(healthMonitor));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(getProjectHealthMonitor("7")).resolves.toEqual(healthMonitor);
+    await expect(updateProjectHealthMonitor("7", { enabled: true, cadence_minutes: 60 })).resolves.toMatchObject({ enabled: true });
+    await expect(pauseProjectHealthMonitor("7")).resolves.toMatchObject({ enabled: false });
+
+    expect(fetchMock.mock.calls[1]).toEqual([
+      "http://127.0.0.1:8000/api/v1/projects/7/health-monitor",
+      expect.objectContaining({ method: "PUT", body: JSON.stringify({ enabled: true, cadence_minutes: 60 }) }),
+    ]);
+    expect(fetchMock.mock.calls[2]).toEqual([
+      "http://127.0.0.1:8000/api/v1/projects/7/health-monitor",
+      expect.objectContaining({ method: "DELETE" }),
+    ]);
   });
 });

@@ -11,7 +11,7 @@ import { formatDate } from "../../../utils/formatDate";
 import type { Project } from "../../../types/project";
 import type { ProjectActivityCategory, ProjectActivityEvent } from "../../../types/projectActivity";
 import type { ProjectArtifact, ProjectArtifactCreate, ProjectArtifactUpdate } from "../../../types/projectArtifact";
-import type { HealthCheck } from "../../../types/healthCheck";
+import type { HealthCheck, HealthMonitorCadence, HealthMonitorSchedule } from "../../../types/healthCheck";
 import type { ProjectLaunchChecklist, ProjectLaunchReport } from "../../../types/launchReport";
 import type {
   ProjectReadinessEvidenceCoverage,
@@ -23,7 +23,14 @@ import type { RepoIntegration } from "../../../types/repoIntegration";
 import { getLatestProjectAnalysis, listProjectAnalyses, runProjectAnalysis } from "../api/projectAnalyses";
 import { listProjectActivity } from "../api/projectActivity";
 import { listProjectArtifacts } from "../api/projectArtifacts";
-import { getLatestProjectHealthCheck, listProjectHealthChecks, runProjectHealthCheck } from "../api/projectHealthChecks";
+import {
+  getLatestProjectHealthCheck,
+  getProjectHealthMonitor,
+  listProjectHealthChecks,
+  pauseProjectHealthMonitor,
+  runProjectHealthCheck,
+  updateProjectHealthMonitor,
+} from "../api/projectHealthChecks";
 import { getProjectLaunchChecklist, getProjectLaunchReport } from "../api/projectLaunchReport";
 import { evaluateProjectReadiness, getProjectReadiness, updateProjectReadinessItem } from "../api/projectReadiness";
 import {
@@ -32,6 +39,7 @@ import {
   unlinkReadinessArtifact,
 } from "../api/projectReadinessArtifacts";
 import { attachProjectRepo, getProjectRepo, removeProjectRepo } from "../api/projectRepo";
+import { attachGitHubAppRepository } from "../api/githubApp";
 import { ArchiveProjectModal } from "../components/ArchiveProjectModal";
 import { CodeMapAnalysisCard } from "../components/CodeMapAnalysisCard";
 import { HealthMonitoringCard } from "../components/HealthMonitoringCard";
@@ -259,6 +267,10 @@ export function ProjectDetailPage() {
   const [healthHistory, setHealthHistory] = useState<HealthCheck[]>([]);
   const [healthHistoryLoading, setHealthHistoryLoading] = useState(false);
   const [healthHistoryError, setHealthHistoryError] = useState("");
+  const [healthMonitor, setHealthMonitor] = useState<HealthMonitorSchedule | null>(null);
+  const [healthMonitorLoading, setHealthMonitorLoading] = useState(false);
+  const [healthMonitorError, setHealthMonitorError] = useState("");
+  const [healthMonitorPending, setHealthMonitorPending] = useState(false);
   const [readiness, setReadiness] = useState<ProjectReadinessSummary | null>(null);
   const [readinessLoading, setReadinessLoading] = useState(false);
   const [readinessError, setReadinessError] = useState("");
@@ -487,6 +499,19 @@ export function ProjectDetailPage() {
   }, [project, projectId]);
 
   useEffect(() => {
+    if (!project) return;
+    setHealthMonitorLoading(true);
+    setHealthMonitorError("");
+    getProjectHealthMonitor(projectId)
+      .then((monitor) => setHealthMonitor(monitor))
+      .catch((e: unknown) => {
+        setHealthMonitor(null);
+        setHealthMonitorError(e instanceof Error ? e.message : "Scheduled monitoring could not load.");
+      })
+      .finally(() => setHealthMonitorLoading(false));
+  }, [project, projectId]);
+
+  useEffect(() => {
     setReadinessLoading(true);
     setReadinessError("");
     getProjectReadiness(projectId)
@@ -673,6 +698,48 @@ export function ProjectDetailPage() {
     }
   }
 
+  async function saveHealthMonitor(cadence: HealthMonitorCadence) {
+    setHealthMonitorPending(true);
+    setHealthMonitorError("");
+    try {
+      setHealthMonitor(await updateProjectHealthMonitor(projectId, { enabled: true, cadence_minutes: cadence }));
+      await refreshActivity();
+    } catch (e) {
+      setHealthMonitorError(e instanceof Error ? e.message : "Scheduled monitoring could not be saved.");
+    } finally {
+      setHealthMonitorPending(false);
+    }
+  }
+
+  async function pauseHealthMonitor() {
+    setHealthMonitorPending(true);
+    setHealthMonitorError("");
+    try {
+      setHealthMonitor(await pauseProjectHealthMonitor(projectId));
+      await refreshActivity();
+    } catch (e) {
+      setHealthMonitorError(e instanceof Error ? e.message : "Scheduled monitoring could not be paused.");
+    } finally {
+      setHealthMonitorPending(false);
+    }
+  }
+
+  async function attachGitHubAppRepo(installationId: number, repositoryId: number) {
+    setRepoPending(true);
+    setRepoError("");
+    try {
+      const nextRepo = await attachGitHubAppRepository(projectId, installationId, repositoryId);
+      setRepo(nextRepo);
+      setLatestAnalysis(null);
+      setAnalysisHistory([]);
+      await refreshActivity();
+    } catch (e) {
+      setRepoError(e instanceof Error ? e.message : "GitHub repository could not be attached.");
+    } finally {
+      setRepoPending(false);
+    }
+  }
+
   async function removeRepo() {
     setRepoRemovePending(true);
     setRepoRemoveError("");
@@ -811,6 +878,7 @@ export function ProjectDetailPage() {
                 setRepoRemoveOpen(true);
               }}
               onAttach={attachRepo}
+              onGitHubAppAttach={attachGitHubAppRepo}
             />
           </div>
           <div id="codemap" className="section-anchor">
@@ -837,7 +905,13 @@ export function ProjectDetailPage() {
               historyLoading={healthHistoryLoading}
               historyError={healthHistoryError}
               healthRunning={healthRunning}
+              monitor={healthMonitor}
+              monitorLoading={healthMonitorLoading}
+              monitorError={healthMonitorError}
+              monitorPending={healthMonitorPending}
               onRunHealthCheck={runHealthCheck}
+              onUpdateMonitor={saveHealthMonitor}
+              onPauseMonitor={pauseHealthMonitor}
             />
           </div>
           <div id="readiness" className="section-anchor">

@@ -5,8 +5,8 @@ and preparing projects for production.
 
 ProjectOps currently lets developers register, sign in, create account-owned
 Projects, read, update, list, archive, view dashboard summaries, attach public
-GitHub repository connections, run CodeMap Lite repository path analysis, run
-manual health checks, view an advisory production-readiness checklist, generate
+GitHub repository connections, run evidence-backed repository path and manifest analysis, run
+manual and scheduled health checks, view an advisory production-readiness checklist, generate
 a current Launch Report and Guided Launch Checklist from readiness and evidence
 signals, record a Launch Decision as a Project Artifact, search Project Artifact
 metadata, link artifacts as supporting readiness evidence, inspect evidence
@@ -14,8 +14,8 @@ coverage and artifact usage, review recent Project activity from Project detail
 pages, and scan recent activity across Projects from the app Overview.
 
 ProjectOps is still intentionally staged. It does not yet include teams,
-organizations, roles, OAuth, password reset, refresh tokens, scheduled
-monitoring, alerts, file processing, notifications, OpenTelemetry, or AI
+organizations, roles, OAuth, password reset, refresh tokens, alerts, file
+processing, notifications, OpenTelemetry, or AI
 features.
 
 ## Current Status
@@ -29,9 +29,10 @@ Implemented:
 - Account-owned Project visibility.
 - Project CRUD and archive-on-delete behavior.
 - Project Dashboard API.
-- GitHub repo intake for public GitHub repository URLs.
-- CodeMap Lite rule-based repository path analysis.
+- GitHub repo intake for public URLs and read-only GitHub App installations, including private repositories.
+- CodeMap Medium deterministic repository analysis using paths and a bounded allowlist of public manifests and configuration files.
 - Manual Health Monitor for on-demand Project URL checks.
+- Scheduled Health Monitoring at supported cadences through a Render cron worker.
 - Advisory Production Readiness checklist.
 - Launch Report and Guided Launch Checklist APIs.
 - Launch Decision UI that records go/no-go/defer decisions as Project Artifacts.
@@ -51,7 +52,7 @@ Implemented:
 - Safe backend 500 responses and frontend error-boundary request ID surfacing.
 - Backup/restore and private-beta deployment drill documentation.
 - Safe backend smoke-check helper for hosted `/health` and `/health/db`.
-- Backend Dockerfile for the selected AWS App Runner private-beta path.
+- Backend Dockerfile and Render Blueprint for the selected Render private-beta path.
 - React + TypeScript frontend for Project Registry, Overview, Project detail
   command center, auth flows, readiness, artifacts, Launch Report, Guided
   Launch Checklist, Launch Decision, and activity surfaces.
@@ -60,12 +61,12 @@ Not implemented yet:
 
 - Teams, organizations, roles, OAuth, password reset, refresh tokens, or account
   administration.
-- GitHub OAuth, GitHub Apps, private repository support, webhooks, or background
-  repository sync.
+- GitHub webhooks or background repository sync. GitHub App support is read-only
+  and does not yet refresh automatically.
 - Deep repository analysis, file content fetching, language percentages, AST
   parsing, or dependency graph analysis.
 - File upload storage, OCR, document preview, embeddings, semantic search, LLM
-  extraction, scheduled monitoring, background jobs, alerts, notification
+  extraction, general-purpose background jobs, alerts, notification
   inboxes, or AI summaries.
 - Terraform, Kubernetes, Docker image publishing, or full CI/CD deployment
   automation.
@@ -185,10 +186,11 @@ The shorter operator to-do checklist lives in
 `docs/private-beta-hosting-todo-checklist.md`. Use it as the step-by-step list
 while performing the hosted private-beta deployment.
 
-The selected private-beta hosting path is Vercel for the frontend, AWS App
-Runner for the backend container, and Amazon RDS PostgreSQL for the managed
-database. AWS/Vercel-specific setup steps live in
-`docs/aws-app-runner-vercel-deployment.md`.
+The selected private-beta hosting path is Vercel for the frontend, a Render
+Docker Web Service for the backend, and Render Postgres for the managed
+database, plus a Render cron worker for scheduled health checks. Provider-specific setup steps live in
+`docs/render-vercel-deployment.md`; the root `render.yaml` defines the Render
+resources and deployment lifecycle.
 
 After deploying a backend, run the safe unauthenticated health smoke helper:
 

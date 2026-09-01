@@ -13,5 +13,16 @@ export interface RepoAnalysis {
   warnings: string[];
   error_message: string | null;
   total_files_scanned: number;
+  analysis_version?: string;
+  insights?: {
+    runtimes?: string[];
+    package_managers?: string[];
+    frameworks?: string[];
+    commands?: Record<string, string[]>;
+    dependency_counts?: { runtime: number; development: number };
+    operational_signals?: string[];
+  };
+  evidence_files?: Record<string, string[]>;
+  inspected_files?: string[];
   created_at: string;
 }

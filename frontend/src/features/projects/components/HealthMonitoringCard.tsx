@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import type { HealthCheck, HealthCheckStatus } from "../../../types/healthCheck";
+import type {
+  HealthCheck,
+  HealthCheckStatus,
+  HealthMonitorCadence,
+  HealthMonitorSchedule,
+} from "../../../types/healthCheck";
 import type { Project } from "../../../types/project";
 import { formatDate } from "../../../utils/formatDate";
 
@@ -44,6 +49,10 @@ function HealthCheckResult({ check, projectTargetUrl }: { check: HealthCheck; pr
             <dd className="mono">{check.target_url}</dd>
           </div>
         )}
+        <div className="definition">
+          <dt>Execution</dt>
+          <dd>{check.execution_source === "scheduled" ? "Scheduled check" : "Manual check"}</dd>
+        </div>
         <div className="definition">
           <dt>HTTP status</dt>
           <dd>{check.http_status_code ? `HTTP ${check.http_status_code}` : "No HTTP status"}</dd>
@@ -99,6 +108,7 @@ function HealthCheckHistoryList({
                 <strong>{check.status}</strong>
                 {index === 0 && <span className="badge healthy">Latest attempt</span>}
               </div>
+              <p className="meta">{check.execution_source === "scheduled" ? "Scheduled check" : "Manual check"}</p>
               <p className="mono">{check.target_url}</p>
               <div className="meta history-meta">
                 <span>{check.http_status_code ? `HTTP ${check.http_status_code}` : "No HTTP status"}</span>
@@ -122,7 +132,13 @@ export function HealthMonitoringCard({
   historyLoading,
   historyError,
   healthRunning,
+  monitor,
+  monitorLoading,
+  monitorError,
+  monitorPending,
   onRunHealthCheck,
+  onUpdateMonitor,
+  onPauseMonitor,
 }: {
   project: Project;
   latestHealthCheck: HealthCheck | null;
@@ -132,12 +148,19 @@ export function HealthMonitoringCard({
   historyLoading: boolean;
   historyError: string;
   healthRunning: boolean;
+  monitor: HealthMonitorSchedule | null;
+  monitorLoading: boolean;
+  monitorError: string;
+  monitorPending: boolean;
   onRunHealthCheck: (overrideUrl?: string) => void;
+  onUpdateMonitor: (cadence: HealthMonitorCadence) => void;
+  onPauseMonitor: () => void;
 }) {
   const runButtonRef = useRef<HTMLButtonElement>(null);
   const wasRunningRef = useRef(false);
   const [useOverrideUrl, setUseOverrideUrl] = useState(false);
   const [overrideUrl, setOverrideUrl] = useState("");
+  const [cadence, setCadence] = useState<HealthMonitorCadence>(60);
   const productionUrl = project.production_url;
   const hasProductionUrl = Boolean(productionUrl);
   const runLabel = healthRunning ? "Running Health Check" : latestHealthCheck ? "Run Again" : "Run Health Check";
@@ -149,13 +172,18 @@ export function HealthMonitoringCard({
     wasRunningRef.current = healthRunning;
   }, [healthRunning]);
 
+  useEffect(() => {
+    if (monitor) setCadence(monitor.cadence_minutes);
+  }, [monitor]);
+
   return (
     <section className="panel detail-panel health-panel" aria-labelledby="health-monitoring-title">
-      <div className="eyebrow">Manual Monitoring</div>
+      <div className="eyebrow">Operational Monitoring</div>
       <h2 id="health-monitoring-title">Health Monitoring</h2>
       <p className="health-intro">
-        Manual checks are run only when you start them. ProjectOps checks one target URL and stores the result; this
-        is not scheduled uptime monitoring and does not create alerts.
+        Manual checks are run only when you start them. You can also enable a recurring check against the saved
+        production URL. Results are operational signals, not an uptime guarantee, and ProjectOps does not create
+        alerts yet.
       </p>
       {!hasProductionUrl ? (
         <div className="health-empty">
@@ -179,6 +207,52 @@ export function HealthMonitoringCard({
               <dd className="mono">{productionUrl}</dd>
             </div>
           </dl>
+          <section className="health-section" aria-labelledby="scheduled-monitoring-title">
+            <h3 id="scheduled-monitoring-title">Scheduled monitoring</h3>
+            {monitorLoading ? (
+              <p className="meta" aria-live="polite">Loading scheduled monitoring...</p>
+            ) : (
+              <>
+                <p>{monitor?.enabled ? "Scheduled monitoring is enabled." : "Scheduled monitoring is paused."}</p>
+                {monitor?.enabled && monitor.next_run_at && <p className="meta">Next check: {formatDate(monitor.next_run_at)}</p>}
+                {monitor?.last_completed_at && (
+                  <p className="meta">
+                    Last scheduled result: {monitor.last_outcome || "unknown"} at {formatDate(monitor.last_completed_at)}
+                  </p>
+                )}
+                {monitorError && <p className="error-text" role="alert">{monitorError}</p>}
+                <div className="field">
+                  <label htmlFor="health-monitor-cadence">Monitoring frequency</label>
+                  <select
+                    id="health-monitor-cadence"
+                    value={cadence}
+                    disabled={monitorPending}
+                    onChange={(event) => setCadence(Number(event.target.value) as HealthMonitorCadence)}
+                  >
+                    <option value={15}>Every 15 minutes</option>
+                    <option value={60}>Every hour</option>
+                    <option value={360}>Every 6 hours</option>
+                    <option value={1440}>Daily</option>
+                  </select>
+                </div>
+                <div className="row">
+                  <button
+                    className="button"
+                    type="button"
+                    disabled={monitorPending}
+                    onClick={() => onUpdateMonitor(cadence)}
+                  >
+                    {monitorPending ? "Saving schedule" : monitor?.enabled ? "Update schedule" : "Enable scheduled monitoring"}
+                  </button>
+                  {monitor?.enabled && (
+                    <button className="button" type="button" disabled={monitorPending} onClick={onPauseMonitor}>
+                      Pause scheduled monitoring
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
+          </section>
           {healthRunning && (
             <p className="meta" aria-live="polite">
               Manual health check is running...

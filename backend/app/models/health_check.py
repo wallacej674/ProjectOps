@@ -16,12 +16,21 @@ class HealthCheckStatus(str, Enum):
     error = "error"
 
 
+class HealthCheckExecutionSource(str, Enum):
+    manual = "manual"
+    scheduled = "scheduled"
+
+
 class HealthCheck(Base):
     __tablename__ = "health_checks"
     __table_args__ = (
         CheckConstraint(
             "status in ('healthy', 'unhealthy', 'timeout', 'error')",
             name="ck_health_checks_status",
+        ),
+        CheckConstraint(
+            "execution_source in ('manual', 'scheduled')",
+            name="ck_health_checks_execution_source",
         ),
     )
 
@@ -33,6 +42,7 @@ class HealthCheck(Base):
     )
     target_url: Mapped[str] = mapped_column(String(2048), nullable=False)
     status: Mapped[str] = mapped_column(String(32), nullable=False)
+    execution_source: Mapped[str] = mapped_column(String(32), nullable=False, default="manual")
     http_status_code: Mapped[int | None] = mapped_column(Integer, nullable=True)
     response_time_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
     checked_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)

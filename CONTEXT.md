@@ -31,8 +31,12 @@ A connection record between one Project and an external code repository. A Repo 
 _Avoid_: Repo metadata, Project repo URL, GitHub link
 
 **GitHub Repo Intake**:
-The workflow that attaches, normalizes, retrieves, or removes a public GitHub repository connection for a Project. GitHub Repo Intake records connection metadata only; it does not analyze repository contents.
+The workflow that attaches, normalizes, retrieves, or removes a GitHub repository connection for a Project. Public URLs and user-authorized, read-only GitHub App installations are supported. GitHub Repo Intake records connection metadata; repository analysis remains a separate action.
 _Avoid_: Repo analysis, CodeMap, GitHub sync
+
+**GitHub App Connection**:
+A user-authorized binding between a ProjectOps account and a GitHub App installation. ProjectOps stores installation identity and repository metadata, discards the temporary GitHub user token after ownership verification, and requests short-lived installation tokens when repository access is required.
+_Avoid_: Stored personal access token, GitHub write access, automatic sync
 
 **Repo Analysis**:
 A stored snapshot of rule-based observations about an attached repository. A Repo Analysis records detected stack, files, folders, signals, warnings, status, and summary at a point in time.
@@ -42,13 +46,21 @@ _Avoid_: Readiness score, AI summary, live repo state
 The rule-based workflow that fetches public GitHub repository paths and turns those paths into a Repo Analysis. CodeMap Lite uses file and folder paths only; it does not clone repositories or inspect file contents.
 _Avoid_: Deep static analysis, AST analysis, production readiness scoring
 
+**Repository Insights**:
+The deterministic CodeMap Medium capability that inspects a bounded allowlist of public repository manifests and configuration files. Repository Insights records declared runtimes, frameworks, commands, dependency counts, operational signals, and the files supporting those observations. It does not clone repositories, execute code, inspect arbitrary source files, or use AI.
+_Avoid_: Code review, verified architecture, vulnerability scan, AI analysis
+
 **Health Check**:
-A stored result of one manual reachability check against a Project URL. A Health Check records target URL, outcome status, HTTP status, response time, error message, and a short response preview.
+A stored result of one manual or scheduled reachability check against a Project URL. A Health Check records its execution source, target URL, outcome status, HTTP status, response time, error message, and a short response preview.
 _Avoid_: Uptime metric, incident, readiness score
 
 **Manual Health Monitor**:
 The workflow that runs and stores an on-demand Health Check for a Project. Manual Health Monitor is not scheduled monitoring.
 _Avoid_: Scheduled uptime monitoring, alerting, status page
+
+**Scheduled Health Monitor**:
+An opt-in Project schedule that periodically runs the same safe URL check against the saved production URL. It records individual observations and schedule state; it is not an uptime guarantee, alerting system, or incident manager.
+_Avoid_: Guaranteed uptime, active incident, paging
 
 **Project Artifact**:
 A Project-scoped metadata record for an important note, link, runbook, decision, requirement, risk, incident note, or evidence reference. Project Artifacts store registry metadata and optional text/URL references; they do not upload, parse, preview, or analyze document files yet.

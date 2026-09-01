@@ -27,6 +27,17 @@ const completedAnalysis = {
   warnings: ["No environment example detected."],
   error_message: null,
   total_files_scanned: 42,
+  analysis_version: "codemap_medium_v1",
+  insights: {
+    runtimes: ["node >=20", "python >=3.11"],
+    package_managers: ["npm", "python"],
+    frameworks: ["fastapi", "react", "vite"],
+    commands: { test: ["npm run test"], build: ["npm run build"] },
+    dependency_counts: { runtime: 12, development: 8 },
+    operational_signals: ["containers", "github_actions"],
+  },
+  evidence_files: { "framework:react": ["package.json"] },
+  inspected_files: ["package.json", "backend/pyproject.toml", ".github/workflows/ci.yml"],
   created_at: "2026-01-03T12:00:00Z",
 };
 
@@ -102,10 +113,10 @@ describe("Project detail CodeMap Lite analysis", () => {
 
     renderDetail();
 
-    const section = await screen.findByRole("region", { name: "CodeMap Lite Analysis" });
+    const section = await screen.findByRole("region", { name: "Repository Analysis" });
     expect(within(section).getByText("Attach a GitHub repository before running analysis.")).toBeInTheDocument();
     expect(within(section).getByRole("button", { name: "Run Analysis" })).toBeDisabled();
-    expect(within(section).getByText(/CodeMap Lite reads repository paths/)).toBeInTheDocument();
+    expect(within(section).getByText(/reads repository paths and selected manifests/)).toBeInTheDocument();
     expect(within(section).queryByText(/AI analyzed/)).not.toBeInTheDocument();
   });
 
@@ -114,7 +125,7 @@ describe("Project detail CodeMap Lite analysis", () => {
 
     renderDetail();
 
-    const section = await screen.findByRole("region", { name: "CodeMap Lite Analysis" });
+    const section = await screen.findByRole("region", { name: "Repository Analysis" });
     expect(within(section).getByText("openai/codex")).toBeInTheDocument();
     expect(within(section).getByText("No analysis has been run yet.")).toBeInTheDocument();
     expect(within(section).getByRole("button", { name: "Run Analysis" })).toBeEnabled();
@@ -128,11 +139,17 @@ describe("Project detail CodeMap Lite analysis", () => {
 
     renderDetail();
 
-    const section = await screen.findByRole("region", { name: "CodeMap Lite Analysis" });
+    const section = await screen.findByRole("region", { name: "Repository Analysis" });
     expect((await within(section).findAllByText(completedAnalysis.summary)).length).toBeGreaterThan(0);
     expect(within(section).getAllByText("completed").length).toBeGreaterThan(0);
     expect(within(section).getByText("42")).toBeInTheDocument();
     expect(within(section).getByRole("button", { name: "Run Again" })).toBeEnabled();
+    expect(within(section).getByRole("heading", { name: "Repository Insights" })).toBeInTheDocument();
+    expect(within(section).getByText("node >=20")).toBeInTheDocument();
+    expect(within(section).getByText("npm run test")).toBeInTheDocument();
+    expect(within(section).getByText("framework: react")).toBeInTheDocument();
+    expect(within(section).getAllByText("package.json").length).toBeGreaterThan(0);
+    expect(within(section).getByText("Paths and selected manifests")).toBeInTheDocument();
   });
 
   it("disables the run button while analysis is pending and then shows the result", async () => {
@@ -145,7 +162,7 @@ describe("Project detail CodeMap Lite analysis", () => {
 
     renderDetail();
 
-    const section = await screen.findByRole("region", { name: "CodeMap Lite Analysis" });
+    const section = await screen.findByRole("region", { name: "Repository Analysis" });
     await user.click(await within(section).findByRole("button", { name: "Run Analysis" }));
 
     expect(within(section).getByRole("button", { name: "Running Analysis" })).toBeDisabled();
@@ -166,7 +183,7 @@ describe("Project detail CodeMap Lite analysis", () => {
 
     renderDetail();
 
-    const section = await screen.findByRole("region", { name: "CodeMap Lite Analysis" });
+    const section = await screen.findByRole("region", { name: "Repository Analysis" });
     expect((await within(section).findAllByText("failed")).length).toBeGreaterThan(0);
     expect(within(section).getByText("GitHub repository tree response was truncated.")).toBeInTheDocument();
     expect(within(section).getByText(/What likely happened/)).toBeInTheDocument();
@@ -179,7 +196,7 @@ describe("Project detail CodeMap Lite analysis", () => {
 
     renderDetail();
 
-    const section = await screen.findByRole("region", { name: "CodeMap Lite Analysis" });
+    const section = await screen.findByRole("region", { name: "Repository Analysis" });
     await user.click(await within(section).findByRole("button", { name: "Run Analysis" }));
 
     expect(await within(section).findByRole("alert")).toHaveTextContent("Analysis service unavailable.");
@@ -190,11 +207,11 @@ describe("Project detail CodeMap Lite analysis", () => {
 
     renderDetail();
 
-    const section = await screen.findByRole("region", { name: "CodeMap Lite Analysis" });
+    const section = await screen.findByRole("region", { name: "Repository Analysis" });
     expect(await within(section).findByRole("heading", { name: "Detected Stack" })).toBeInTheDocument();
-    expect(within(section).getByText("python")).toBeInTheDocument();
+    expect(within(section).getAllByText("python").length).toBeGreaterThan(0);
     expect(within(section).getByText("typescript")).toBeInTheDocument();
-    expect(within(section).getByText("fastapi")).toBeInTheDocument();
+    expect(within(section).getAllByText("fastapi").length).toBeGreaterThan(0);
     expect(within(section).getByText("README present: detected")).toBeInTheDocument();
     expect(within(section).getByText("Backend detected: detected")).toBeInTheDocument();
     expect(within(section).getByText("No environment example detected.")).toBeInTheDocument();
@@ -207,7 +224,7 @@ describe("Project detail CodeMap Lite analysis", () => {
 
     renderDetail();
 
-    const section = await screen.findByRole("region", { name: "CodeMap Lite Analysis" });
+    const section = await screen.findByRole("region", { name: "Repository Analysis" });
     expect(await within(section).findByRole("heading", { name: "Analysis History" })).toBeInTheDocument();
     expect(await within(section).findByText("Latest attempt")).toBeInTheDocument();
     expect(await within(section).findByText("18 files scanned")).toBeInTheDocument();
@@ -218,7 +235,7 @@ describe("Project detail CodeMap Lite analysis", () => {
 
     renderDetail();
 
-    const section = await screen.findByRole("region", { name: "CodeMap Lite Analysis" });
+    const section = await screen.findByRole("region", { name: "Repository Analysis" });
     expect(await within(section).findByRole("heading", { name: "Analysis History" })).toBeInTheDocument();
     expect(within(section).getByText("No analysis history yet.")).toBeInTheDocument();
   });
@@ -231,7 +248,7 @@ describe("Project detail CodeMap Lite analysis", () => {
     const repoSection = screen.getByRole("region", { name: "Repository Connection" });
     expect(await within(repoSection).findByRole("alert")).toHaveTextContent("Repository service unavailable.");
 
-    const codeMapSection = screen.getByRole("region", { name: "CodeMap Lite Analysis" });
+    const codeMapSection = screen.getByRole("region", { name: "Repository Analysis" });
     expect(within(codeMapSection).getByText("Attach a GitHub repository before running analysis.")).toBeInTheDocument();
   });
 
@@ -243,7 +260,7 @@ describe("Project detail CodeMap Lite analysis", () => {
 
     renderDetail();
 
-    const section = await screen.findByRole("region", { name: "CodeMap Lite Analysis" });
+    const section = await screen.findByRole("region", { name: "Repository Analysis" });
     expect((await within(section).findAllByText(completedAnalysis.summary)).length).toBeGreaterThan(0);
     expect(await within(section).findByRole("alert")).toHaveTextContent("Analysis history unavailable.");
   });
@@ -260,7 +277,7 @@ describe("Project detail CodeMap Lite analysis", () => {
 
     renderDetail();
 
-    const section = await screen.findByRole("region", { name: "CodeMap Lite Analysis" });
+    const section = await screen.findByRole("region", { name: "Repository Analysis" });
     expect(await within(section).findByText(longPath)).toHaveClass("mono");
     expect(within(section).getByText(longFolder)).toHaveClass("mono");
   });

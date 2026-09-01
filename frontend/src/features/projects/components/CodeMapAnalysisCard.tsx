@@ -122,10 +122,10 @@ export function CodeMapAnalysisCard({
   return (
     <section className="panel detail-panel codemap-panel" aria-labelledby="codemap-analysis-title">
       <div className="eyebrow">Repository Analysis</div>
-      <h2 id="codemap-analysis-title">CodeMap Lite Analysis</h2>
+      <h2 id="codemap-analysis-title">Repository Analysis</h2>
       <p className="codemap-intro">
-        CodeMap Lite reads repository paths to infer basic architecture signals. This is rule-based analysis, not AI
-        code review.
+        ProjectOps reads repository paths and selected manifests to infer evidence-backed architecture signals. This is
+        deterministic analysis, not AI code review.
       </p>
       {repoLoading ? (
         <p className="meta">Checking repository connection before analysis...</p>
@@ -175,6 +175,7 @@ export function CodeMapAnalysisCard({
               )}
               {!isFailed && (
                 <>
+                  <RepositoryInsights analysis={latestAnalysis} />
                   <section className="codemap-section" aria-labelledby="codemap-stack-title">
                     <h3 id="codemap-stack-title">Detected Stack</h3>
                     {stackEntries(latestAnalysis).length > 0 ? (
@@ -239,6 +240,10 @@ export function CodeMapAnalysisCard({
                   <dt>Analysis timestamp</dt>
                   <dd>{formatDate(latestAnalysis.created_at)}</dd>
                 </div>
+                <div className="definition">
+                  <dt>Analysis capability</dt>
+                  <dd>{latestAnalysis.analysis_version === "codemap_medium_v1" ? "Paths and selected manifests" : "Paths only"}</dd>
+                </div>
               </dl>
             </div>
           ) : (
@@ -277,6 +282,69 @@ export function CodeMapAnalysisCard({
           <button className="button" type="button" disabled>
             Run Analysis
           </button>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function RepositoryInsights({ analysis }: { analysis: RepoAnalysis }) {
+  const insights = analysis.insights ?? {};
+  const inspectedFiles = analysis.inspected_files ?? [];
+  const groups = [
+    ["Runtimes", insights.runtimes ?? []],
+    ["Frameworks and tools", insights.frameworks ?? []],
+    ["Package managers", insights.package_managers ?? []],
+    ["Operational signals", insights.operational_signals ?? []],
+  ] as const;
+  const commands = Object.entries(insights.commands ?? {}).filter(([, values]) => values.length > 0);
+  const evidence = Object.entries(analysis.evidence_files ?? {}).filter(([, paths]) => paths.length > 0);
+  if (analysis.analysis_version !== "codemap_medium_v1" || inspectedFiles.length === 0) return null;
+
+  return (
+    <section className="codemap-section" aria-labelledby="repository-insights-title">
+      <h3 id="repository-insights-title">Repository Insights</h3>
+      <p className="meta">Deterministic observations from selected manifests and configuration files.</p>
+      <div className="stack-groups">
+        {groups.filter(([, values]) => values.length > 0).map(([label, values]) => (
+          <div className="stack-group" key={label}>
+            <h4>{label}</h4>
+            <ul className="chip-list">
+              {values.map((value) => <li key={value}>{value.replaceAll("_", " ")}</li>)}
+            </ul>
+          </div>
+        ))}
+      </div>
+      {commands.length > 0 && (
+        <div>
+          <h4>Declared commands</h4>
+          <dl>
+            {commands.map(([category, values]) => (
+              <div className="definition" key={category}>
+                <dt>{category}</dt>
+                <dd className="mono">{values.join(", ")}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      )}
+      {insights.dependency_counts && (
+        <p className="meta">
+          Declared dependencies: {insights.dependency_counts.runtime} runtime, {insights.dependency_counts.development} development.
+        </p>
+      )}
+      <PathList title="Files inspected" paths={inspectedFiles} />
+      {evidence.length > 0 && (
+        <div>
+          <h4>Insight evidence</h4>
+          <dl>
+            {evidence.slice(0, 12).map(([signal, paths]) => (
+              <div className="definition" key={signal}>
+                <dt>{signal.replaceAll("_", " ").replace(":", ": ")}</dt>
+                <dd className="mono">{paths.join(", ")}</dd>
+              </div>
+            ))}
+          </dl>
         </div>
       )}
     </section>

@@ -1,0 +1,100 @@
+# Render Blueprint for the ProjectOps production backend and database.
+# The frontend is deployed separately from frontend/ on Vercel.
+services:
+  - type: web
+    name: projectops-api
+    runtime: docker
+    plan: 0.5c-512mb
+    region: ohio
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    preDeployCommand: python -m alembic upgrade head
+    autoDeployTrigger: checksPass
+    numInstances: 1
+    maxShutdownDelaySeconds: 30
+    envVars:
+      - key: PROJECTOPS_APP_NAME
+        value: ProjectOps Backend
+      - key: PROJECTOPS_ENVIRONMENT
+        value: production
+      - key: PROJECTOPS_DATABASE_URL
+        fromDatabase:
+          name: projectops-db
+          property: connectionString
+      - key: PROJECTOPS_AUTH_SECRET_KEY
+        generateValue: true
+      - key: PROJECTOPS_CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: PROJECTOPS_HEALTH_CHECK_TIMEOUT_SECONDS
+        value: "5"
+      - key: PROJECTOPS_ACCESS_TOKEN_EXPIRE_MINUTES
+        value: "60"
+      - key: PROJECTOPS_LOG_LEVEL
+        value: INFO
+      - key: PROJECTOPS_ENABLE_ERROR_MONITORING
+        value: "false"
+      - key: PROJECTOPS_SENTRY_ENVIRONMENT
+        value: production
+      - key: PROJECTOPS_RATE_LIMIT_AUTH_LOGIN_ATTEMPTS
+        value: "5"
+      - key: PROJECTOPS_RATE_LIMIT_AUTH_LOGIN_WINDOW_SECONDS
+        value: "300"
+      - key: PROJECTOPS_RATE_LIMIT_AUTH_REGISTER_ATTEMPTS
+        value: "5"
+      - key: PROJECTOPS_RATE_LIMIT_AUTH_REGISTER_WINDOW_SECONDS
+        value: "3600"
+      - key: PROJECTOPS_RATE_LIMIT_DEMO_SEED_ATTEMPTS
+        value: "3"
+      - key: PROJECTOPS_RATE_LIMIT_DEMO_SEED_WINDOW_SECONDS
+        value: "3600"
+      - key: PROJECTOPS_RATE_LIMIT_CODEMAP_RUN_ATTEMPTS
+        value: "5"
+      - key: PROJECTOPS_RATE_LIMIT_CODEMAP_RUN_WINDOW_SECONDS
+        value: "300"
+      - key: PROJECTOPS_RATE_LIMIT_HEALTH_CHECK_RUN_ATTEMPTS
+        value: "10"
+      - key: PROJECTOPS_RATE_LIMIT_HEALTH_CHECK_RUN_WINDOW_SECONDS
+        value: "300"
+
+  - type: cron
+    name: projectops-health-monitor
+    runtime: docker
+    plan: 0.5c-512mb
+    region: ohio
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: python -m app.jobs.run_due_health_checks
+    schedule: "*/5 * * * *"
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: PROJECTOPS_ENVIRONMENT
+        value: production
+      - key: PROJECTOPS_DATABASE_URL
+        fromDatabase:
+          name: projectops-db
+          property: connectionString
+      - key: PROJECTOPS_AUTH_SECRET_KEY
+        generateValue: true
+      - key: PROJECTOPS_CORS_ALLOWED_ORIGINS
+        sync: false
+      - key: PROJECTOPS_HEALTH_CHECK_TIMEOUT_SECONDS
+        value: "5"
+      - key: PROJECTOPS_LOG_LEVEL
+        value: INFO
+
+databases:
+  - name: projectops-db
+    databaseName: projectops
+    user: projectops
+    plan: 0.5c-1g
+    region: ohio
+    postgresMajorVersion: "16"
+    diskSizeGB: 15
+    storageAutoscalingEnabled: true
+    ipAllowList: []
+
+previews:
+  generation: off

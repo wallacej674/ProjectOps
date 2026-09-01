@@ -1,6 +1,8 @@
+import { useEffect, useState } from "react";
 import { formatDate } from "../../../utils/formatDate";
 import type { RepoIntegration } from "../../../types/repoIntegration";
 import { RepositoryAttachForm } from "./RepositoryAttachForm";
+import { getGitHubAppAuthorization, listGitHubAppRepositories, type GitHubRepositoryChoice } from "../api/githubApp";
 
 export function RepositoryConnectionCard({
   repo,
@@ -12,6 +14,7 @@ export function RepositoryConnectionCard({
   onCancelReplace,
   onRemove,
   onAttach,
+  onGitHubAppAttach,
 }: {
   repo: RepoIntegration | null;
   loading: boolean;
@@ -22,7 +25,22 @@ export function RepositoryConnectionCard({
   onCancelReplace: () => void;
   onRemove: () => void;
   onAttach: (repoUrl: string) => Promise<void>;
+  onGitHubAppAttach: (installationId: number, repositoryId: number) => Promise<void>;
 }) {
+  const [appEnabled, setAppEnabled] = useState(false);
+  const [authorizeUrl, setAuthorizeUrl] = useState<string | null>(null);
+  const [repositories, setRepositories] = useState<GitHubRepositoryChoice[]>([]);
+  const [selected, setSelected] = useState("");
+  const projectId = repo?.project_id?.toString() ?? window.location.pathname.split("/").filter(Boolean).at(-1) ?? "";
+
+  useEffect(() => {
+    if (!projectId) return;
+    getGitHubAppAuthorization(projectId).then((status) => {
+      setAppEnabled(status.enabled);
+      setAuthorizeUrl(status.authorize_url);
+      if (status.enabled) return listGitHubAppRepositories(projectId).then(setRepositories).catch(() => setRepositories([]));
+    }).catch(() => setAppEnabled(false));
+  }, [projectId]);
   return (
     <section className="panel detail-panel repo-panel" aria-labelledby="repo-connection-title">
       <div className="eyebrow">Repository Intake</div>
@@ -40,8 +58,8 @@ export function RepositoryConnectionCard({
           </div>
           <dl>
             <div className="definition">
-              <dt>Provider</dt>
-              <dd>{repo.provider}</dd>
+            <dt>Provider</dt>
+              <dd>{repo.provider}{repo.is_private ? " (private)" : ""}</dd>
             </div>
             <div className="definition">
               <dt>Repository URL</dt>
@@ -101,6 +119,27 @@ export function RepositoryConnectionCard({
             </p>
           )}
           <RepositoryAttachForm pending={pending} onSubmit={onAttach} />
+          {appEnabled && (
+            <div className="repo-replace">
+              <h3>Connect with GitHub App</h3>
+              <p className="meta">Use read-only installation access for private repositories. ProjectOps does not store your GitHub user token.</p>
+              {repositories.length > 0 ? (
+                <>
+                  <label htmlFor="github-app-repository">Available repository</label>
+                  <select id="github-app-repository" value={selected} onChange={(event) => setSelected(event.target.value)}>
+                    <option value="">Select a repository</option>
+                    {repositories.map((item) => <option key={`${item.installation_id}:${item.id}`} value={`${item.installation_id}:${item.id}`}>{item.full_name}{item.private ? " (private)" : ""}</option>)}
+                  </select>
+                  <button className="button primary" type="button" disabled={!selected || pending} onClick={() => {
+                    const [installationId, repositoryId] = selected.split(":").map(Number);
+                    void onGitHubAppAttach(installationId, repositoryId);
+                  }}>Attach selected repository</button>
+                </>
+              ) : authorizeUrl ? (
+                <a className="button" href={authorizeUrl}>Connect GitHub App</a>
+              ) : null}
+            </div>
+          )}
         </div>
       )}
     </section>

@@ -1,4 +1,5 @@
-from app.models.health_check import HealthCheck, HealthCheckStatus
+from app.models.health_check import HealthCheck, HealthCheckExecutionSource, HealthCheckStatus
+from app.models.health_monitor_schedule import HealthMonitorSchedule
 from app.models.project import Project, ProjectStatus
 from app.models.project_activity import (
     ProjectActivityCategory,
@@ -13,12 +14,14 @@ from app.models.project_artifact import (
 )
 from app.models.readiness import ProjectReadinessArtifactEvidence, ProjectReadinessItem, ReadinessItem
 from app.models.repo_analysis import RepoAnalysis, RepoAnalysisStatus
-from app.models.repo_integration import RepoIntegration, RepoProvider
+from app.models.repo_integration import GitHubInstallation, RepoIntegration, RepoProvider
 from app.models.user import User, UserStatus
 
 __all__ = [
     "HealthCheck",
+    "HealthCheckExecutionSource",
     "HealthCheckStatus",
+    "HealthMonitorSchedule",
     "Project",
     "ProjectActivityCategory",
     "ProjectActivityEvent",
@@ -33,6 +36,7 @@ __all__ = [
     "ReadinessItem",
     "RepoAnalysis",
     "RepoAnalysisStatus",
+    "GitHubInstallation",
     "RepoIntegration",
     "RepoProvider",
     "User",

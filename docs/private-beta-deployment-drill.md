@@ -1,8 +1,8 @@
 # Private-Beta Deployment Drill
 
-This runbook records the ProjectOps private-beta deployment drill. It is
-provider-neutral until a frontend host, backend host, managed PostgreSQL
-provider, and monitoring project are selected.
+This runbook records the ProjectOps Render and Vercel private-beta deployment
+drill. The provider stack is selected; hosted evidence remains pending until
+the provider resources are created.
 
 Do not paste real secrets, tokens, Sentry DSN values, database URL values, auth
 secret values, passwords, backup contents, or provider credentials into this
@@ -13,7 +13,7 @@ operator notes.
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Provider stack | Pending provider access | No frontend/backend/database provider selected in the repository. |
+| Provider stack | Selected, pending provider access | Vercel frontend, Render Web Service, and Render Postgres are defined. |
 | Backend deploy | Pending provider access | Local backend verification passes; hosted deploy not yet run. |
 | Frontend deploy | Pending provider access | Vite build and Vercel SPA fallback config exist; hosted deploy not yet run. |
 | Managed database | Pending provider access | Provider backup/PITR settings must be confirmed in provider UI. |
@@ -27,15 +27,15 @@ Record the chosen provider stack before running the drill:
 | Layer | Provider | URL or project name | Status |
 | --- | --- | --- | --- |
 | Frontend static host | Vercel selected | Do not paste credentials | Pending deploy |
-| Backend web service host | AWS App Runner selected | Do not paste credentials | Pending deploy |
-| Managed PostgreSQL | Amazon RDS PostgreSQL selected | Do not paste database URL | Pending setup |
+| Backend web service host | Render selected | `projectops-api`; do not paste credentials | Pending deploy |
+| Managed PostgreSQL | Render Postgres selected | `projectops-db`; do not paste database URL | Pending setup |
 | Monitoring | Pending | Do not paste Sentry DSN | Pending |
 
 Recommended provider shape:
 
 - Frontend: Vercel.
-- Backend: AWS App Runner using `backend/Dockerfile`.
-- Database: Amazon RDS PostgreSQL.
+- Backend: Render using `backend/Dockerfile` and the root `render.yaml`.
+- Database: Render Postgres through its private internal connection string.
 - Monitoring: Sentry or equivalent.
 
 ## Backend Deployment Settings

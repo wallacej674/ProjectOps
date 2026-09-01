@@ -1,11 +1,14 @@
 # Deployment Readiness
 
-Milestone 19 prepares ProjectOps for a clean deployment path without choosing a
-single cloud provider. The expected shape is:
+ProjectOps now has a selected private-beta deployment path:
 
-- Frontend: static host such as Vercel, Netlify, Azure Static Web Apps, or similar.
-- Backend: Python web service host such as Render, Railway, Fly.io, Azure App Service, or similar.
-- Database: managed PostgreSQL such as Neon, Supabase, Railway Postgres, or similar.
+- Frontend: Vercel, built from `frontend/`.
+- Backend: Render Docker Web Service, built from `backend/Dockerfile`.
+- Database: Render Postgres using the same-region private connection string.
+
+The root `render.yaml` declares the backend and database lifecycle. Follow
+`docs/render-vercel-deployment.md` for provider setup. The guidance below
+retains the provider-neutral operational requirements behind that selection.
 
 ProjectOps has local email/password authentication and account-owned Projects.
 It does not yet have teams, organizations, roles, OAuth, password reset,

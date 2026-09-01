@@ -444,7 +444,7 @@ describe("Project detail unified command center", () => {
     expect(within(nav).getByRole("link", { name: "Details" })).toHaveAttribute("href", "#details");
 
     expect(screen.getByRole("region", { name: "Repository Connection" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "CodeMap Lite Analysis" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Repository Analysis" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Health Monitoring" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Production Readiness" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Launch Report" })).toBeInTheDocument();
@@ -612,7 +612,7 @@ describe("Project detail unified command center", () => {
     const commandCenter = await screen.findByRole("region", { name: "Project Command Center" });
     expect(within(commandCenter).getByText("CivicPermit API")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Repository Connection" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "CodeMap Lite Analysis" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Repository Analysis" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Health Monitoring" })).toBeInTheDocument();
     expect(await within(screen.getByRole("region", { name: "Health Monitoring" })).findByRole("alert")).toHaveTextContent(
       "Health service unavailable.",
@@ -632,7 +632,7 @@ describe("Project detail unified command center", () => {
     const commandCenter = await screen.findByRole("region", { name: "Project Command Center" });
     expect(within(commandCenter).getByText("CivicPermit API")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Repository Connection" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "CodeMap Lite Analysis" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Repository Analysis" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Health Monitoring" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Production Readiness" })).toBeInTheDocument();
     expect(within(commandCenter).queryByText(/undefined/)).not.toBeInTheDocument();

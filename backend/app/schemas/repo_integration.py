@@ -18,6 +18,10 @@ class RepoIntegrationRead(BaseModel):
     repo_url: str
     default_branch: str | None
     is_connected: bool
+    github_repository_id: int | None = None
+    github_installation_id: int | None = None
+    is_private: bool = False
+    connection_mode: str = "public_url"
     last_verified_at: datetime | None
     created_at: datetime
     updated_at: datetime

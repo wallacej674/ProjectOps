@@ -1,6 +1,7 @@
 from functools import lru_cache
 from typing import ClassVar
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,6 +30,49 @@ class Settings(BaseSettings):
     rate_limit_codemap_run_window_seconds: int = 300
     rate_limit_health_check_run_attempts: int = 10
     rate_limit_health_check_run_window_seconds: int = 300
+    github_app_client_id: str = ""
+    github_app_client_secret: str = ""
+    github_app_id: str = ""
+    github_app_slug: str = ""
+    github_app_private_key: str = ""
+    github_app_callback_url: str = ""
+
+    @field_validator("database_url", mode="before")
+    @classmethod
+    def normalize_database_url(cls, value: object) -> object:
+        """Select the installed Psycopg 3 driver for provider PostgreSQL URLs."""
+        if not isinstance(value, str):
+            return value
+        if value.startswith("postgres://"):
+            return value.replace("postgres://", "postgresql+psycopg://", 1)
+        if value.startswith("postgresql://"):
+            return value.replace("postgresql://", "postgresql+psycopg://", 1)
+        return value
+
+    def github_app_enabled(self) -> bool:
+        return all(
+            value.strip()
+            for value in (
+                self.github_app_client_id,
+                self.github_app_client_secret,
+                self.github_app_id,
+                self.github_app_slug,
+                self.github_app_private_key,
+                self.github_app_callback_url,
+            )
+        )
+
+    def validate_github_app_settings(self) -> None:
+        configured = [
+            self.github_app_client_id,
+            self.github_app_client_secret,
+            self.github_app_id,
+            self.github_app_slug,
+            self.github_app_private_key,
+            self.github_app_callback_url,
+        ]
+        if any(value.strip() for value in configured) and not self.github_app_enabled():
+            raise ValueError("GitHub App configuration must be complete when any GitHub App setting is provided.")
 
     def cors_origins(self) -> list[str]:
         origins = [origin.strip() for origin in self.cors_allowed_origins.split(",") if origin.strip()]

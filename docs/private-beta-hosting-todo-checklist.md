@@ -15,12 +15,12 @@ or screenshots containing credentials into the repository.
 Recommended private-beta stack:
 
 - Frontend: Vercel
-- Backend: AWS App Runner
-- Database: Amazon RDS PostgreSQL
+- Backend: Render Web Service
+- Database: Render Postgres
 - Monitoring: Sentry
 
-AWS/Vercel-specific setup notes live in
-`docs/aws-app-runner-vercel-deployment.md`.
+Render/Vercel-specific setup notes live in
+`docs/render-vercel-deployment.md`.
 
 ## 2. Database Setup
 
@@ -50,12 +50,12 @@ AWS/Vercel-specific setup notes live in
 ## 4. Backend Deploy
 
 - [ ] Build the backend container from `backend/Dockerfile`.
-- [ ] Push the image to Amazon ECR.
-- [ ] Create or update the AWS App Runner service from the ECR image.
-- [ ] Configure App Runner container port `8000`.
-- [ ] Configure App Runner HTTP health check path `/health`.
+- [ ] Create or sync the root `render.yaml` Blueprint.
+- [ ] Confirm the API and database are in the same Render region.
+- [ ] Confirm the database uses its private internal connection string.
+- [ ] Confirm Render HTTP health check path is `/health`.
 - [ ] Deploy the backend service.
-- [ ] Run Alembic migrations against the hosted database.
+- [ ] Confirm the Render pre-deploy command runs Alembic migrations.
 - [ ] Record migration timestamp and result.
 - [ ] Confirm provider logs are accessible.
 - [ ] Confirm backend health check endpoint is configured as `/health`.

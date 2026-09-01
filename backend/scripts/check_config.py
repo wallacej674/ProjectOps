@@ -11,6 +11,7 @@ def main() -> int:
         settings.validate_logging_settings()
         settings.validate_error_monitoring_settings()
         settings.validate_rate_limit_settings()
+        settings.validate_github_app_settings()
     except ValueError as error:
         print(f"ProjectOps backend config error: {error}", file=sys.stderr)
         return 1
@@ -24,6 +25,7 @@ def main() -> int:
     else:
         print("Error monitoring is disabled or not configured.")
     print("Rate limit settings are configured.")
+    print("GitHub App integration is enabled." if settings.github_app_enabled() else "GitHub App integration is disabled or not configured.")
     return 0
 
 

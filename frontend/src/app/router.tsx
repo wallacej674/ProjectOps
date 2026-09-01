@@ -9,6 +9,7 @@ import { CreateProjectPage } from "../features/projects/pages/CreateProjectPage"
 import { EditProjectPage } from "../features/projects/pages/EditProjectPage";
 import { ProjectDetailPage } from "../features/projects/pages/ProjectDetailPage";
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
+import { GitHubAppCallbackPage } from "../features/projects/pages/GitHubAppCallbackPage";
 
 /** Top-level route map for ProjectOps. */
 export function AppRouter() {
@@ -26,6 +27,7 @@ export function AppRouter() {
             <Route path="/app/projects/new" element={<ProtectedRoute><CreateProjectPage /></ProtectedRoute>} />
             <Route path="/app/projects/:projectId" element={<ProtectedRoute><ProjectDetailPage /></ProtectedRoute>} />
             <Route path="/app/projects/:projectId/edit" element={<ProtectedRoute><EditProjectPage /></ProtectedRoute>} />
+            <Route path="/app/github/callback" element={<ProtectedRoute><GitHubAppCallbackPage /></ProtectedRoute>} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BreadcrumbProvider>

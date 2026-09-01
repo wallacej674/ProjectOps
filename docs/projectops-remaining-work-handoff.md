@@ -33,6 +33,7 @@ ProjectOps currently includes:
 * Project CRUD/archive behavior
 * Project command center
 * GitHub repository connection
+* read-only GitHub App connection for private repository selection
 * CodeMap Lite path-based repository analysis
 * Manual Health Monitoring
 * Production Readiness evaluation
@@ -1165,6 +1166,13 @@ Do not make the packet claim certification.
 ---
 
 # Milestone 40 — CodeMap Evolution
+
+Phase 1, CodeMap Medium Repository Insights, is implemented. It adds bounded
+inspection of selected public manifests and configuration files, deterministic
+runtime/framework/command/dependency/operational insights, evidence-file
+attribution, versioned stored snapshots, and legacy CodeMap Lite compatibility.
+It does not clone repositories, execute code, inspect arbitrary source files,
+scan vulnerabilities, or use AI.
 
 CodeMap Lite is intentionally simple today:
 

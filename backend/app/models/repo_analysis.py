@@ -42,6 +42,10 @@ class RepoAnalysis(Base):
     warnings: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     total_files_scanned: Mapped[int] = mapped_column(Integer, nullable=False)
+    analysis_version: Mapped[str] = mapped_column(String(32), nullable=False, default="codemap_lite_v1")
+    insights: Mapped[dict[str, Any]] = mapped_column(JSONB, nullable=False, default=dict)
+    evidence_files: Mapped[dict[str, list[str]]] = mapped_column(JSONB, nullable=False, default=dict)
+    inspected_files: Mapped[list[str]] = mapped_column(JSONB, nullable=False, default=list)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

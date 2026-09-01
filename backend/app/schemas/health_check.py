@@ -2,7 +2,7 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.models.health_check import HealthCheckStatus
+from app.models.health_check import HealthCheckExecutionSource, HealthCheckStatus
 
 
 class HealthCheckRunRequest(BaseModel):
@@ -14,6 +14,7 @@ class HealthCheckRead(BaseModel):
     project_id: int
     target_url: str
     status: HealthCheckStatus
+    execution_source: HealthCheckExecutionSource
     http_status_code: int | None
     response_time_ms: int | None
     checked_at: datetime

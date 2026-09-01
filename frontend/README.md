@@ -23,6 +23,11 @@ Production Readiness UI, Launch Report UI, Guided Launch Checklist UI, Launch De
 first-run demo workspace onboarding, auth route guards, account display, and
 Recent Activity UI are all built with plain React and CSS.
 
+Repository Intake also supports a configured GitHub App. A signed-in user can
+authorize installations they control, select an available public or private
+repository, and attach it to a Project. The callback route is
+`/app/github/callback`. GitHub user tokens are not stored by the frontend.
+
 ## Local development
 
 The frontend talks to the ProjectOps FastAPI backend. Start the backend first
@@ -224,10 +229,10 @@ It does not delete the GitHub repository. Repository analysis is handled separat
 by the CodeMap Lite section on the same Project detail page.
 
 
-### CodeMap Lite analysis
+### Repository analysis
 
-The Project detail page includes a real CodeMap Lite Analysis section backed by
-`/api/v1/projects/:projectId/analyses`. CodeMap Lite is intentionally described
+The Project detail page includes a real Repository Analysis section backed by
+`/api/v1/projects/:projectId/analyses`. The analysis is intentionally described
 as rule-based path analysis, not AI code review.
 
 States shown in the UI:
@@ -241,7 +246,7 @@ States shown in the UI:
 - Failed analysis: the failed attempt, error message, timestamp, retry action,
   and history remain visible.
 
-CodeMap Lite does not clone repositories, inspect private code, perform deep
+Repository analysis does not clone repositories, inspect private code, perform deep
 file-content analysis, calculate production readiness, run health checks, or use
 AI-generated summaries. It uses public GitHub repository tree data and stores a
 `RepoAnalysis` snapshot returned by the backend.
