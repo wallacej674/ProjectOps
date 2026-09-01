@@ -237,7 +237,7 @@ Additional release-gate evidence recorded on 2026-09-01 for revision
 - A redacted high-confidence secret-pattern scan found only Sentry-shaped test
   fixtures. The tracked `frontend/.env.local` contains only a localhost API
   base URL. This scan is supporting evidence, not proof that no secret exists,
-  so the no-secrets checklist item remains open for release review.
+  so the no-secrets checklist item remained open until the later staged review.
 - GitHub Actions run 10 failed in the backend test step: 18 tests failed and
   255 passed. The release remains blocked until CI is green.
 - PostgreSQL remained unavailable on port `55432`; the service and credentials
@@ -257,8 +257,8 @@ Local regression evidence recorded later on 2026-09-01:
   existing Starlette/httpx deprecation warning.
 - Backend compilation, configuration checking, Alembic head/current inspection,
   and `git diff --check` passed after the fixes.
-- GitHub Actions run 10 remains the latest hosted CI evidence and is still
-  failed. A new revision and green CI run are required before deployment.
+- At that point, GitHub Actions run 10 remained the latest hosted CI evidence
+  and was still failed. A new revision and green CI run were required.
 
 Final local readiness refresh recorded on 2026-09-01 before the approved
 release commit:
@@ -292,5 +292,6 @@ CI follow-up evidence recorded on 2026-09-01 for commit `8825190`:
   `4.28.8`. The live audit then reported 0 vulnerabilities.
 - After reinstalling from the updated dependency graph, all 258 frontend tests,
   lint with 0 errors and 5 known warnings, and the production build passed.
-- A new commit and green GitHub Actions run are still required before provider
-  deployment.
+- Commit `795ffef` was pushed, and GitHub Actions run 12 passed Backend,
+  Frontend, Dependency Security Scan, and Diff Hygiene. This satisfies the
+  repository-side CI gate; provider deployment evidence is still required.

@@ -14,8 +14,8 @@ operator notes.
 | Area | Status | Notes |
 | --- | --- | --- |
 | Provider stack | Selected, pending provider access | Vercel frontend, Render Web Service, Render Cron Job, and Render Postgres are defined. |
-| Backend deploy | Local fix verified; pending green CI and provider access | The PostgreSQL-backed suite passes locally after regression fixes, but GitHub Actions run 10 remains failed and hosted deploy has not run. |
-| Frontend deploy | Pending provider access | Local frontend checks pass and GitHub Actions run 10 completed the frontend job successfully; hosted deploy has not run. |
+| Backend deploy | CI green; pending provider access | The PostgreSQL-backed suite passes locally and GitHub Actions run 12 passed the Backend job; hosted deploy has not run. |
+| Frontend deploy | CI green; pending provider access | Local frontend checks pass and GitHub Actions run 12 passed the Frontend and Dependency Security Scan jobs; hosted deploy has not run. |
 | Managed database | Pending provider access | Provider backup/PITR settings must be confirmed in provider UI. |
 | Observability | Pending provider access | Sentry config exists; real provider event arrival must be verified. |
 | Request ID correlation | Pending provider access | Local behavior is covered by tests; hosted logs/events must be checked. |
@@ -180,9 +180,10 @@ Recorded on 2026-09-01 for release revision
 | CI regression repair | Passed locally; CI rerun pending | Repo Integration timestamp mapping and Health Monitor DNS test isolation were repaired through red-green TDD. GitHub Actions run 10 remains the latest hosted CI result and is still failed. |
 | Final local readiness refresh | Passed | The backend suite passed 275 tests; backend compile/config, Alembic head/current, 7 deployment contracts, 258 frontend tests, official frontend lint with 0 errors and 5 known warnings, and the production build passed. A transient lint error from a concurrently created untracked development entry point cleared after its owner removed that file; this deployment-preparation work did not modify it. The staged release diff was reviewed and a high-confidence credential scan found no private keys, provider tokens, credentialed database URLs, or live Sentry ingestion URLs. |
 | GitHub Actions run 11 | Failed - dependency scan only | Backend, Frontend, and Diff Hygiene passed. Dependency Security Scan found a newly published high-severity advisory affecting transitive `browserslist@4.28.2`. The failure was reproduced locally, the lockfile was refreshed to `browserslist@4.28.8`, and live audit, 258 frontend tests, lint, and production build then passed. A new green CI run is required. |
+| GitHub Actions run 12 | Passed | Commit `795ffef` passed Backend, Frontend, Dependency Security Scan, and Diff Hygiene. This satisfies the repository-side CI gate for the intended release revision. |
 
-The private-beta release must not proceed until the intended revision has a
-green GitHub Actions run.
+The repository-side CI gate is satisfied. Private-beta release still must not
+proceed until the provider deployment and hosted evidence below are complete.
 
 Earlier evidence:
 
