@@ -41,6 +41,28 @@ function evidenceValue(value: boolean | number) {
   return String(value);
 }
 
+function DecisionIcon({ decision }: { decision: LaunchDecision }) {
+  if (decision === "ready") {
+    return (
+      <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 8.5l3 3 7-7" />
+      </svg>
+    );
+  }
+  if (decision === "not_ready") {
+    return (
+      <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round">
+        <path d="M4 4l8 8M12 4l-8 8" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round">
+      <path d="M8 4v5M8 11.5v.01" />
+    </svg>
+  );
+}
+
 export function LaunchReportCard({
   report,
   loading,
@@ -72,10 +94,13 @@ export function LaunchReportCard({
         </p>
       ) : report ? (
         <div className="launch-report-body">
-          <div className="launch-report-summary">
+          <div className={`status-band tone-${decisionTone[report.decision]}`}>
+            <span className="status-icon" aria-hidden="true">
+              <DecisionIcon decision={report.decision} />
+            </span>
             <div>
-              <strong>{report.headline}</strong>
-              <p>
+              <strong className="status-headline">{report.headline}</strong>
+              <p className="status-sub">
                 {report.readiness.score === null ? "No readiness score yet" : `${report.readiness.score}/100 readiness`}
                 {" · "}
                 Generated {formatDate(report.generated_at)}

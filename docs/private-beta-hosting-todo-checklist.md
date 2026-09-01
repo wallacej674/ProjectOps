@@ -198,13 +198,29 @@ cd backend
 
 - [ ] Run local Alembic migrations.
 - [ ] Run backend tests.
-- [ ] Run backend compile checks.
+- [x] Run backend compile checks.
+- [x] Inspect the declared Alembic head.
+- [x] Run deployment configuration tests.
 - [ ] Run backend config check.
 - [ ] Run backend dependency audit.
-- [ ] Run frontend tests.
-- [ ] Run frontend lint.
-- [ ] Run frontend production build.
+- [x] Run frontend tests.
+- [x] Run frontend lint.
+- [x] Run frontend production build.
 - [ ] Run frontend dependency audit.
-- [ ] Run `git diff --check`.
+- [x] Run `git diff --check`.
 - [ ] Confirm no dangerous debug endpoint was added.
 - [ ] Confirm no secrets were committed.
+
+Local evidence recorded on 2026-08-31 against the preserved dirty worktree:
+
+- Backend compilation completed successfully for `app` and `tests`.
+- `python -m alembic heads` reported the single head
+  `0013_health_monitor`.
+- The Render deployment and private-beta drill configuration tests passed:
+  5 tests passed.
+- The frontend suite passed: 39 files and 258 tests.
+- Frontend lint completed with 0 errors and 5 known Fast Refresh warnings.
+- The frontend production build completed successfully.
+- `git diff --check` passed; Git emitted only line-ending conversion notices.
+- The dedicated PostgreSQL test service was not listening on port `55432`, so
+  local migrations and database-backed backend tests remain unchecked.

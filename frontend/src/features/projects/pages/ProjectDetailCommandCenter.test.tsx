@@ -484,9 +484,10 @@ describe("Project detail unified command center", () => {
     renderDetail();
 
     const checklist = await screen.findByRole("region", { name: "Guided Launch Checklist" });
-    expect(within(checklist).getByText("4 done")).toBeInTheDocument();
-    expect(within(checklist).getByText("1 needs attention")).toBeInTheDocument();
-    expect(within(checklist).getByText("4 todo")).toBeInTheDocument();
+    const checklistSummary = within(checklist).getByLabelText("Launch checklist summary");
+    expect(within(checklistSummary).getByText("Done").closest(".stat-cell")).toHaveTextContent("4");
+    expect(within(checklistSummary).getByText("Needs attention").closest(".stat-cell")).toHaveTextContent("1");
+    expect(within(checklistSummary).getByText("Todo").closest(".stat-cell")).toHaveTextContent("4");
     expect(within(checklist).getByText("Repository connected")).toBeInTheDocument();
     expect(within(checklist).getByText("Supporting evidence linked")).toBeInTheDocument();
     expect(within(checklist).getByRole("link", { name: "Link artifacts to readiness items." })).toHaveAttribute(

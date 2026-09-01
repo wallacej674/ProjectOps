@@ -177,7 +177,13 @@ function ProjectArtifactList({
                     ))}
                   </ul>
                 )}
-                <p className="meta">{usageLabel(artifact, usageByArtifactId)}</p>
+                <p className="meta artifact-usage">
+                  <span
+                    className={`usage-dot ${(usageByArtifactId.get(artifact.id)?.linkedItemCount ?? 0) > 0 ? "on" : "off"}`}
+                    aria-hidden="true"
+                  />
+                  {usageLabel(artifact, usageByArtifactId)}
+                </p>
                 <div className="meta history-meta">
                   <span>Updated {formatDate(artifact.updated_at)}</span>
                   <span>Artifact ID {artifact.id}</span>
@@ -246,6 +252,8 @@ export function ProjectArtifactsCard({
     return true;
   });
   const hasArtifacts = visibleArtifacts.length > 0;
+  const linkedCount = visibleArtifacts.filter((artifact) => (usageByArtifactId.get(artifact.id)?.linkedItemCount ?? 0) > 0).length;
+  const archivedCount = visibleArtifacts.filter((artifact) => artifact.status === "archived").length;
   const hasActiveFilters = Boolean(
     search.trim() || artifactTypeFilter || sourceTypeFilter || selectedTags.length > 0 || evidenceUsageFilter !== "all",
   );
@@ -405,6 +413,31 @@ export function ProjectArtifactsCard({
           </button>
         )}
       </div>
+
+      {hasArtifacts && (
+        <div className="stat-strip" aria-label="Artifact registry summary">
+          <div className="stat-cell">
+            <div className="stat-label">Shown</div>
+            <div className="stat-value">{visibleArtifacts.length}</div>
+          </div>
+          <div className="stat-cell">
+            <div className="stat-label">Linked to readiness</div>
+            <div className="stat-value" style={{ color: "var(--success)" }}>
+              {linkedCount}
+            </div>
+          </div>
+          <div className="stat-cell">
+            <div className="stat-label">Unlinked</div>
+            <div className="stat-value">{visibleArtifacts.length - linkedCount}</div>
+          </div>
+          <div className="stat-cell">
+            <div className="stat-label">Archived</div>
+            <div className="stat-value" style={{ color: "var(--quiet)" }}>
+              {archivedCount}
+            </div>
+          </div>
+        </div>
+      )}
 
       {showCreateForm && (
         <section className="artifact-section" aria-labelledby="artifact-create-form-title">

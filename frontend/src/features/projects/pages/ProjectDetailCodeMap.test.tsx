@@ -142,7 +142,7 @@ describe("Project detail CodeMap Lite analysis", () => {
     const section = await screen.findByRole("region", { name: "Repository Analysis" });
     expect((await within(section).findAllByText(completedAnalysis.summary)).length).toBeGreaterThan(0);
     expect(within(section).getAllByText("completed").length).toBeGreaterThan(0);
-    expect(within(section).getByText("42")).toBeInTheDocument();
+    expect(within(section).getAllByText(/42 files scanned/).length).toBeGreaterThan(0);
     expect(within(section).getByRole("button", { name: "Run Again" })).toBeEnabled();
     expect(within(section).getByRole("heading", { name: "Repository Insights" })).toBeInTheDocument();
     expect(within(section).getByText("node >=20")).toBeInTheDocument();
@@ -174,7 +174,7 @@ describe("Project detail CodeMap Lite analysis", () => {
     const runAgainButton = within(section).getByRole("button", { name: "Run Again" });
     expect(runAgainButton).toBeEnabled();
     await waitFor(() => expect(runAgainButton).toHaveFocus());
-    expect(await within(section).findByText("42 files scanned")).toBeInTheDocument();
+    expect((await within(section).findAllByText(/42 files scanned/)).length).toBeGreaterThan(0);
     await waitFor(() => expect(within(section).queryByText("CodeMap Lite analysis is running...")).not.toBeInTheDocument());
   });
 
@@ -212,8 +212,8 @@ describe("Project detail CodeMap Lite analysis", () => {
     expect(within(section).getAllByText("python").length).toBeGreaterThan(0);
     expect(within(section).getByText("typescript")).toBeInTheDocument();
     expect(within(section).getAllByText("fastapi").length).toBeGreaterThan(0);
-    expect(within(section).getByText("README present: detected")).toBeInTheDocument();
-    expect(within(section).getByText("Backend detected: detected")).toBeInTheDocument();
+    expect(within(section).getByLabelText("README present: detected")).toBeInTheDocument();
+    expect(within(section).getByLabelText("Backend detected: detected")).toBeInTheDocument();
     expect(within(section).getByText("No environment example detected.")).toBeInTheDocument();
     expect(within(section).getByText("backend/app/main.py")).toBeInTheDocument();
     expect(within(section).getByText("frontend/src")).toBeInTheDocument();

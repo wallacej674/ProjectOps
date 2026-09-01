@@ -30,6 +30,28 @@ function recorderText(artifact: ProjectArtifact) {
   return "Recorder unavailable for this historical record.";
 }
 
+function DecisionValueIcon({ value }: { value: LaunchDecisionValue }) {
+  if (value === "go") {
+    return (
+      <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M3 8.5l3 3 7-7" />
+      </svg>
+    );
+  }
+  if (value === "no_go") {
+    return (
+      <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round">
+        <path d="M4 4l8 8M12 4l-8 8" />
+      </svg>
+    );
+  }
+  return (
+    <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round">
+      <path d="M8 4v5M8 11.5v.01" />
+    </svg>
+  );
+}
+
 export function LaunchDecisionCard({
   decisionHistory,
   latestDecision,
@@ -99,17 +121,24 @@ export function LaunchDecisionCard({
       ) : currentDecision ? (
         <div className="launch-decision-current" ref={latestDecisionRef} tabIndex={-1}>
           <span className="badge">Latest decision</span>
-          <strong>
-            <span className={`badge ${decisionTone[getLaunchDecisionValue(currentDecision) ?? "defer"]}`}>
-              {decisionLabel(currentDecision)}
+          <div className={`status-band tone-${decisionTone[getLaunchDecisionValue(currentDecision) ?? "defer"]}`}>
+            <span className="status-icon" aria-hidden="true">
+              <DecisionValueIcon value={getLaunchDecisionValue(currentDecision) ?? "defer"} />
             </span>
-            {currentDecision.title}
-          </strong>
-          <p>{getLaunchDecisionNotes(currentDecision) || "No decision notes have been recorded."}</p>
-          <div className="meta history-meta">
-            <time dateTime={currentDecision.created_at}>Recorded {formatDate(currentDecision.created_at)}</time>
-            <span>Artifact status {currentDecision.status}</span>
-            <span>Artifact ID {currentDecision.id}</span>
+            <div>
+              <strong className="status-headline">
+                <span className={`badge ${decisionTone[getLaunchDecisionValue(currentDecision) ?? "defer"]}`}>
+                  {decisionLabel(currentDecision)}
+                </span>
+                {currentDecision.title}
+              </strong>
+              <p className="status-sub">{getLaunchDecisionNotes(currentDecision) || "No decision notes have been recorded."}</p>
+              <div className="status-meta">
+                <time dateTime={currentDecision.created_at}>Recorded {formatDate(currentDecision.created_at)}</time>
+                <span>Artifact status {currentDecision.status}</span>
+                <span>Artifact ID {currentDecision.id}</span>
+              </div>
+            </div>
           </div>
           <p className="meta">{recorderText(currentDecision)}</p>
         </div>

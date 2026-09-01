@@ -159,10 +159,37 @@ export function CodeMapAnalysisCard({
                   {runLabel}
                 </button>
               </div>
-              <section className="codemap-section" aria-labelledby="codemap-summary-title">
-                <h3 id="codemap-summary-title">Summary</h3>
-                <p>{latestAnalysis.summary || "CodeMap Lite did not return a summary for this analysis."}</p>
-              </section>
+              <div className={`status-band ${isFailed ? "tone-danger" : "tone-success"}`}>
+                <span className="status-icon" aria-hidden="true">
+                  {isFailed ? (
+                    <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round">
+                      <path d="M4 4l8 8M12 4l-8 8" />
+                    </svg>
+                  ) : (
+                    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 8.5l3 3 7-7" />
+                    </svg>
+                  )}
+                </span>
+                <span className="status-headline">
+                  Analysis {isFailed ? "failed" : "completed"} &mdash; {latestAnalysis.total_files_scanned} files scanned
+                </span>
+              </div>
+
+              <div className="stat-strip">
+                <div className="stat-cell">
+                  <div className="stat-label">Capability</div>
+                  <div className="stat-value">
+                    {latestAnalysis.analysis_version === "codemap_medium_v1" ? "Paths and selected manifests" : "Paths only"}
+                  </div>
+                </div>
+                <div className="stat-cell">
+                  <div className="stat-label">Analyzed</div>
+                  <div className="stat-value">{formatDate(latestAnalysis.created_at)}</div>
+                </div>
+              </div>
+
+              <p>{latestAnalysis.summary || "CodeMap Lite did not return a summary for this analysis."}</p>
               {isFailed && (
                 <section className="codemap-section error" aria-labelledby="codemap-failure-title">
                   <h3 id="codemap-failure-title">What likely happened</h3>
@@ -198,14 +225,24 @@ export function CodeMapAnalysisCard({
                   <section className="codemap-section" aria-labelledby="codemap-signals-title">
                     <h3 id="codemap-signals-title">Architecture Signals</h3>
                     {Object.entries(latestAnalysis.signals).length > 0 ? (
-                      <ul className="signal-list">
+                      <div className="checklist">
                         {Object.entries(latestAnalysis.signals).map(([key, value]) => (
-                          <li key={key}>
-                            <span aria-hidden="true">{value ? "+" : "-"}</span>
-                            {displaySignalName(key)}: {value ? "detected" : "not detected"}
-                          </li>
+                          <div
+                            className={`check-row ${value ? "" : "is-off"}`}
+                            key={key}
+                            aria-label={`${displaySignalName(key)}: ${value ? "detected" : "not detected"}`}
+                          >
+                            <span className={`checkbox ${value ? "on" : "off"}`} aria-hidden="true">
+                              {value && (
+                                <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                  <path d="M3 8.5l3 3 7-7" />
+                                </svg>
+                              )}
+                            </span>
+                            <span>{displaySignalName(key)}</span>
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     ) : (
                       <p className="meta">No architecture signals were returned.</p>
                     )}
@@ -231,20 +268,6 @@ export function CodeMapAnalysisCard({
                   </section>
                 </>
               )}
-              <dl className="codemap-metadata">
-                <div className="definition">
-                  <dt>Total files scanned</dt>
-                  <dd>{latestAnalysis.total_files_scanned}</dd>
-                </div>
-                <div className="definition">
-                  <dt>Analysis timestamp</dt>
-                  <dd>{formatDate(latestAnalysis.created_at)}</dd>
-                </div>
-                <div className="definition">
-                  <dt>Analysis capability</dt>
-                  <dd>{latestAnalysis.analysis_version === "codemap_medium_v1" ? "Paths and selected manifests" : "Paths only"}</dd>
-                </div>
-              </dl>
             </div>
           ) : (
             <>

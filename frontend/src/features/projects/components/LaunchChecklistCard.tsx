@@ -43,16 +43,43 @@ export function LaunchChecklistCard({
         </p>
       ) : checklist ? (
         <div className="launch-checklist-body">
-          <div className="launch-checklist-summary" aria-label="Launch checklist summary">
-            <span>{checklist.summary.done} done</span>
-            <span>{checklist.summary.needs_attention} needs attention</span>
-            <span>{checklist.summary.todo} todo</span>
-            <span>{checklist.summary.total} total</span>
+          <div className="stat-strip" aria-label="Launch checklist summary">
+            <div className="stat-cell">
+              <div className="stat-label">Done</div>
+              <div className="stat-value" style={{ color: "var(--success)" }}>
+                {checklist.summary.done}
+              </div>
+            </div>
+            <div className="stat-cell">
+              <div className="stat-label">Needs attention</div>
+              <div className="stat-value" style={{ color: "var(--warning)" }}>
+                {checklist.summary.needs_attention}
+              </div>
+            </div>
+            <div className="stat-cell">
+              <div className="stat-label">Todo</div>
+              <div className="stat-value">{checklist.summary.todo}</div>
+            </div>
+            <div className="stat-cell">
+              <div className="stat-label">Total</div>
+              <div className="stat-value">{checklist.summary.total}</div>
+            </div>
           </div>
           <p className="meta">Generated {formatDate(checklist.generated_at)}</p>
           <ol className="launch-checklist-list">
             {checklist.items.map((item) => (
               <li key={item.key}>
+                <span
+                  className={`checkbox ${item.status === "done" ? "on" : item.status === "needs_attention" ? "warn" : "off"}`}
+                  aria-hidden="true"
+                >
+                  {item.status === "done" && (
+                    <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M3 8.5l3 3 7-7" />
+                    </svg>
+                  )}
+                  {item.status === "needs_attention" && "!"}
+                </span>
                 <div>
                   <div className="row launch-checklist-row">
                     <strong>{item.label}</strong>

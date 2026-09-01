@@ -14,8 +14,8 @@ operator notes.
 | Area | Status | Notes |
 | --- | --- | --- |
 | Provider stack | Selected, pending provider access | Vercel frontend, Render Web Service, Render Cron Job, and Render Postgres are defined. |
-| Backend deploy | Pending provider access | Local backend verification passes; hosted deploy not yet run. |
-| Frontend deploy | Pending provider access | Vite build and Vercel SPA fallback config exist; hosted deploy not yet run. |
+| Backend deploy | Pending provider access | Credential-free compilation and deployment configuration checks pass; database-backed verification and hosted deploy have not run. |
+| Frontend deploy | Pending provider access | All 258 frontend tests, lint with 0 errors, production build, and Vercel SPA/security configuration checks pass; hosted deploy has not run. |
 | Managed database | Pending provider access | Provider backup/PITR settings must be confirmed in provider UI. |
 | Observability | Pending provider access | Sentry config exists; real provider event arrival must be verified. |
 | Request ID correlation | Pending provider access | Local behavior is covered by tests; hosted logs/events must be checked. |
@@ -163,6 +163,24 @@ If a migration fails:
 ## Health Check Results
 
 ## Local Preflight Evidence
+
+Recorded on 2026-08-31 against the preserved dirty worktree. These checks do
+not replace database-backed integration tests or hosted private-beta evidence.
+
+| Check | Result | Notes |
+| --- | --- | --- |
+| `git diff --check` | Passed | No whitespace errors; Git emitted line-ending conversion notices only. |
+| Backend compilation | Passed | `python -m compileall app tests` completed successfully. |
+| Alembic head inspection | Passed | `python -m alembic heads` reported the single head `0013_health_monitor`. This does not prove a hosted migration ran. |
+| Deployment configuration tests | Passed | 5 tests covering the Render Blueprint and deployment drill documentation passed. |
+| Render Blueprint inspection | Passed | Declares `projectops-api`, `projectops-health-monitor`, and `projectops-db`; the cron command is `python -m app.jobs.run_due_health_checks`. |
+| Vercel configuration inspection | Passed | SPA rewrites and baseline browser security headers are present in `frontend/vercel.json`. |
+| Frontend tests | Passed | 39 test files and 258 tests passed. React emitted non-failing `act(...)` warnings in one archive-flow test. |
+| Frontend lint | Passed with warnings | 0 errors and 5 known Fast Refresh warnings. |
+| Frontend production build | Passed | TypeScript and Vite production build completed successfully. |
+| PostgreSQL-backed local verification | Not run | The dedicated test service was not listening on port `55432`; credentials and native PostgreSQL services were not changed. |
+
+Earlier evidence:
 
 Recorded on 2026-08-23 before provider selection. These checks do not replace
 hosted private-beta evidence.

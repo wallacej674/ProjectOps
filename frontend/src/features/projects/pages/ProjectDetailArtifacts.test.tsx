@@ -370,6 +370,7 @@ describe("Project detail Artifacts", () => {
     await userEvent.click(within(artifactsSection).getByLabelText("Include archived artifacts"));
 
     expect(await within(artifactsSection).findByText("Archived incident note")).toBeInTheDocument();
-    expect(within(artifactsSection).getByText("Archived")).toBeInTheDocument();
+    const artifactList = within(artifactsSection).getByRole("list", { name: "Project artifacts" });
+    expect(within(artifactList).getByText("Archived")).toBeInTheDocument();
   });
 });
