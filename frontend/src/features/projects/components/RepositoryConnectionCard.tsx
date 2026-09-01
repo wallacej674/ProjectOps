@@ -46,7 +46,7 @@ export function RepositoryConnectionCard({
       <div className="eyebrow">Repository Intake</div>
       <h2 id="repo-connection-title">Repository Connection</h2>
       <p className="repo-intro">
-        Attach a public GitHub repository so ProjectOps can understand this project's source structure in later steps.
+        Connect a GitHub repository so ProjectOps can understand this project's source structure in later steps.
       </p>
       {loading ? (
         <p className="meta">Loading repository connection...</p>
@@ -143,8 +143,9 @@ export function RepositoryConnectionCard({
         <div className="repo-empty">
           <h3>No repository connected</h3>
           <p>
-            ProjectOps stores the repository connection first. CodeMap analysis happens in a later step. Only public
-            GitHub repositories are supported right now.
+            ProjectOps stores the repository connection first. CodeMap analysis happens in a later step. Public
+            repositories can be attached by URL; authorized private repositories can be selected through the
+            configured GitHub App.
           </p>
           {error && (
             <p className="error-text" role="alert">

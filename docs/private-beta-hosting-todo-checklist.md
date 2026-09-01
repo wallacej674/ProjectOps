@@ -178,7 +178,7 @@ cd backend
 - [ ] Review login/register at 1440px, 834px, and 390px.
 - [ ] Review Overview at 1440px, 834px, and 390px.
 - [ ] Review Project Registry at 1440px, 834px, and 390px.
-- [ ] Review Project detail command center at 1440px, 834px, and 390px.
+- [ ] Review the Project Dashboard at 1440px, 834px, and 390px.
 - [ ] Review Launch Report, Guided Launch Checklist, Launch Decision form, and decision history at 1440px, 834px, and 390px.
 - [ ] Review safe error/request ID display if safely testable.
 - [ ] Record visual or usability findings in the drill doc.
@@ -196,20 +196,20 @@ cd backend
 
 ## 15. Final Local Verification
 
-- [ ] Run local Alembic migrations.
-- [ ] Run backend tests.
+- [x] Run local Alembic migrations.
+- [x] Run backend tests.
 - [x] Run backend compile checks.
 - [x] Inspect the declared Alembic head.
 - [x] Run deployment configuration tests.
-- [ ] Run backend config check.
-- [ ] Run backend dependency audit.
+- [x] Run backend config check.
+- [x] Run backend dependency audit.
 - [x] Run frontend tests.
 - [x] Run frontend lint.
 - [x] Run frontend production build.
-- [ ] Run frontend dependency audit.
+- [x] Run frontend dependency audit.
 - [x] Run `git diff --check`.
-- [ ] Confirm no dangerous debug endpoint was added.
-- [ ] Confirm no secrets were committed.
+- [x] Confirm no dangerous debug endpoint was added.
+- [x] Confirm no secrets were committed.
 
 Local evidence recorded on 2026-08-31 against the preserved dirty worktree:
 
@@ -224,3 +224,59 @@ Local evidence recorded on 2026-08-31 against the preserved dirty worktree:
 - `git diff --check` passed; Git emitted only line-ending conversion notices.
 - The dedicated PostgreSQL test service was not listening on port `55432`, so
   local migrations and database-backed backend tests remain unchecked.
+
+Additional release-gate evidence recorded on 2026-09-01 for revision
+`27fe51beff91f5fe0db9b5338b8a7d4054bfc67b`:
+
+- The backend configuration checker passed without printing configuration
+  values.
+- The backend dependency audit found no known vulnerabilities; the local
+  `projectops-backend` package itself is not published on PyPI and was skipped.
+- The frontend dependency audit found 0 vulnerabilities.
+- Route inspection found no debug, crash, test-error, or Sentry-test endpoints.
+- A redacted high-confidence secret-pattern scan found only Sentry-shaped test
+  fixtures. The tracked `frontend/.env.local` contains only a localhost API
+  base URL. This scan is supporting evidence, not proof that no secret exists,
+  so the no-secrets checklist item remains open for release review.
+- GitHub Actions run 10 failed in the backend test step: 18 tests failed and
+  255 passed. The release remains blocked until CI is green.
+- PostgreSQL remained unavailable on port `55432`; the service and credentials
+  were not changed.
+
+Local regression evidence recorded later on 2026-09-01:
+
+- The existing Docker Desktop installation was located and the repository's
+  dedicated `projectops-db` container was started without changing credentials.
+- Alembic upgraded the local database through `0013_health_monitor`.
+- The repository-attachment API failure was reproduced before the fix and
+  passed afterward.
+- The manual and scheduled Health Monitor failures were reproduced before the
+  shared test-boundary fix and passed afterward.
+- The focused affected backend suite passed: 39 tests.
+- The complete PostgreSQL-backed backend suite passed: 273 tests with one
+  existing Starlette/httpx deprecation warning.
+- Backend compilation, configuration checking, Alembic head/current inspection,
+  and `git diff --check` passed after the fixes.
+- GitHub Actions run 10 remains the latest hosted CI evidence and is still
+  failed. A new revision and green CI run are required before deployment.
+
+Final local readiness refresh recorded on 2026-09-01 before the approved
+release commit:
+
+- The complete PostgreSQL-backed backend suite passed: 275 tests with one
+  existing Starlette/httpx deprecation warning.
+- Backend compilation and configuration checking passed. Alembic `heads` and
+  `current` both reported `0013_health_monitor`.
+- Seven Render Blueprint and deployment-drill contract tests passed, including
+  the Vercel root-relative `dist` output and production Sentry environment
+  defaults.
+- The frontend suite passed: 39 files and 258 tests. The production build also
+  passed.
+- The official frontend lint command passed with 0 errors and the 5 known Fast
+  Refresh warnings. A transient error from a concurrently created untracked
+  development entry point cleared after that file was removed without changes
+  from this deployment-preparation work.
+- The explicitly staged release diff was reviewed file by file. A
+  high-confidence scan found no private keys, provider tokens, credentialed
+  database URLs, or live Sentry ingestion URLs in the staged files.
+- Hosted cron execution and all provider-side evidence remain unverified.

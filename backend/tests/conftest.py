@@ -24,6 +24,17 @@ from app.models import ProjectArtifact  # noqa: F401, E402
 from app.models import ReadinessItem, ProjectReadinessArtifactEvidence, ProjectReadinessItem  # noqa: F401, E402
 from app.models import User  # noqa: F401, E402
 from app.repositories.readiness import seed_default_readiness_items  # noqa: E402
+from app.services import health_checks as health_checks_module  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def patch_health_check_dns_resolver(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Keep outbound Health Check tests deterministic and off the real network."""
+    monkeypatch.setattr(
+        health_checks_module,
+        "_resolve_url_addresses",
+        lambda hostname: ["93.184.216.34"],
+    )
 
 
 @pytest.fixture(autouse=True)

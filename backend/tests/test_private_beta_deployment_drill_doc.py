@@ -36,3 +36,20 @@ def test_private_beta_deployment_drill_doc_warns_against_committing_secrets():
     assert "sentry dsn" in contents
     assert "database url" in contents
     assert "auth secret" in contents
+
+
+def test_private_beta_deployment_drill_doc_uses_vercel_root_relative_output_directory():
+    contents = DRILL_DOC.read_text(encoding="utf-8").lower()
+
+    assert "| root directory | `frontend/` |" in contents
+    assert "| build output directory | `dist` |" in contents
+    assert "| build output directory | `frontend/dist` |" not in contents
+
+
+def test_private_beta_deployment_drill_doc_uses_production_sentry_environments():
+    contents = DRILL_DOC.read_text(encoding="utf-8")
+
+    assert "PROJECTOPS_SENTRY_ENVIRONMENT=production" in contents
+    assert "VITE_SENTRY_ENVIRONMENT=production" in contents
+    assert "PROJECTOPS_SENTRY_ENVIRONMENT=private-beta" not in contents
+    assert "VITE_SENTRY_ENVIRONMENT=private-beta" not in contents

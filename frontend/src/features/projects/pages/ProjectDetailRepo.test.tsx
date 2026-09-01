@@ -56,6 +56,11 @@ describe("Project detail repository connection", () => {
     expect(within(section).getByText("No repository connected")).toBeInTheDocument();
     expect(within(section).getByLabelText("GitHub repository URL")).toBeInTheDocument();
     expect(within(section).getByText(/ProjectOps stores the repository connection first/)).toBeInTheDocument();
+    expect(
+      within(section).getByText(
+        /Public repositories can be attached by URL; authorized private repositories can be selected through the configured GitHub App\./,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("offers private repositories verified through the configured GitHub App", async () => {

@@ -154,6 +154,8 @@ Use `private-beta-hosting-todo-checklist.md` while performing the work and
   vulnerability scanning, dependency verification, or architectural proof.
 - Analysis still runs synchronously and has bounded source coverage.
 - GitHub webhooks and automatic repository refresh are not implemented.
+- The CodeMap analyzer currently coordinates discovery, parsing, and scoring in
+  one module. Revisit those seams after hosted deployment if the analyzer grows.
 
 ### Data and API ergonomics
 
@@ -161,8 +163,13 @@ Use `private-beta-hosting-todo-checklist.md` while performing the work and
   pagination.
 - Activity and artifact taxonomies are represented in multiple backend/frontend
   locations and should be centralized when they next change materially.
-- The Project detail page coordinates several independent requests; continue
+- The Project Dashboard coordinates several independent requests; continue
   preserving isolated loading and error states when adding features.
+- Health Monitor schedule repositories currently contain due-run lifecycle
+  policy. Move orchestration into the service layer when that area next changes.
+- GitHub App repository metadata crosses backend layers as untyped dictionaries.
+  Introduce a typed value object and keep provider parsing in the service layer
+  when the integration next changes.
 
 ### Frontend quality
 

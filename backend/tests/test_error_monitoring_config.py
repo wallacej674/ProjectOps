@@ -86,6 +86,7 @@ def test_configure_error_monitoring_initializes_sentry_with_safe_defaults(monkey
             environment="production",
             enable_error_monitoring=True,
             sentry_dsn="https://public@example.invalid/1",
+            sentry_environment="",
         )
     )
 

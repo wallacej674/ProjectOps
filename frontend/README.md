@@ -161,7 +161,7 @@ src/
 | `/app/overview` | Overview | Project metrics, first-run onboarding, cross-Project Recent Activity, Recently Active Projects |
 | `/app/projects` | Project Registry | List, search, filter, sort, card/table views, archive |
 | `/app/projects/new` | Create Project | |
-| `/app/projects/:projectId` | Project detail | Identity, metadata, setup progress, repository connection, CodeMap Medium analysis, manual and scheduled Health Monitoring, Production Readiness, Launch Report, Guided Launch Checklist, Launch Decision, Project Artifacts, Recent Activity |
+| `/app/projects/:projectId` | Project Dashboard | Identity, metadata, setup progress, repository connection, CodeMap Medium analysis, manual and scheduled Health Monitoring, Production Readiness, Launch Report, Guided Launch Checklist, Launch Decision, Project Artifacts, Recent Activity |
 | `/app/projects/:projectId/edit` | Edit Project | |
 | `*` | — | Redirects to `/` |
 
@@ -207,7 +207,7 @@ filter, "Include archived", and both card and table views.
 
 ### Repository connection
 
-The Project detail page shows real GitHub Repo Intake state from
+The Project Dashboard shows real GitHub Repo Intake state from
 `/api/v1/projects/:projectId/repo`. Users can attach a public GitHub repository,
 view normalized owner/name/provider/URL details, replace the connection with
 another supported URL, or remove the connection.
@@ -222,16 +222,16 @@ Important distinction: `Project.repo_url` is basic Project metadata from the
 Project form. `RepoIntegration.repo_url` is the real repository connection
 created by GitHub Repo Intake. The list page does not claim a Project is
 "connected" based only on `Project.repo_url`; real connection state lives on the
-Project detail page in this milestone.
+Project Dashboard in this milestone.
 
 Removing a repository connection deletes only the ProjectOps connection record.
 It does not delete the GitHub repository. Repository analysis is handled separately
-by the Repository Analysis section on the same Project detail page.
+by the Repository Analysis section on the same Project Dashboard.
 
 
 ### Repository analysis
 
-The Project detail page includes a real Repository Analysis section backed by
+The Project Dashboard includes a real Repository Analysis section backed by
 `/api/v1/projects/:projectId/analyses`. The analysis is intentionally described
 as rule-based path analysis, not AI code review.
 
@@ -255,7 +255,7 @@ snapshot returned by the backend.
 
 ### Health Monitoring
 
-The Project detail page includes a real Health Monitoring section backed by
+The Project Dashboard includes a real Health Monitoring section backed by
 `/api/v1/projects/:projectId/health-checks` and
 `/api/v1/projects/:projectId/health-monitor`. A user can run an on-demand check
 or enable recurring checks at a supported cadence. Every result records whether
@@ -292,7 +292,7 @@ with safety-focused copy instead of raw stack traces.
 
 ### Production Readiness
 
-The Project detail page includes a real Production Readiness section backed by
+The Project Dashboard includes a real Production Readiness section backed by
 `/api/v1/projects/:projectId/readiness`. Readiness is an advisory assessment
 based on available ProjectOps evidence. It is not a deployment approval,
 security audit, certification, or uptime guarantee.
@@ -316,7 +316,7 @@ show manual save controls. Saving a manual item calls
 returned row in the current checklist.
 
 Checklist rows can also show linked Project Artifacts as supporting evidence.
-Project detail loads project-level evidence coverage from
+The Project Dashboard loads project-level evidence coverage from
 `GET /api/v1/projects/:projectId/readiness/evidence-coverage`, then uses that
 coverage to show linked artifacts per readiness item and a compact summary of
 linked/unlinked active artifacts and readiness items with or without supporting
@@ -331,7 +331,7 @@ DataForge Lite.
 
 ### Launch Report
 
-The Project detail page includes a real Launch Report section backed by
+The Project Dashboard includes a real Launch Report section backed by
 `/api/v1/projects/:projectId/launch-report`. The report is a current snapshot
 that summarizes readiness score, evidence coverage, blockers, and recommended
 launch-review actions from existing ProjectOps signals.
@@ -361,7 +361,7 @@ deployments, create releases, or replace a human go/no-go decision.
 
 ### Guided Launch Checklist
 
-The Project detail page includes a real Guided Launch Checklist section backed
+The Project Dashboard includes a real Guided Launch Checklist section backed
 by `/api/v1/projects/:projectId/launch-checklist`. The checklist turns the same
 ProjectOps evidence used by the Launch Report into concrete operator items with
 `done`, `needs attention`, and `todo` states.
@@ -386,7 +386,7 @@ to readiness, and `todo` when no active artifacts exist.
 
 ### Launch Decision
 
-The Project detail page includes a Launch Decision section that uses the existing
+The Project Dashboard includes a Launch Decision section that uses the existing
 Project Artifacts API. Recording a decision creates a normal Project Artifact
 with `artifact_type=decision`, `source_type=manual`, and tags including
 `launch-decision`, `go-no-go`, and the selected decision value.
@@ -418,7 +418,7 @@ recorders and an honest historical fallback when attribution is unavailable.
 
 ### Project Artifacts
 
-The Project detail page includes a real Project Artifacts section backed by
+The Project Dashboard includes a real Project Artifacts section backed by
 `/api/v1/projects/:projectId/artifacts`. This is DataForge Lite: a metadata
 registry for notes, links, runbooks, decisions, requirements, risks, incidents,
 and evidence references.
@@ -435,7 +435,7 @@ States shown in the UI:
 - No results: the section distinguishes "no artifacts yet" from "no artifacts
   match these filters."
 - Error: artifact loading errors stay scoped to the Artifacts section while
-  other Project detail sections remain usable.
+  other Project Dashboard sections remain usable.
 - Archived: archived artifacts are hidden by default and shown when "Include
   archived artifacts" is enabled.
 
@@ -460,9 +460,9 @@ The Overview page includes a real cross-Project Recent Activity feed backed by
 `/api/v1/activity`. It shows newest-first product history across local Projects,
 Project names, lifecycle status, timestamps, category filters, result counts,
 manual refresh, empty/error/no-results states, and links into the relevant
-Project detail page.
+Project Dashboard.
 
-The Project detail page includes a real Recent Activity section backed by
+The Project Dashboard includes a real Recent Activity section backed by
 `/api/v1/projects/:projectId/activity`. It shows stored Project-scoped product
 history for meaningful actions such as Project changes, repository changes,
 CodeMap results, health-check outcomes, readiness work, artifact changes, and
@@ -483,7 +483,7 @@ States shown in the UI:
 - Manual refresh: the Refresh activity button reloads activity while preserving
   the current category filter.
 
-The Project detail command-center Activity summary uses a separate unfiltered
+The Project Dashboard Activity summary uses a separate unfiltered
 summary source from the filtered timeline list. Filtering the Activity section
 changes only the timeline results; it does not rewrite the top summary card.
 
@@ -539,7 +539,7 @@ and is intentionally not wired to a frontend in this milestone:
 - Sidebar items labeled "Later": Repository Analysis, Health Monitoring,
   Readiness, Artifacts, Settings. The real Repository Analysis, Health
   Monitoring, Production Readiness, and Project Artifacts controls live inside
-  Project detail for now.
+  the Project Dashboard for now.
 
 
 ## Known limitations
@@ -578,9 +578,9 @@ the real backend** — `fetch` is mocked deterministically (see
 `src/test/mockApi.ts`). Coverage spans the API client, Project list/search/
 filter/sort, card/table views, empty/error states, the create/edit/archive
 flows, repository attach/replace/remove behavior, the mobile drawer, theme
-behavior, readiness API/client behavior, Project detail readiness behavior,
-artifact API/client behavior, Project detail artifact behavior, and layout
-activity API/client behavior, Project detail activity behavior, and layout
+behavior, readiness API/client behavior, Project Dashboard readiness behavior,
+artifact API/client behavior, Project Dashboard artifact behavior, and layout
+activity API/client behavior, Project Dashboard activity behavior, and layout
 accessibility (skip link, current-page marking, navigation landmark), auth API
 helpers, auth route guards, bearer-token attachment, and sign-out behavior.
 
@@ -616,7 +616,7 @@ Manual and scheduled Health Monitoring verification:
 2. Confirm Health Monitoring says a production URL is required and the run
    button is disabled.
 3. Edit the Project and add a production URL.
-4. Return to Project detail and confirm the ready-to-check state.
+4. Return to the Project Dashboard and confirm the ready-to-check state.
 5. Click Run Health Check and confirm the button is disabled while pending.
 6. Confirm latest status, HTTP status, response time, timestamp, and preview or
    error text display after the backend responds.
@@ -647,7 +647,7 @@ Manual Production Readiness verification:
 Manual Project Artifacts verification:
 
 1. Create or open a Project.
-2. Confirm the Artifacts section appears on Project detail.
+2. Confirm the Artifacts section appears on the Project Dashboard.
 3. Confirm the empty state appears when no active artifacts exist.
 4. Create a note artifact.
 5. Create an external URL artifact.

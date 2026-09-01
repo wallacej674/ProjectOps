@@ -14,8 +14,8 @@ operator notes.
 | Area | Status | Notes |
 | --- | --- | --- |
 | Provider stack | Selected, pending provider access | Vercel frontend, Render Web Service, Render Cron Job, and Render Postgres are defined. |
-| Backend deploy | Pending provider access | Credential-free compilation and deployment configuration checks pass; database-backed verification and hosted deploy have not run. |
-| Frontend deploy | Pending provider access | All 258 frontend tests, lint with 0 errors, production build, and Vercel SPA/security configuration checks pass; hosted deploy has not run. |
+| Backend deploy | Local fix verified; pending green CI and provider access | The PostgreSQL-backed suite passes locally after regression fixes, but GitHub Actions run 10 remains failed and hosted deploy has not run. |
+| Frontend deploy | Pending provider access | Local frontend checks pass and GitHub Actions run 10 completed the frontend job successfully; hosted deploy has not run. |
 | Managed database | Pending provider access | Provider backup/PITR settings must be confirmed in provider UI. |
 | Observability | Pending provider access | Sentry config exists; real provider event arrival must be verified. |
 | Request ID correlation | Pending provider access | Local behavior is covered by tests; hosted logs/events must be checked. |
@@ -68,7 +68,7 @@ PROJECTOPS_ACCESS_TOKEN_EXPIRE_MINUTES=60
 PROJECTOPS_LOG_LEVEL=INFO
 PROJECTOPS_ENABLE_ERROR_MONITORING=false
 PROJECTOPS_SENTRY_DSN=<provider-managed sentry dsn if enabled>
-PROJECTOPS_SENTRY_ENVIRONMENT=private-beta
+PROJECTOPS_SENTRY_ENVIRONMENT=production
 PROJECTOPS_RATE_LIMIT_AUTH_LOGIN_ATTEMPTS=5
 PROJECTOPS_RATE_LIMIT_AUTH_LOGIN_WINDOW_SECONDS=300
 PROJECTOPS_RATE_LIMIT_AUTH_REGISTER_ATTEMPTS=5
@@ -90,10 +90,11 @@ non-production drill.
 | Setting | Value |
 | --- | --- |
 | Runtime | Node.js 20 or newer recommended |
+| Root directory | `frontend/` |
 | Install command | `npm ci` |
 | Build command | `npm run build` |
 | Preview command | `npm run preview` |
-| Build output directory | `frontend/dist` |
+| Build output directory | `dist` |
 | SPA fallback | Serve `/app/*` routes to `index.html` |
 | Existing Vercel config | `frontend/vercel.json` rewrites `/app/:path*` to `/index.html` |
 
@@ -103,7 +104,7 @@ Frontend environment variables:
 VITE_API_BASE_URL=<deployed backend origin>
 VITE_ENABLE_ERROR_MONITORING=false
 VITE_SENTRY_DSN=<provider-managed sentry dsn if enabled>
-VITE_SENTRY_ENVIRONMENT=private-beta
+VITE_SENTRY_ENVIRONMENT=production
 ```
 
 The frontend stores the JWT bearer token in `localStorage`. Confirm normal
@@ -164,6 +165,26 @@ If a migration fails:
 
 ## Local Preflight Evidence
 
+Recorded on 2026-09-01 for release revision
+`27fe51beff91f5fe0db9b5338b8a7d4054bfc67b`:
+
+| Check | Result | Notes |
+| --- | --- | --- |
+| Backend configuration checker | Passed | Confirmed local database, CORS, auth, logging, rate-limit, and optional-integration configuration without printing values. |
+| Backend dependency audit | Passed with one expected skip | No known vulnerabilities; the unpublished local `projectops-backend` package could not be audited through PyPI. |
+| Frontend dependency audit | Passed | `npm audit --audit-level=high` found 0 vulnerabilities. |
+| Dangerous debug endpoint inspection | Passed | No backend or frontend debug, crash, test-error, or Sentry-test route was found. |
+| Redacted secret-pattern scan | Supporting evidence only | High-confidence matches were confined to Sentry-shaped test fixtures; tracked `frontend/.env.local` contains only a localhost API base URL. Manual release review remains required. |
+| GitHub Actions run 10 | Failed - release blocker | Dependency Security Scan, Frontend, and Diff Hygiene passed. Backend migrations passed, but the backend test step reported 18 failed and 255 passed. Repository attachment commonly returned HTTP 500 because response validation required a missing `updated_at`; two scheduled-health tests also failed. |
+| PostgreSQL-backed local verification | Passed after local test service startup | Alembic reached `0013_health_monitor`; the focused affected suite passed 39 tests and the complete backend suite passed 273 tests. |
+| CI regression repair | Passed locally; CI rerun pending | Repo Integration timestamp mapping and Health Monitor DNS test isolation were repaired through red-green TDD. GitHub Actions run 10 remains the latest hosted CI result and is still failed. |
+| Final local readiness refresh | Passed | The backend suite passed 275 tests; backend compile/config, Alembic head/current, 7 deployment contracts, 258 frontend tests, official frontend lint with 0 errors and 5 known warnings, and the production build passed. A transient lint error from a concurrently created untracked development entry point cleared after its owner removed that file; this deployment-preparation work did not modify it. The staged release diff was reviewed and a high-confidence credential scan found no private keys, provider tokens, credentialed database URLs, or live Sentry ingestion URLs. |
+
+The private-beta release must not proceed until the intended revision has a
+green GitHub Actions run.
+
+Earlier evidence:
+
 Recorded on 2026-08-31 against the preserved dirty worktree. These checks do
 not replace database-backed integration tests or hosted private-beta evidence.
 
@@ -180,7 +201,7 @@ not replace database-backed integration tests or hosted private-beta evidence.
 | Frontend production build | Passed | TypeScript and Vite production build completed successfully. |
 | PostgreSQL-backed local verification | Not run | The dedicated test service was not listening on port `55432`; credentials and native PostgreSQL services were not changed. |
 
-Earlier evidence:
+Earlier evidence from before provider selection:
 
 Recorded on 2026-08-23 before provider selection. These checks do not replace
 hosted private-beta evidence.
