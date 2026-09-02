@@ -1,5 +1,6 @@
 from sqlalchemy.orm import Session
 
+from app.models.project import Project
 from app.models.project_artifact import ProjectArtifact
 from app.repositories.project_artifacts import project_artifact_repository
 from app.schemas.project_artifact import (
@@ -133,6 +134,11 @@ class ProjectArtifactService:
             search=search.strip() if search and search.strip() else None,
             tags=tags,
         )
+
+    def list_artifact_overview_for_owner(self, db: Session, owner_user_id: int) -> list[tuple[Project, list[ProjectArtifact]]]:
+        projects = project_service.list_projects(db, owner_user_id=owner_user_id)
+        projects_sorted = sorted(projects, key=lambda project: project.name.lower())
+        return [(project, self.list_project_artifacts(db, project.id)) for project in projects_sorted]
 
     def get_project_artifact(self, db: Session, project_id: int, artifact_id: int) -> ProjectArtifact:
         project_service.get_project(db, project_id)

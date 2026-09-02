@@ -98,3 +98,17 @@ class ProjectReadinessSummary(BaseModel):
     total_applicable: int
     top_gaps: list[str]
     items: list[ProjectReadinessItemRead]
+
+
+class ProjectReadinessOverviewRead(BaseModel):
+    project_id: int
+    project_name: str
+    project_status: str
+    score: int | None
+    status: str
+    passed: int
+    failed: int
+    unknown: int
+    not_applicable: int
+    total_applicable: int
+    top_gaps: list[str]

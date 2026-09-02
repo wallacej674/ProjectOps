@@ -94,3 +94,12 @@ class ProjectArtifactRead(BaseModel):
     updated_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ProjectArtifactOverviewRead(BaseModel):
+    project_id: int
+    project_name: str
+    project_status: str
+    active_artifact_count: int
+    most_recent_title: str | None
+    most_recent_updated_at: datetime | None

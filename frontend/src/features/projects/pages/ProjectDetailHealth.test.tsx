@@ -295,14 +295,11 @@ describe("Project detail Health Monitoring", () => {
     expect((await within(section).findAllByText(longTargetUrl)).some((element) => element.classList.contains("mono"))).toBe(true);
   });
 
-  it("keeps Health Monitoring navigation as a future-state item", async () => {
+  it("links Health Monitoring navigation to the cross-project Health Monitoring page", async () => {
     mockProjectDetail();
 
     renderDetail();
 
-    expect(await screen.findByRole("button", { name: "Health Monitoring Later" })).toHaveAttribute(
-      "aria-disabled",
-      "true",
-    );
+    expect(await screen.findByRole("link", { name: "Health Monitoring" })).toHaveAttribute("href", "/app/health");
   });
 });

@@ -1,11 +1,11 @@
 from app.services.readiness import readiness_service
 
 
-def create_project(client, production_url="https://example.com"):
+def create_project(client, production_url="https://example.com", name="TestApp"):
     response = client.post(
         "/api/v1/projects",
         json={
-            "name": "TestApp",
+            "name": name,
             "description": None,
             "repo_url": None,
             "production_url": production_url,
@@ -165,3 +165,30 @@ def test_patch_invalid_status_does_not_modify_db(client):
     stored = next(i for i in response.json()["items"] if i["id"] == item_id)
     assert stored["status"] == "passed"
     assert stored["notes"] == "Legitimate update."
+
+
+def test_cross_project_readiness_returns_score_per_project(client):
+    evaluated_project = create_project(client, name="Evaluated App")
+    client.post(f"/api/v1/projects/{evaluated_project['id']}/readiness/evaluate")
+    unevaluated_project = create_project(client, name="Unevaluated App")
+
+    response = client.get("/api/v1/readiness")
+
+    assert response.status_code == 200
+    by_project_id = {item["project_id"]: item for item in response.json()}
+    evaluated = by_project_id[evaluated_project["id"]]
+    assert evaluated["project_name"] == "Evaluated App"
+    assert evaluated["status"] != "not_started"
+    assert evaluated["score"] is not None
+    assert evaluated["total_applicable"] == 9
+
+    unevaluated = by_project_id[unevaluated_project["id"]]
+    assert unevaluated["status"] == "not_started"
+    assert unevaluated["score"] is None
+
+
+def test_cross_project_readiness_returns_empty_list_with_no_projects(client):
+    response = client.get("/api/v1/readiness")
+
+    assert response.status_code == 200
+    assert response.json() == []

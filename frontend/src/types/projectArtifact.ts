@@ -58,3 +58,12 @@ export interface ProjectArtifactListOptions {
   search?: string;
   tags?: string[];
 }
+
+export interface ProjectArtifactOverview {
+  project_id: number;
+  project_name: string;
+  project_status: string;
+  active_artifact_count: number;
+  most_recent_title: string | null;
+  most_recent_updated_at: string | null;
+}

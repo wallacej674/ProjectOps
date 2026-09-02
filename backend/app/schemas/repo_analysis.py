@@ -26,3 +26,15 @@ class RepoAnalysisRead(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ProjectRepoAnalysisOverviewRead(BaseModel):
+    project_id: int
+    project_name: str
+    project_status: str
+    repo_owner: str | None
+    repo_name: str | None
+    latest_status: RepoAnalysisStatus | None
+    summary: str | None
+    total_files_scanned: int | None
+    analyzed_at: datetime | None

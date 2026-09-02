@@ -253,14 +253,14 @@ describe("Project detail repository connection", () => {
     expect(within(section).getByText("openai/codex")).toBeInTheDocument();
   });
 
-  it("keeps Repository Analysis navigation as a future-state item", async () => {
+  it("links Repository Analysis navigation to the cross-project Repository Analysis page", async () => {
     mockProjectDetailWithRepo(json(repo));
 
     renderDetail();
 
-    expect(await screen.findByRole("button", { name: "Repository Analysis Later" })).toHaveAttribute(
-      "aria-disabled",
-      "true",
+    expect(await screen.findByRole("link", { name: "Repository Analysis" })).toHaveAttribute(
+      "href",
+      "/app/repository-analysis",
     );
   });
 });

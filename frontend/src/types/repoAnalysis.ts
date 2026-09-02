@@ -26,3 +26,15 @@ export interface RepoAnalysis {
   inspected_files?: string[];
   created_at: string;
 }
+
+export interface ProjectRepoAnalysisOverview {
+  project_id: number;
+  project_name: string;
+  project_status: string;
+  repo_owner: string | null;
+  repo_name: string | null;
+  latest_status: RepoAnalysisStatus | null;
+  summary: string | null;
+  total_files_scanned: number | null;
+  analyzed_at: string | null;
+}

@@ -20,11 +20,11 @@ class FailingTreeFetcher:
         raise RepoTreeFetchError("GitHub repository tree could not be fetched.")
 
 
-def create_project(client):
+def create_project(client, name="LaunchBudget"):
     response = client.post(
         "/api/v1/projects",
         json={
-            "name": "LaunchBudget",
+            "name": name,
             "description": "A budgeting app for product launches.",
             "repo_url": None,
             "production_url": None,
@@ -122,3 +122,34 @@ def test_list_repo_analyses_returns_newest_first(client, monkeypatch):
         second_response.json()["id"],
         first_response.json()["id"],
     ]
+
+
+def test_cross_project_repo_analysis_returns_latest_status_per_project(client, monkeypatch):
+    monkeypatch.setattr(repo_analysis_service, "tree_fetcher", FakeTreeFetcher())
+    analyzed_project = create_project(client, name="Analyzed App")
+    attach_repo(client, analyzed_project["id"])
+    run_response = client.post(f"/api/v1/projects/{analyzed_project['id']}/analyses/run")
+    assert run_response.status_code == 201
+    unconnected_project = create_project(client, name="Unconnected App")
+
+    response = client.get("/api/v1/repo-analyses")
+
+    assert response.status_code == 200
+    by_project_id = {item["project_id"]: item for item in response.json()}
+    analyzed = by_project_id[analyzed_project["id"]]
+    assert analyzed["project_name"] == "Analyzed App"
+    assert analyzed["repo_owner"] == "openai"
+    assert analyzed["repo_name"] == "codex"
+    assert analyzed["latest_status"] == "completed"
+    assert analyzed["total_files_scanned"] == 5
+
+    unconnected = by_project_id[unconnected_project["id"]]
+    assert unconnected["repo_owner"] is None
+    assert unconnected["latest_status"] is None
+
+
+def test_cross_project_repo_analysis_returns_empty_list_with_no_projects(client):
+    response = client.get("/api/v1/repo-analyses")
+
+    assert response.status_code == 200
+    assert response.json() == []

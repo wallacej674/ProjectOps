@@ -4,6 +4,7 @@ from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from app.models.project import Project
 from app.models.readiness import ProjectReadinessArtifactEvidence, ProjectReadinessItem, ReadinessItem
 from app.repositories.readiness import readiness_repository
 from app.repositories.repo_analyses import repo_analysis_repository
@@ -176,6 +177,19 @@ class ReadinessService:
             },
         )
         return assessments, score
+
+    def list_readiness_for_owner(self, db: Session, owner_user_id: int) -> list[tuple[Project, ReadinessScore]]:
+        projects = project_service.list_projects(db, owner_user_id=owner_user_id)
+        projects_sorted = sorted(projects, key=lambda project: project.name.lower())
+        catalog = readiness_repository.get_all_active_items(db)
+        results = []
+        for project in projects_sorted:
+            assessments = readiness_repository.get_project_assessments(db, project.id)
+            statuses = [a.status for a in assessments]
+            score = calculate_readiness_score(statuses)
+            score.top_gaps = compute_top_gaps(assessments, catalog)
+            results.append((project, score))
+        return results
 
     def get_project_readiness(self, db: Session, project_id: int) -> tuple[list[ProjectReadinessItem], ReadinessScore]:
         project_service.get_project(db, project_id)

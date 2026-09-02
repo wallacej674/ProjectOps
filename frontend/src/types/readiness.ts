@@ -43,6 +43,20 @@ export interface ProjectReadinessSummary {
   items: ProjectReadinessItem[];
 }
 
+export interface ProjectReadinessOverview {
+  project_id: number;
+  project_name: string;
+  project_status: string;
+  score: number | null;
+  status: string;
+  passed: number;
+  failed: number;
+  unknown: number;
+  not_applicable: number;
+  total_applicable: number;
+  top_gaps: string[];
+}
+
 export interface ReadinessItemUpdate {
   status: ReadinessStatus;
   notes?: string | null;

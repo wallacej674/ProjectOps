@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.models.health_check import HealthCheck, HealthCheckExecutionSource, HealthCheckStatus
+from app.models.project import Project
 from app.repositories.health_checks import health_check_repository
 from app.schemas.health_check import HealthCheckRunRequest
 from app.services.projects import project_service
@@ -104,6 +105,14 @@ class HealthCheckService:
     def list_project_health_checks(self, db: Session, project_id: int) -> list[HealthCheck]:
         project_service.get_project(db, project_id)
         return health_check_repository.list_by_project_id(db, project_id)
+
+    def list_latest_health_checks_for_owner(self, db: Session, owner_user_id: int) -> list[tuple[Project, HealthCheck | None]]:
+        projects = project_service.list_projects(db, owner_user_id=owner_user_id)
+        projects_sorted = sorted(projects, key=lambda project: project.name.lower())
+        latest_by_project_id = health_check_repository.get_latest_by_project_ids(
+            db, [project.id for project in projects_sorted]
+        )
+        return [(project, latest_by_project_id.get(project.id)) for project in projects_sorted]
 
     def _run_with_client(
         self,

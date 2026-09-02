@@ -23,3 +23,11 @@ class HealthCheckRead(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+
+class ProjectHealthSummaryRead(BaseModel):
+    project_id: int
+    project_name: str
+    project_status: str
+    production_url: str | None
+    latest_check: HealthCheckRead | None

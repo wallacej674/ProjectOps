@@ -5,8 +5,12 @@ from app.api.activity import router as activity_router
 from app.api.auth import router as auth_router
 from app.api.demo_data import router as demo_data_router
 from app.api.health import router as health_router
+from app.api.health_checks import router as health_checks_router
+from app.api.project_artifacts_overview import router as project_artifacts_overview_router
 from app.api.projects import router as projects_router
+from app.api.readiness import cross_project_router as readiness_cross_project_router
 from app.api.readiness import router as readiness_router
+from app.api.repo_analyses_overview import router as repo_analyses_overview_router
 from app.core.logging import configure_logging
 from app.core.config import get_settings
 from app.core.monitoring import ERROR_MONITORING_ENABLED_STATE_KEY, configure_error_monitoring
@@ -32,8 +36,12 @@ def create_app() -> FastAPI:
     app.include_router(activity_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(demo_data_router, prefix="/api/v1")
+    app.include_router(health_checks_router, prefix="/api/v1")
     app.include_router(projects_router, prefix="/api/v1")
     app.include_router(readiness_router)
+    app.include_router(readiness_cross_project_router, prefix="/api/v1")
+    app.include_router(repo_analyses_overview_router, prefix="/api/v1")
+    app.include_router(project_artifacts_overview_router, prefix="/api/v1")
 
     return app
 

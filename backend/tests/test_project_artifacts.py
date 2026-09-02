@@ -723,3 +723,36 @@ def test_delete_project_artifact_wrong_project_returns_404(client):
     response = client.delete(f"/api/v1/projects/{second_project['id']}/artifacts/{artifact['id']}")
 
     assert response.status_code == 404
+
+
+def test_cross_project_artifacts_returns_count_and_most_recent_per_project(client):
+    populated_project = create_project(client, name="Populated Project")
+    client.post(
+        f"/api/v1/projects/{populated_project['id']}/artifacts",
+        json={"title": "First note", "artifact_type": "note", "source_type": "manual"},
+    )
+    client.post(
+        f"/api/v1/projects/{populated_project['id']}/artifacts",
+        json={"title": "Most recent note", "artifact_type": "note", "source_type": "manual"},
+    )
+    empty_project = create_project(client, name="Empty Project")
+
+    response = client.get("/api/v1/artifacts-overview")
+
+    assert response.status_code == 200
+    by_project_id = {item["project_id"]: item for item in response.json()}
+    populated = by_project_id[populated_project["id"]]
+    assert populated["project_name"] == "Populated Project"
+    assert populated["active_artifact_count"] == 2
+    assert populated["most_recent_title"] == "Most recent note"
+
+    empty = by_project_id[empty_project["id"]]
+    assert empty["active_artifact_count"] == 0
+    assert empty["most_recent_title"] is None
+
+
+def test_cross_project_artifacts_returns_empty_list_with_no_projects(client):
+    response = client.get("/api/v1/artifacts-overview")
+
+    assert response.status_code == 200
+    assert response.json() == []

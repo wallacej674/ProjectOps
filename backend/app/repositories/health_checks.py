@@ -28,5 +28,16 @@ class HealthCheckRepository:
         )
         return list(db.scalars(statement).all())
 
+    def get_latest_by_project_ids(self, db: Session, project_ids: list[int]) -> dict[int, HealthCheck]:
+        if not project_ids:
+            return {}
+        statement = (
+            select(HealthCheck)
+            .where(HealthCheck.project_id.in_(project_ids))
+            .distinct(HealthCheck.project_id)
+            .order_by(HealthCheck.project_id, HealthCheck.checked_at.desc(), HealthCheck.id.desc())
+        )
+        return {health_check.project_id: health_check for health_check in db.scalars(statement).all()}
+
 
 health_check_repository = HealthCheckRepository()

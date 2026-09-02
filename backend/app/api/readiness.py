@@ -9,6 +9,7 @@ from app.models.user import User
 from app.schemas.readiness import (
     ProjectReadinessEvidenceCoverage,
     ProjectReadinessItemRead,
+    ProjectReadinessOverviewRead,
     ProjectReadinessSummary,
     ReadinessArtifactEvidenceRead,
     ReadinessArtifactLinkRequest,
@@ -28,6 +29,7 @@ from app.services.launch_report import launch_report_service
 from app.services.projects import project_service
 
 router = APIRouter(prefix="/api/v1/projects", tags=["Readiness"])
+cross_project_router = APIRouter(prefix="/readiness", tags=["Readiness"])
 
 
 def _not_found(detail: str) -> HTTPException:
@@ -219,3 +221,27 @@ def update_readiness_item(
         raise _not_found(str(error)) from error
     except ManualItemUpdateError as error:
         raise _bad_request(str(error)) from error
+
+
+@cross_project_router.get("", response_model=list[ProjectReadinessOverviewRead])
+def list_cross_project_readiness(
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[ProjectReadinessOverviewRead]:
+    pairs = readiness_service.list_readiness_for_owner(db, owner_user_id=current_user.id)
+    return [
+        ProjectReadinessOverviewRead(
+            project_id=project.id,
+            project_name=project.name,
+            project_status=project.status,
+            score=score.score,
+            status=score.status,
+            passed=score.passed,
+            failed=score.failed,
+            unknown=score.unknown,
+            not_applicable=score.not_applicable,
+            total_applicable=score.total_applicable,
+            top_gaps=score.top_gaps,
+        )
+        for project, score in pairs
+    ]

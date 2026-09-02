@@ -32,3 +32,11 @@ export interface HealthMonitorSchedule {
 export interface HealthCheckRunInput {
   url?: string;
 }
+
+export interface ProjectHealthSummary {
+  project_id: number;
+  project_name: string;
+  project_status: string;
+  production_url: string | null;
+  latest_check: HealthCheck | null;
+}

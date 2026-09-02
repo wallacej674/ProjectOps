@@ -2,8 +2,11 @@ from typing import Protocol
 
 from sqlalchemy.orm import Session
 
+from app.models.project import Project
 from app.models.repo_analysis import RepoAnalysis, RepoAnalysisStatus
+from app.models.repo_integration import RepoIntegration
 from app.repositories.repo_analyses import repo_analysis_repository
+from app.repositories.repo_integrations import repo_integration_repository
 from app.services.codemap_medium_analyzer import analyze_manifest_contents
 from app.services.codemap_lite_analyzer import analyze_repo_paths
 from app.services.github_repo_tree_fetcher import RepoTreeFetchError, github_repo_tree_fetcher
@@ -101,6 +104,18 @@ class RepoAnalysisService:
         )
         self._record_analysis_activity(db, analysis)
         return analysis
+
+    def list_repo_analysis_overview_for_owner(
+        self, db: Session, owner_user_id: int
+    ) -> list[tuple[Project, RepoIntegration | None, RepoAnalysis | None]]:
+        projects = project_service.list_projects(db, owner_user_id=owner_user_id)
+        projects_sorted = sorted(projects, key=lambda project: project.name.lower())
+        results = []
+        for project in projects_sorted:
+            repo = repo_integration_repository.get_by_project_id(db, project.id)
+            latest = repo_analysis_repository.get_latest_by_project_id(db, project.id) if repo else None
+            results.append((project, repo, latest))
+        return results
 
     def get_latest_project_analysis(self, db: Session, project_id: int) -> RepoAnalysis:
         project_service.get_project(db, project_id)
