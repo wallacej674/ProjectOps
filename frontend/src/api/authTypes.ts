@@ -24,3 +24,12 @@ export interface LoginInput {
   email: string;
   password: string;
 }
+
+export interface UpdateProfileInput {
+  display_name: string | null;
+}
+
+export interface ChangePasswordInput {
+  current_password: string;
+  new_password: string;
+}

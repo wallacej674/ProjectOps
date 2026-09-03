@@ -1,6 +1,13 @@
 import { request } from "./client";
-import { clearStoredAuth, storeAuthSession } from "./authStorage";
-import type { AuthSession, AuthUser, LoginInput, RegisterInput } from "./authTypes";
+import { clearStoredAuth, storeAuthSession, updateStoredAuthUser } from "./authStorage";
+import type {
+  AuthSession,
+  AuthUser,
+  ChangePasswordInput,
+  LoginInput,
+  RegisterInput,
+  UpdateProfileInput,
+} from "./authTypes";
 
 function storeAndReturn(session: AuthSession): AuthSession {
   storeAuthSession(session.access_token, session.user);
@@ -23,6 +30,20 @@ export const authApi = {
     return storeAndReturn(session);
   },
   me: () => request<AuthUser>("/api/v1/auth/me"),
+  async updateProfile(input: UpdateProfileInput) {
+    const user = await request<AuthUser>("/api/v1/auth/me", {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    });
+    updateStoredAuthUser(user);
+    return user;
+  },
+  changePassword(input: ChangePasswordInput) {
+    return request<{ message: string }>("/api/v1/auth/me/password", {
+      method: "POST",
+      body: JSON.stringify(input),
+    });
+  },
   logout() {
     clearStoredAuth();
   },

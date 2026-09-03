@@ -103,3 +103,85 @@ def test_logout_returns_success_for_authenticated_user(client):
 
     assert response.status_code == 200
     assert response.json() == {"message": "You have been signed out."}
+
+
+def test_update_profile_changes_display_name(client):
+    token = register_user(client).json()["access_token"]
+
+    response = client.patch(
+        "/api/v1/auth/me",
+        json={"display_name": "New Name"},
+        headers=auth_header(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["display_name"] == "New Name"
+    assert client.get("/api/v1/auth/me", headers=auth_header(token)).json()["display_name"] == "New Name"
+
+
+def test_update_profile_blank_display_name_clears_it(client):
+    token = register_user(client).json()["access_token"]
+
+    response = client.patch(
+        "/api/v1/auth/me",
+        json={"display_name": "   "},
+        headers=auth_header(token),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["display_name"] is None
+
+
+def test_update_profile_without_token_returns_401(client):
+    response = client.patch("/api/v1/auth/me", json={"display_name": "New Name"})
+
+    assert response.status_code == 401
+
+
+def test_change_password_with_correct_current_password_succeeds(client):
+    token = register_user(client).json()["access_token"]
+
+    response = client.post(
+        "/api/v1/auth/me/password",
+        json={"current_password": "correct horse battery staple", "new_password": "a new stronger password"},
+        headers=auth_header(token),
+    )
+
+    assert response.status_code == 200
+    assert login_user(client, password="a new stronger password").status_code == 200
+    assert login_user(client, password="correct horse battery staple").status_code == 401
+
+
+def test_change_password_with_wrong_current_password_fails(client):
+    token = register_user(client).json()["access_token"]
+
+    response = client.post(
+        "/api/v1/auth/me/password",
+        json={"current_password": "wrong-password", "new_password": "a new stronger password"},
+        headers=auth_header(token),
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Current password is incorrect."
+    assert login_user(client, password="correct horse battery staple").status_code == 200
+
+
+def test_change_password_too_short_fails(client):
+    token = register_user(client).json()["access_token"]
+
+    response = client.post(
+        "/api/v1/auth/me/password",
+        json={"current_password": "correct horse battery staple", "new_password": "short"},
+        headers=auth_header(token),
+    )
+
+    assert response.status_code == 422
+
+
+def test_change_password_without_token_returns_401(client):
+    response = client.post(
+        "/api/v1/auth/me/password",
+        json={"current_password": "correct horse battery staple", "new_password": "a new stronger password"},
+    )
+
+    assert response.status_code == 401

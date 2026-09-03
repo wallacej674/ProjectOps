@@ -63,6 +63,36 @@ describe("API client", () => {
     );
   });
 
+  it("attaches an auth token to authenticated /auth/me requests", async () => {
+    localStorage.setItem("projectops.auth.token", "secret-token");
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await request("/api/v1/auth/me", { method: "PATCH" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/v1/auth/me",
+      expect.objectContaining({
+        headers: expect.objectContaining({ Authorization: "Bearer secret-token" }),
+      }),
+    );
+  });
+
+  it("does not attach Authorization to register or login requests", async () => {
+    localStorage.setItem("projectops.auth.token", "secret-token");
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await request("/api/v1/auth/login", { method: "POST" });
+
+    expect(fetchMock).toHaveBeenCalledWith(
+      "http://127.0.0.1:8000/api/v1/auth/login",
+      expect.objectContaining({
+        headers: expect.not.objectContaining({ Authorization: expect.any(String) }),
+      }),
+    );
+  });
+
   it("classifies 401 responses as auth errors", async () => {
     vi.stubGlobal("fetch", vi.fn().mockResolvedValue(new Response(JSON.stringify({ detail: "Authentication required." }), { status: 401 })));
 

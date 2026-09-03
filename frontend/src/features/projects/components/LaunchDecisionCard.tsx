@@ -30,28 +30,6 @@ function recorderText(artifact: ProjectArtifact) {
   return "Recorder unavailable for this historical record.";
 }
 
-function DecisionValueIcon({ value }: { value: LaunchDecisionValue }) {
-  if (value === "go") {
-    return (
-      <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M3 8.5l3 3 7-7" />
-      </svg>
-    );
-  }
-  if (value === "no_go") {
-    return (
-      <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round">
-        <path d="M4 4l8 8M12 4l-8 8" />
-      </svg>
-    );
-  }
-  return (
-    <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round">
-      <path d="M8 4v5M8 11.5v.01" />
-    </svg>
-  );
-}
-
 export function LaunchDecisionCard({
   decisionHistory,
   latestDecision,
@@ -70,9 +48,8 @@ export function LaunchDecisionCard({
   const [decision, setDecision] = useState<LaunchDecisionValue>("defer");
   const [notes, setNotes] = useState("");
   const [submitError, setSubmitError] = useState("");
-  const latestDecisionRef = useRef<HTMLDivElement | null>(null);
+  const latestDecisionRef = useRef<HTMLLIElement | null>(null);
   const history = decisionHistory ?? (latestDecision ? [latestDecision] : []);
-  const currentDecision = history[0] ?? null;
   const notesDescription = submitError
     ? "launch-decision-notes-help launch-decision-submit-error"
     : "launch-decision-notes-help";
@@ -101,123 +78,108 @@ export function LaunchDecisionCard({
   return (
     <section className="panel detail-panel launch-decision-panel" aria-labelledby="launch-decision-title">
       <div className="eyebrow">Human launch decision</div>
-      <div className="row launch-report-heading">
-        <div>
-          <h2 id="launch-decision-title">Launch Decision</h2>
-          <p className="launch-report-intro">
-            ProjectOps provides advisory signals; the final decision is human-recorded and stored as a Project Artifact.
-          </p>
-        </div>
-      </div>
+      <h2 id="launch-decision-title">Launch Decision</h2>
+      <p className="launch-report-intro">
+        ProjectOps provides advisory signals; the final decision is human-recorded and stored as a Project Artifact.
+      </p>
 
-      {loading ? (
-        <p className="meta" aria-live="polite">
-          Loading launch decision...
-        </p>
-      ) : error ? (
-        <p className="error-text" role="alert">
-          {error}
-        </p>
-      ) : currentDecision ? (
-        <div className="launch-decision-current" ref={latestDecisionRef} tabIndex={-1}>
-          <span className="badge">Latest decision</span>
-          <div className={`status-band tone-${decisionTone[getLaunchDecisionValue(currentDecision) ?? "defer"]}`}>
-            <span className="status-icon" aria-hidden="true">
-              <DecisionValueIcon value={getLaunchDecisionValue(currentDecision) ?? "defer"} />
-            </span>
-            <div>
-              <strong className="status-headline">
-                <span className={`badge ${decisionTone[getLaunchDecisionValue(currentDecision) ?? "defer"]}`}>
-                  {decisionLabel(currentDecision)}
-                </span>
-                {currentDecision.title}
-              </strong>
-              <p className="status-sub">{getLaunchDecisionNotes(currentDecision) || "No decision notes have been recorded."}</p>
-              <div className="status-meta">
-                <time dateTime={currentDecision.created_at}>Recorded {formatDate(currentDecision.created_at)}</time>
-                <span>Artifact status {currentDecision.status}</span>
-                <span>Artifact ID {currentDecision.id}</span>
+      <div className="launch-decision-layout">
+        <div className="launch-decision-timeline-col">
+          <h3 className="launch-decision-subhead" id="launch-decision-history-title">
+            Decision history
+          </h3>
+          {loading ? (
+            <p className="meta" aria-live="polite">
+              Loading launch decision...
+            </p>
+          ) : error ? (
+            <p className="error-text" role="alert">
+              {error}
+            </p>
+          ) : history.length > 0 ? (
+            <ol className="decision-timeline" aria-labelledby="launch-decision-history-title">
+              {history.map((artifact, index) => (
+                <li
+                  key={artifact.id}
+                  className={index === 0 ? "current" : undefined}
+                  ref={index === 0 ? latestDecisionRef : undefined}
+                  tabIndex={index === 0 ? -1 : undefined}
+                >
+                  <div className="row launch-decision-history-row">
+                    <strong>
+                      <span className={`badge ${decisionTone[getLaunchDecisionValue(artifact) ?? "defer"]}`}>
+                        {decisionLabel(artifact)}
+                      </span>
+                      {artifact.title}
+                    </strong>
+                    <a className="link" href="#artifacts">
+                      View in Project Artifacts
+                    </a>
+                  </div>
+                  <p>{getLaunchDecisionNotes(artifact) || "No decision notes have been recorded."}</p>
+                  <div className="meta history-meta">
+                    <time dateTime={artifact.created_at}>Recorded {formatDate(artifact.created_at)}</time>
+                    <span>{recorderText(artifact)}</span>
+                    <span>Status {artifact.status}</span>
+                    <span>Artifact ID {artifact.id}</span>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          ) : (
+            <p className="meta">No launch decision has been recorded yet.</p>
+          )}
+        </div>
+
+        <div className="launch-decision-form-col">
+          <h3 className="launch-decision-subhead">Record a decision</h3>
+          <form onSubmit={submit}>
+            <div className="field">
+              <span className="field-label" id="launch-decision-picker-label">
+                Decision
+              </span>
+              <div className="decision-picker" role="radiogroup" aria-labelledby="launch-decision-picker-label">
+                {Object.entries(launchDecisionLabels).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    role="radio"
+                    aria-checked={decision === value}
+                    className={`choice tone-${decisionTone[value as LaunchDecisionValue]}`}
+                    disabled={pending}
+                    onClick={() => setDecision(value as LaunchDecisionValue)}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
             </div>
-          </div>
-          <p className="meta">{recorderText(currentDecision)}</p>
+            <div className="field">
+              <label htmlFor="launch-decision-notes">Decision notes</label>
+              <textarea
+                id="launch-decision-notes"
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                disabled={pending}
+                maxLength={maxDecisionNotesLength}
+                aria-describedby={notesDescription}
+                aria-invalid={Boolean(submitError)}
+              />
+              <span className="hint" id="launch-decision-notes-help">
+                No-go and Defer require notes. Go notes are optional but recommended. Do not paste secrets.
+              </span>
+            </div>
+            {submitError && (
+              <p className="error-text" id="launch-decision-submit-error" role="alert">
+                {submitError}
+              </p>
+            )}
+            <button className="button primary" type="submit" disabled={pending}>
+              {pending ? "Recording launch decision" : "Record Launch Decision"}
+            </button>
+          </form>
         </div>
-      ) : (
-        <p className="meta">No launch decision has been recorded yet.</p>
-      )}
-
-      <section className="launch-decision-history" aria-labelledby="launch-decision-history-title">
-        <h3 id="launch-decision-history-title">Decision history</h3>
-        {history.length > 0 ? (
-          <ol className="history-list">
-            {history.map((artifact) => (
-              <li key={artifact.id}>
-                <div className="row launch-decision-history-row">
-                  <strong>
-                    <span className={`badge ${decisionTone[getLaunchDecisionValue(artifact) ?? "defer"]}`}>
-                      {decisionLabel(artifact)}
-                    </span>
-                    {artifact.title}
-                  </strong>
-                  <a className="link" href="#artifacts">
-                    View in Project Artifacts
-                  </a>
-                </div>
-                <p>{getLaunchDecisionNotes(artifact) || "No decision notes have been recorded."}</p>
-                <div className="meta history-meta">
-                  <time dateTime={artifact.created_at}>Recorded {formatDate(artifact.created_at)}</time>
-                  <span>{recorderText(artifact)}</span>
-                  <span>Status {artifact.status}</span>
-                  <span>Artifact ID {artifact.id}</span>
-                </div>
-              </li>
-            ))}
-          </ol>
-        ) : (
-          <p className="meta">Decision history is empty.</p>
-        )}
-      </section>
-
-      <form className="launch-decision-form" onSubmit={submit}>
-        <div className="field">
-          <label htmlFor="launch-decision-select">Decision</label>
-          <select
-            id="launch-decision-select"
-            value={decision}
-            onChange={(event) => setDecision(event.target.value as LaunchDecisionValue)}
-            disabled={pending}
-          >
-            {Object.entries(launchDecisionLabels).map(([value, label]) => (
-              <option value={value} key={value}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div className="field">
-          <label htmlFor="launch-decision-notes">Decision notes</label>
-          <textarea
-            id="launch-decision-notes"
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            disabled={pending}
-            maxLength={maxDecisionNotesLength}
-            aria-describedby={notesDescription}
-            aria-invalid={Boolean(submitError)}
-          />
-          <span className="hint" id="launch-decision-notes-help">
-            No-go and Defer require notes. Go notes are optional but recommended. Do not paste secrets.
-          </span>
-        </div>
-        {submitError && (
-          <p className="error-text" id="launch-decision-submit-error" role="alert">
-            {submitError}
-          </p>
-        )}
-        <button className="button primary" type="submit" disabled={pending}>
-          {pending ? "Recording launch decision" : "Record Launch Decision"}
-        </button>
-      </form>
+      </div>
     </section>
   );
 }

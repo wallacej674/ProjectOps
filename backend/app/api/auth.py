@@ -7,8 +7,16 @@ from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.dependencies import client_rate_limit_identifier, enforce_rate_limit, get_current_user
 from app.models.user import User
-from app.schemas.auth import AuthLoginRequest, AuthMessageRead, AuthRegisterRequest, AuthTokenRead, UserRead
-from app.services.auth import DuplicateEmailError, InvalidCredentialsError, auth_service
+from app.schemas.auth import (
+    AuthChangePasswordRequest,
+    AuthLoginRequest,
+    AuthMessageRead,
+    AuthRegisterRequest,
+    AuthTokenRead,
+    AuthUpdateProfileRequest,
+    UserRead,
+)
+from app.services.auth import DuplicateEmailError, IncorrectPasswordError, InvalidCredentialsError, auth_service
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -83,3 +91,31 @@ def me(current_user: Annotated[User, Depends(get_current_user)]) -> UserRead:
 @router.post("/logout", response_model=AuthMessageRead)
 def logout(current_user: Annotated[User, Depends(get_current_user)]) -> AuthMessageRead:
     return AuthMessageRead(message="You have been signed out.")
+
+
+@router.patch("/me", response_model=UserRead)
+def update_profile(
+    update_in: AuthUpdateProfileRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> UserRead:
+    user = auth_service.update_display_name(db, current_user, display_name=update_in.display_name)
+    return UserRead.model_validate(user)
+
+
+@router.post("/me/password", response_model=AuthMessageRead)
+def change_password(
+    change_in: AuthChangePasswordRequest,
+    current_user: Annotated[User, Depends(get_current_user)],
+    db: Annotated[Session, Depends(get_db)],
+) -> AuthMessageRead:
+    try:
+        auth_service.change_password(
+            db,
+            current_user,
+            current_password=change_in.current_password,
+            new_password=change_in.new_password,
+        )
+    except IncorrectPasswordError as error:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(error)) from error
+    return AuthMessageRead(message="Your password has been changed.")

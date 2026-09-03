@@ -30,5 +30,13 @@ class UserRepository:
     def get(self, db: Session, user_id: int) -> User | None:
         return db.get(User, user_id)
 
+    def update(self, db: Session, user: User, **fields) -> User:
+        for key, value in fields.items():
+            setattr(user, key, value)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+        return user
+
 
 user_repository = UserRepository()

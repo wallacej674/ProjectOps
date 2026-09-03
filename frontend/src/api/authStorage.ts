@@ -22,6 +22,10 @@ export function storeAuthSession(token: string, user: AuthUser) {
   localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
 }
 
+export function updateStoredAuthUser(user: AuthUser) {
+  localStorage.setItem(AUTH_USER_KEY, JSON.stringify(user));
+}
+
 export function clearStoredAuth() {
   localStorage.removeItem(AUTH_TOKEN_KEY);
   localStorage.removeItem(AUTH_USER_KEY);

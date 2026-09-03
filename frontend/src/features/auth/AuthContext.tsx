@@ -11,6 +11,7 @@ interface AuthContextValue {
   login(input: LoginInput): Promise<void>;
   register(input: RegisterInput): Promise<void>;
   logout(): void;
+  setUser(user: AuthUser): void;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -38,6 +39,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         clearStoredAuth();
         setToken(null);
         setUser(null);
+      },
+      setUser(nextUser) {
+        setUser(nextUser);
       },
     }),
     [token, user],

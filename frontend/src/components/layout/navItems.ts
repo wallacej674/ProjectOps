@@ -6,7 +6,8 @@ export const primaryNavItems = [
   { to: "/app/readiness", label: "Readiness" },
   { to: "/app/repository-analysis", label: "Repository Analysis" },
   { to: "/app/artifacts", label: "Artifacts" },
+  { to: "/app/settings", label: "Settings" },
 ];
 
 /** Navigation labels for command-center areas arriving in later milestones. */
-export const futureNavItems = ["Settings"];
+export const futureNavItems: string[] = [];

@@ -13,6 +13,13 @@ def normalize_email(value: str) -> str:
     return value.strip().lower()
 
 
+def normalize_display_name(value: str | None) -> str | None:
+    if value is None:
+        return None
+    stripped = value.strip()
+    return stripped or None
+
+
 class UserRead(BaseModel):
     id: int
     email: str
@@ -46,11 +53,29 @@ class AuthRegisterRequest(BaseModel):
 
     @field_validator("display_name")
     @classmethod
-    def normalize_display_name(cls, value: str | None) -> str | None:
-        if value is None:
-            return None
-        stripped = value.strip()
-        return stripped or None
+    def validate_display_name(cls, value: str | None) -> str | None:
+        return normalize_display_name(value)
+
+
+class AuthUpdateProfileRequest(BaseModel):
+    display_name: str | None = Field(default=None, max_length=200)
+
+    @field_validator("display_name")
+    @classmethod
+    def validate_display_name(cls, value: str | None) -> str | None:
+        return normalize_display_name(value)
+
+
+class AuthChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=256)
+    new_password: str = Field(min_length=8, max_length=256)
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_new_password(cls, value: str) -> str:
+        if not value.strip():
+            raise ValueError("Password cannot be blank.")
+        return value
 
 
 class AuthLoginRequest(BaseModel):

@@ -14,6 +14,10 @@ class InvalidCredentialsError(Exception):
     pass
 
 
+class IncorrectPasswordError(Exception):
+    pass
+
+
 class AuthService:
     def register_user(
         self,
@@ -40,6 +44,14 @@ class AuthService:
 
     def issue_token(self, user: User, settings: Settings) -> tuple[str, int]:
         return create_access_token(user_id=user.id, settings=settings)
+
+    def update_display_name(self, db: Session, user: User, *, display_name: str | None) -> User:
+        return user_repository.update(db, user, display_name=display_name)
+
+    def change_password(self, db: Session, user: User, *, current_password: str, new_password: str) -> User:
+        if not verify_password(current_password, user.password_hash):
+            raise IncorrectPasswordError("Current password is incorrect.")
+        return user_repository.update(db, user, password_hash=hash_password(new_password))
 
 
 auth_service = AuthService()

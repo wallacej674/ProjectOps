@@ -9,6 +9,7 @@ import { LandingPage } from "../features/landing/LandingPage";
 import { OverviewPage } from "../features/overview/OverviewPage";
 import { ReadinessPage } from "../features/readiness/ReadinessPage";
 import { RepoAnalysisPage } from "../features/repoAnalysis/RepoAnalysisPage";
+import { SettingsPage } from "../features/settings/SettingsPage";
 import { CreateProjectPage } from "../features/projects/pages/CreateProjectPage";
 import { EditProjectPage } from "../features/projects/pages/EditProjectPage";
 import { ProjectDetailPage } from "../features/projects/pages/ProjectDetailPage";
@@ -31,6 +32,7 @@ export function AppRouter() {
             <Route path="/app/readiness" element={<ProtectedRoute><ReadinessPage /></ProtectedRoute>} />
             <Route path="/app/repository-analysis" element={<ProtectedRoute><RepoAnalysisPage /></ProtectedRoute>} />
             <Route path="/app/artifacts" element={<ProtectedRoute><ArtifactsOverviewPage /></ProtectedRoute>} />
+            <Route path="/app/settings" element={<ProtectedRoute><SettingsPage /></ProtectedRoute>} />
             <Route path="/app/projects" element={<ProtectedRoute><ProjectsPage /></ProtectedRoute>} />
             <Route path="/app/projects/new" element={<ProtectedRoute><CreateProjectPage /></ProtectedRoute>} />
             <Route path="/app/projects/:projectId" element={<ProtectedRoute><ProjectDetailPage /></ProtectedRoute>} />

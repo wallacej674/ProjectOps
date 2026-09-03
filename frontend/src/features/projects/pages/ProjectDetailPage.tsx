@@ -844,11 +844,13 @@ export function ProjectDetailPage() {
             onArchive={() => setArchive(true)}
           />
           <ProjectSummaryCards
-            items={[
-              { label: "Repository", summary: repositorySummary },
+            gauges={[
               { label: "CodeMap", summary: codeMapSummary },
               { label: "Health", summary: healthSummary },
               { label: "Readiness", summary: readinessSummary },
+            ]}
+            chips={[
+              { label: "Repository", summary: repositorySummary },
               { label: "Launch Decision", summary: launchDecisionSummary },
               { label: "Artifacts", summary: artifactsSummary },
               { label: "Activity", summary: activitySummary },

@@ -36,8 +36,12 @@ function messageFromDetail(detail: unknown): string {
   return "The request could not be completed.";
 }
 
+const UNAUTHENTICATED_AUTH_PATHS = ["/api/v1/auth/register", "/api/v1/auth/login"];
+
 function shouldAttachAuth(path: string): boolean {
-  return !path.startsWith("/api/v1/auth") && path !== "/api/v1/demo-data/status" && !path.startsWith("/health");
+  return (
+    !UNAUTHENTICATED_AUTH_PATHS.includes(path) && path !== "/api/v1/demo-data/status" && !path.startsWith("/health")
+  );
 }
 
 function buildHeaders(path: string, initHeaders: HeadersInit | undefined): Record<string, string> {

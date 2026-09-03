@@ -521,7 +521,6 @@ describe("Project detail unified command center", () => {
     expect(within(decision).getAllByText("Launch decision: No-go").length).toBeGreaterThan(0);
     expect(within(decision).getAllByText("Hold launch until CI is configured.").length).toBeGreaterThan(0);
 
-    await user.selectOptions(within(decision).getByLabelText("Decision"), "defer");
     await user.type(within(decision).getByLabelText("Decision notes"), "Wait for hosted smoke evidence.");
     await user.click(within(decision).getByRole("button", { name: "Record Launch Decision" }));
 

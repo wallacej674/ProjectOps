@@ -81,7 +81,18 @@ describe("LaunchDecisionCard", () => {
 
     const decision = screen.getByRole("region", { name: "Launch Decision" });
     expect(within(decision).getByText("No launch decision has been recorded yet.")).toBeInTheDocument();
-    expect(within(decision).getByText("Decision history is empty.")).toBeInTheDocument();
+  });
+
+  it("defaults the decision picker to Defer", () => {
+    render(
+      <LaunchDecisionCard decisionHistory={[]} loading={false} error="" pending={false} onRecord={vi.fn()} />,
+    );
+
+    const decision = screen.getByRole("region", { name: "Launch Decision" });
+    const picker = within(decision).getByRole("radiogroup", { name: "Decision" });
+    expect(within(picker).getByRole("radio", { name: "Defer" })).toHaveAttribute("aria-checked", "true");
+    expect(within(picker).getByRole("radio", { name: "Go" })).toHaveAttribute("aria-checked", "false");
+    expect(within(picker).getByRole("radio", { name: "No-go" })).toHaveAttribute("aria-checked", "false");
   });
 
   it("requires notes for No-go and Defer decisions", async () => {
@@ -91,13 +102,14 @@ describe("LaunchDecisionCard", () => {
 
     const decision = screen.getByRole("region", { name: "Launch Decision" });
     const notes = within(decision).getByLabelText("Decision notes");
+    const picker = within(decision).getByRole("radiogroup", { name: "Decision" });
 
     await user.click(within(decision).getByRole("button", { name: "Record Launch Decision" }));
     expect(within(decision).getByRole("alert")).toHaveTextContent("Defer decisions require notes.");
     expect(notes).toHaveAttribute("aria-invalid", "true");
     expect(onRecord).not.toHaveBeenCalled();
 
-    await user.selectOptions(within(decision).getByLabelText("Decision"), "no_go");
+    await user.click(within(picker).getByRole("radio", { name: "No-go" }));
     await user.click(within(decision).getByRole("button", { name: "Record Launch Decision" }));
     expect(within(decision).getByRole("alert")).toHaveTextContent("No-go decisions require notes.");
     expect(onRecord).not.toHaveBeenCalled();
@@ -109,7 +121,8 @@ describe("LaunchDecisionCard", () => {
     render(<LaunchDecisionCard decisionHistory={[]} loading={false} error="" pending={false} onRecord={onRecord} />);
 
     const decision = screen.getByRole("region", { name: "Launch Decision" });
-    await user.selectOptions(within(decision).getByLabelText("Decision"), "go");
+    const picker = within(decision).getByRole("radiogroup", { name: "Decision" });
+    await user.click(within(picker).getByRole("radio", { name: "Go" }));
     await user.click(within(decision).getByRole("button", { name: "Record Launch Decision" }));
 
     expect(onRecord).toHaveBeenCalledWith("go", "");
@@ -125,12 +138,14 @@ describe("LaunchDecisionCard", () => {
 
     const decision = screen.getByRole("region", { name: "Launch Decision" });
     expect(within(decision).getByRole("button", { name: "Recording launch decision" })).toBeDisabled();
-    expect(within(decision).getByLabelText("Decision")).toBeDisabled();
+    const picker = within(decision).getByRole("radiogroup", { name: "Decision" });
+    expect(within(picker).getByRole("radio", { name: "Go" })).toBeDisabled();
     expect(within(decision).getByLabelText("Decision notes")).toBeDisabled();
 
     rerender(<LaunchDecisionCard decisionHistory={[]} loading={false} error="" pending={false} onRecord={onRecord} />);
     const activeDecision = screen.getByRole("region", { name: "Launch Decision" });
-    await user.selectOptions(within(activeDecision).getByLabelText("Decision"), "go");
+    const activePicker = within(activeDecision).getByRole("radiogroup", { name: "Decision" });
+    await user.click(within(activePicker).getByRole("radio", { name: "Go" }));
     await user.click(within(activeDecision).getByRole("button", { name: "Record Launch Decision" }));
 
     expect(await within(activeDecision).findByRole("alert")).toHaveTextContent("Launch decision could not be recorded.");

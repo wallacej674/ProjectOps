@@ -1,8 +1,8 @@
-import { Link } from "react-router-dom";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import type { Project } from "../../../types/project";
 import { formatDate } from "../../../utils/formatDate";
 import type { CommandCenterSummary, ProjectNextAction } from "../utils/projectCommandCenter";
+import { ProjectActionsMenu } from "./ProjectActionsMenu";
 
 export function ProjectCommandCenterHeader({
   project,
@@ -21,12 +21,26 @@ export function ProjectCommandCenterHeader({
 }) {
   return (
     <div className="command-header">
-      <div className="command-title">
-        <div className="eyebrow">Project Command Center</div>
-        <h1 id={titleId}>{project.name}</h1>
-        <p>{project.description || "No description added."}</p>
+      <div className="command-title-row">
+        <div className="command-title">
+          <div className="eyebrow">Project Command Center</div>
+          <h1 id={titleId}>{project.name}</h1>
+          <p>{project.description || "No description added."}</p>
+        </div>
+        <div className="command-actions">
+          {primaryAction && (
+            <a
+              className="button primary compact"
+              href={`#${primaryAction.targetId}`}
+              aria-label={`Primary action: ${primaryAction.title}`}
+            >
+              {primaryAction.title}
+            </a>
+          )}
+          <ProjectActionsMenu projectId={project.id} onArchive={onArchive} />
+        </div>
       </div>
-      <dl className="command-facts" aria-label="Project command-center facts">
+      <dl className="command-metastrip" aria-label="Project command-center facts">
         <div>
           <dt>Lifecycle</dt>
           <dd>
@@ -46,19 +60,6 @@ export function ProjectCommandCenterHeader({
           <dd>{formatDate(project.updated_at)}</dd>
         </div>
       </dl>
-      <div className="command-actions">
-        {primaryAction && (
-          <a className="button primary" href={`#${primaryAction.targetId}`} aria-label={`Primary action: ${primaryAction.title}`}>
-            {primaryAction.title}
-          </a>
-        )}
-        <Link className="button" to={`/app/projects/${project.id}/edit`}>
-          Edit Project
-        </Link>
-        <button className="button danger" type="button" onClick={onArchive}>
-          Archive Project
-        </button>
-      </div>
     </div>
   );
 }
