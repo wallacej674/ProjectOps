@@ -11,7 +11,8 @@ function renderRegistry() {
 }
 
 async function openArchive(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(await screen.findByRole("button", { name: "Archive CivicPermit API" }));
+  await user.click(await screen.findByRole("button", { name: "More actions for CivicPermit API" }));
+  await user.click(screen.getByRole("menuitem", { name: "Archive Project" }));
   return screen.getByRole("dialog");
 }
 
@@ -118,8 +119,8 @@ describe("Archive Project flow", () => {
     const user = userEvent.setup();
     renderRegistry();
 
-    expect(await screen.findByRole("heading", { name: "No Projects yet" })).toBeInTheDocument();
-    await user.click(screen.getByLabelText(/Include archived/));
+    expect(await screen.findByRole("heading", { name: "No active Projects" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Archived 1" }));
     expect(await screen.findByText("Legacy Portal")).toBeInTheDocument();
   });
 });

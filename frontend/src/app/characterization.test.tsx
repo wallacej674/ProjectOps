@@ -24,10 +24,8 @@ describe("characterization: routes and flows", () => {
     go("/app/overview");
     render(<App />);
 
-    expect(
-      await screen.findByRole("heading", { name: /understand what needs attention/i }),
-    ).toBeInTheDocument();
-    const active = screen.getByText("Active projects").closest(".metric")!;
+    expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
+    const active = screen.getByText("Active").closest(".overview-metric-strip > div")!;
     expect(within(active as HTMLElement).getByText("1")).toBeInTheDocument();
   });
 
@@ -80,7 +78,7 @@ describe("characterization: routes and flows", () => {
     render(<App />);
 
     expect(await screen.findByRole("heading", { name: "CivicPermit API" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Project information" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Project record" })).toBeInTheDocument();
   });
 
   it("Archive control opens a confirmation naming the Project", async () => {
@@ -89,21 +87,22 @@ describe("characterization: routes and flows", () => {
     go("/app/projects");
     render(<App />);
 
-    await user.click(await screen.findByRole("button", { name: "Archive CivicPermit API" }));
+    await user.click(await screen.findByRole("button", { name: "More actions for CivicPermit API" }));
+    await user.click(screen.getByRole("menuitem", { name: "Archive Project" }));
     expect(screen.getByRole("dialog")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Archive CivicPermit API?" })).toBeInTheDocument();
   });
 
-  it("Theme control toggles the document theme and its label", async () => {
+  it("Theme control changes the document theme from the account menu", async () => {
     mockProjectsApi({ list: [] });
     const user = userEvent.setup();
     go("/app/overview");
     render(<App />);
 
-    const toggle = await screen.findByRole("button", { name: /switch to light theme/i });
     expect(document.documentElement.dataset.theme).toBe("dark");
-    await user.click(toggle);
+    await user.click(await screen.findByRole("button", { name: "Account menu" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Light" }));
     expect(document.documentElement.dataset.theme).toBe("light");
-    expect(screen.getByRole("button", { name: /switch to dark theme/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitemradio", { name: "Light" })).toHaveAttribute("aria-checked", "true");
   });
 });

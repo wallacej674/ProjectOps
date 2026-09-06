@@ -1,7 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RepoAnalysis } from "../../../types/repoAnalysis";
 import type { RepoIntegration } from "../../../types/repoIntegration";
 import { formatDate } from "../../../utils/formatDate";
+
+import { RepositoryAnalysisDialog, RepositorySubsystems, SubsystemDetails, type Subsystem } from "./RepositorySubsystems";
 
 const signalLabels: Record<string, string> = {
   has_readme: "README present",
@@ -35,7 +37,7 @@ function PathList({ title, paths }: { title: string; paths: string[] }) {
     <div>
       <h4>{title}</h4>
       <ul className="path-list">
-        {paths.slice(0, 8).map((path) => (
+        {paths.map((path) => (
           <li className="mono" key={path}>{path}</li>
         ))}
       </ul>
@@ -65,7 +67,7 @@ function AnalysisHistoryList({
         <p className="meta">No analysis history yet.</p>
       ) : (
         <ol className="history-list">
-          {history.slice(0, 6).map((analysis, index) => (
+          {history.map((analysis, index) => (
             <li key={analysis.id}>
               <div className="row">
                 <strong>{analysis.status}</strong>
@@ -107,6 +109,7 @@ export function CodeMapAnalysisCard({
   historyError: string;
   onRunAnalysis: () => void;
 }) {
+  const [detail, setDetail] = useState<Subsystem | "All evidence" | "Warnings" | "Run history" | null>(null);
   const isFailed = latestAnalysis?.status === "failed";
   const runButtonRef = useRef<HTMLButtonElement>(null);
   const wasRunningRef = useRef(false);
@@ -121,7 +124,6 @@ export function CodeMapAnalysisCard({
 
   return (
     <section className="panel detail-panel codemap-panel" aria-labelledby="codemap-analysis-title">
-      <div className="eyebrow">Repository Analysis</div>
       <h2 id="codemap-analysis-title">Repository Analysis</h2>
       <p className="codemap-intro">
         ProjectOps reads repository paths and selected manifests to infer evidence-backed architecture signals. This is
@@ -151,42 +153,12 @@ export function CodeMapAnalysisCard({
             </div>
           ) : latestAnalysis ? (
             <div className="codemap-result">
-              <div className="row">
-                <span className={`badge ${latestAnalysis.status === "completed" ? "healthy" : "archived"}`}>
-                  {latestAnalysis.status}
-                </span>
-                <button ref={runButtonRef} className="button primary" type="button" disabled={analysisRunning} onClick={onRunAnalysis}>
-                  {runLabel}
-                </button>
-              </div>
-              <div className={`status-band ${isFailed ? "tone-danger" : "tone-success"}`}>
-                <span className="status-icon" aria-hidden="true">
-                  {isFailed ? (
-                    <svg viewBox="0 0 16 16" width="11" height="11" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round">
-                      <path d="M4 4l8 8M12 4l-8 8" />
-                    </svg>
-                  ) : (
-                    <svg viewBox="0 0 16 16" width="12" height="12" fill="none" stroke="white" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M3 8.5l3 3 7-7" />
-                    </svg>
-                  )}
-                </span>
-                <span className="status-headline">
-                  Analysis {isFailed ? "failed" : "completed"} &mdash; {latestAnalysis.total_files_scanned} files scanned
-                </span>
-              </div>
-
-              <div className="stat-strip">
-                <div className="stat-cell">
-                  <div className="stat-label">Capability</div>
-                  <div className="stat-value">
-                    {latestAnalysis.analysis_version === "codemap_medium_v1" ? "Paths and selected manifests" : "Paths only"}
-                  </div>
-                </div>
-                <div className="stat-cell">
-                  <div className="stat-label">Analyzed</div>
-                  <div className="stat-value">{formatDate(latestAnalysis.created_at)}</div>
-                </div>
+              <div className="repository-analysis-meta">
+                <span className={`badge ${isFailed ? "archived" : "healthy"}`}>{latestAnalysis.status}</span>
+                <span>{latestAnalysis.total_files_scanned} files scanned</span>
+                <span>{formatDate(latestAnalysis.created_at)}</span>
+                <span>{latestAnalysis.analysis_version === "codemap_medium_v1" ? "Paths and selected manifests" : "Paths only"}</span>
+                <button ref={runButtonRef} className="button primary" type="button" disabled={analysisRunning} onClick={onRunAnalysis}>{runLabel}</button>
               </div>
 
               <p>{latestAnalysis.summary || "CodeMap Lite did not return a summary for this analysis."}</p>
@@ -202,70 +174,85 @@ export function CodeMapAnalysisCard({
               )}
               {!isFailed && (
                 <>
-                  <RepositoryInsights analysis={latestAnalysis} />
-                  <section className="codemap-section" aria-labelledby="codemap-stack-title">
-                    <h3 id="codemap-stack-title">Detected Stack</h3>
-                    {stackEntries(latestAnalysis).length > 0 ? (
-                      <div className="stack-groups">
-                        {stackEntries(latestAnalysis).map(([group, values]) => (
-                          <div className="stack-group" key={group}>
-                            <h4>{group}</h4>
-                            <ul className="chip-list">
-                              {values.map((value) => (
-                                <li key={value}>{value}</li>
-                              ))}
-                            </ul>
+                  <RepositorySubsystems analysis={latestAnalysis} onInspect={setDetail} />
+                  {detail && ["Frontend", "Backend", "Delivery"].includes(detail) && (
+                    <RepositoryAnalysisDialog title={detail} onClose={() => setDetail(null)}>
+                      <SubsystemDetails analysis={latestAnalysis} name={detail as Subsystem} />
+                    </RepositoryAnalysisDialog>
+                  )}
+                  {detail === "Warnings" && (
+                    <RepositoryAnalysisDialog title="Analysis warnings" onClose={() => setDetail(null)}>
+                      <ul className="warning-list">{latestAnalysis.warnings.map((warning) => <li key={warning}>{warning}</li>)}</ul>
+                    </RepositoryAnalysisDialog>
+                  )}
+                  {detail === "All evidence" && (
+                    <RepositoryAnalysisDialog title="All evidence" onClose={() => setDetail(null)}>
+                      <RepositoryInsights analysis={latestAnalysis} />
+                      <section className="codemap-section" aria-labelledby="codemap-stack-title">
+                        <h3 id="codemap-stack-title">Detected Stack</h3>
+                        {stackEntries(latestAnalysis).length > 0 ? (
+                          <div className="stack-groups">
+                            {stackEntries(latestAnalysis).map(([group, values]) => (
+                              <div className="stack-group" key={group}>
+                                <h4>{group}</h4>
+                                <ul className="chip-list">
+                                  {values.map((value) => (
+                                    <li key={value}>{value}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="meta">No stack values were detected.</p>
-                    )}
-                  </section>
-                  <section className="codemap-section" aria-labelledby="codemap-signals-title">
-                    <h3 id="codemap-signals-title">Architecture Signals</h3>
-                    {Object.entries(latestAnalysis.signals).length > 0 ? (
-                      <div className="checklist">
-                        {Object.entries(latestAnalysis.signals).map(([key, value]) => (
-                          <div
-                            className={`check-row ${value ? "" : "is-off"}`}
-                            key={key}
-                            aria-label={`${displaySignalName(key)}: ${value ? "detected" : "not detected"}`}
-                          >
-                            <span className={`checkbox ${value ? "on" : "off"}`} aria-hidden="true">
-                              {value && (
-                                <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                                  <path d="M3 8.5l3 3 7-7" />
-                                </svg>
-                              )}
-                            </span>
-                            <span>{displaySignalName(key)}</span>
+                        ) : (
+                          <p className="meta">No stack values were detected.</p>
+                        )}
+                      </section>
+                      <section className="codemap-section" aria-labelledby="codemap-signals-title">
+                        <h3 id="codemap-signals-title">Architecture Signals</h3>
+                        {Object.entries(latestAnalysis.signals).length > 0 ? (
+                          <div className="checklist">
+                            {Object.entries(latestAnalysis.signals).map(([key, value]) => (
+                              <div
+                                className={`check-row ${value ? "" : "is-off"}`}
+                                key={key}
+                                aria-label={`${displaySignalName(key)}: ${value ? "detected" : "not detected"}`}
+                              >
+                                <span className={`checkbox ${value ? "on" : "off"}`} aria-hidden="true">
+                                  {value && (
+                                    <svg viewBox="0 0 16 16" width="10" height="10" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                      <path d="M3 8.5l3 3 7-7" />
+                                    </svg>
+                                  )}
+                                </span>
+                                <span>{displaySignalName(key)}</span>
+                              </div>
+                            ))}
                           </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="meta">No architecture signals were returned.</p>
-                    )}
-                  </section>
-                  <section className="codemap-section" aria-labelledby="codemap-evidence-title">
-                    <h3 id="codemap-evidence-title">Evidence</h3>
-                    <div className="evidence-grid">
-                      <PathList title="Key files" paths={latestAnalysis.detected_files} />
-                      <PathList title="Key folders" paths={latestAnalysis.detected_folders} />
-                    </div>
-                  </section>
-                  <section className="codemap-section" aria-labelledby="codemap-warnings-title">
-                    <h3 id="codemap-warnings-title">Warnings</h3>
-                    {latestAnalysis.warnings.length > 0 ? (
-                      <ul className="warning-list">
-                        {latestAnalysis.warnings.map((warning) => (
-                          <li key={warning}>{warning}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="meta">No warnings were returned.</p>
-                    )}
-                  </section>
+                        ) : (
+                          <p className="meta">No architecture signals were returned.</p>
+                        )}
+                      </section>
+                      <section className="codemap-section" aria-labelledby="codemap-evidence-title">
+                        <h3 id="codemap-evidence-title">Evidence</h3>
+                        <div className="evidence-grid">
+                          <PathList title="Key files" paths={latestAnalysis.detected_files} />
+                          <PathList title="Key folders" paths={latestAnalysis.detected_folders} />
+                        </div>
+                      </section>
+                      <section className="codemap-section" aria-labelledby="codemap-warnings-title">
+                        <h3 id="codemap-warnings-title">Warnings</h3>
+                        {latestAnalysis.warnings.length > 0 ? (
+                          <ul className="warning-list">
+                            {latestAnalysis.warnings.map((warning) => (
+                              <li key={warning}>{warning}</li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="meta">No warnings were returned.</p>
+                        )}
+                      </section>
+                    </RepositoryAnalysisDialog>
+                  )}
                 </>
               )}
             </div>
@@ -285,12 +272,30 @@ export function CodeMapAnalysisCard({
               </button>
             </>
           )}
-          <AnalysisHistoryList
-            history={analysisHistory}
-            loading={historyLoading}
-            error={historyError}
-            latestAnalysis={latestAnalysis}
-          />
+          <div className="repository-analysis-actions">
+            {latestAnalysis && !isFailed && !analysisError && (
+              <>
+                {latestAnalysis.warnings.length > 0 ? (
+                  <button className="repository-detail-link repository-warnings" type="button" onClick={() => setDetail("Warnings")}>
+                    {latestAnalysis.warnings.length} analysis {latestAnalysis.warnings.length === 1 ? "warning" : "warnings"} →
+                  </button>
+                ) : <span className="meta">No warnings were returned.</span>}
+                <button className="repository-detail-link" type="button" onClick={() => setDetail("All evidence")}>All evidence →</button>
+              </>
+            )}
+            <button className="repository-detail-link" type="button" onClick={() => setDetail("Run history")}>Run history →</button>
+          </div>
+          {historyError && detail !== "Run history" && <p className="error-text" role="alert">{historyError}</p>}
+          {detail === "Run history" && (
+            <RepositoryAnalysisDialog title="Run history" onClose={() => setDetail(null)}>
+              <AnalysisHistoryList
+                history={analysisHistory}
+                loading={historyLoading}
+                error={historyError}
+                latestAnalysis={latestAnalysis}
+              />
+            </RepositoryAnalysisDialog>
+          )}
         </div>
       ) : (
         <div className="codemap-empty">
@@ -361,7 +366,7 @@ function RepositoryInsights({ analysis }: { analysis: RepoAnalysis }) {
         <div>
           <h4>Insight evidence</h4>
           <dl>
-            {evidence.slice(0, 12).map(([signal, paths]) => (
+            {evidence.map(([signal, paths]) => (
               <div className="definition" key={signal}>
                 <dt>{signal.replaceAll("_", " ").replace(":", ": ")}</dt>
                 <dd className="mono">{paths.join(", ")}</dd>

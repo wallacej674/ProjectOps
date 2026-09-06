@@ -28,6 +28,7 @@ export interface RepoAnalysis {
 }
 
 export interface ProjectRepoAnalysisOverview {
+  detected_stack?: Record<string, string[]>;
   project_id: number;
   project_name: string;
   project_status: string;

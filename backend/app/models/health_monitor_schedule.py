@@ -39,6 +39,13 @@ class HealthMonitorSchedule(Base):
     last_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     last_outcome: Mapped[str | None] = mapped_column(String(32), nullable=True)
     consecutive_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    consecutive_healthy: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    first_failure_check_id: Mapped[int | None] = mapped_column(ForeignKey("health_checks.id"))
+    sequence_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    sequence_completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    generation: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    claim_id: Mapped[str | None] = mapped_column(String(36))
+    claim_expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now(), nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),

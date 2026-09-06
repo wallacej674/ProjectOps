@@ -32,7 +32,7 @@ describe("auth routes", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: /understand what needs attention/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Account menu" }));
     expect(screen.getByText("engineer@example.com")).toBeInTheDocument();
   });
@@ -89,7 +89,7 @@ describe("auth routes", () => {
 
     render(<App />);
 
-    expect(await screen.findByRole("heading", { name: /understand what needs attention/i })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "Overview" })).toBeInTheDocument();
     expect(window.location.pathname).toBe("/app/overview");
   });
 });

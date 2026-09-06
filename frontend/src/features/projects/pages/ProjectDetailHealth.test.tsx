@@ -71,7 +71,7 @@ const errorCheck = {
 };
 
 function renderDetail() {
-  window.history.pushState({}, "", "/app/projects/7");
+  window.history.pushState({}, "", "/app/projects/7?view=monitoring");
   return render(<App />);
 }
 
@@ -94,6 +94,7 @@ function mockProjectDetail({
 } = {}) {
   return mockFetch((url, init) => {
     const method = (init.method ?? "GET").toUpperCase();
+    if (url.includes("/health-alerts") && method === "GET") return json({ items: [], total: 0 });
     if (url.endsWith("/api/v1/projects/7") && method === "GET") return json(project);
     if (url.endsWith("/api/v1/projects/7/repo") && method === "GET") {
       return json({ detail: "Project 7 does not have an attached repo." }, 404);
@@ -145,7 +146,7 @@ describe("Project detail Health Monitoring", () => {
     expect(within(section).getByText("No health check has been run yet.")).toBeInTheDocument();
     expect(within(section).getByText(/Manual checks are run only when you start them/)).toBeInTheDocument();
     expect(within(section).getByRole("button", { name: "Run Health Check" })).toBeEnabled();
-    expect(within(section).getByLabelText("Check a different URL this time")).toBeInTheDocument();
+    expect(within(section).getByRole("button", { name: "Check another URL" })).toBeInTheDocument();
     expect(within(section).queryByText(/scheduled uptime monitoring is enabled/i)).not.toBeInTheDocument();
   });
 
@@ -157,6 +158,7 @@ describe("Project detail Health Monitoring", () => {
 
     const section = await screen.findByRole("region", { name: "Health Monitoring" });
     expect(await within(section).findByText("Scheduled monitoring is paused.")).toBeInTheDocument();
+    await user.click(within(section).getByRole("button", { name: "Configure schedule" }));
     await user.selectOptions(within(section).getByLabelText("Monitoring frequency"), "60");
     await user.click(within(section).getByRole("button", { name: "Enable scheduled monitoring" }));
 
@@ -165,6 +167,42 @@ describe("Project detail Health Monitoring", () => {
       String(url).endsWith("/health-monitor") && init?.method === "PUT" &&
       init.body === JSON.stringify({ enabled: true, cadence_minutes: 60 })
     )).toBe(true);
+  });
+
+  it("cancels schedule edits without saving and restores focus", async () => {
+    const fetchMock = mockProjectDetail();
+    const user = userEvent.setup();
+    renderDetail();
+    const section = await screen.findByRole("region", { name: "Scheduled monitoring" });
+    const configure = within(section).getByRole("button", { name: "Configure schedule" });
+    await user.click(configure);
+    await user.selectOptions(within(section).getByLabelText("Monitoring frequency"), "15");
+    await user.click(within(section).getByRole("button", { name: "Cancel" }));
+    expect(configure).toHaveFocus();
+    expect(configure).toHaveAttribute("aria-expanded", "false");
+    await user.click(configure);
+    expect(within(section).getByLabelText("Monitoring frequency")).toHaveValue("60");
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PUT")).toBe(false);
+  });
+
+  it("keeps the main action on the saved target and cancels an override without a request", async () => {
+    const fetchMock = mockProjectDetail();
+    const user = userEvent.setup();
+    renderDetail();
+    const section = await screen.findByRole("region", { name: "Latest Health Check" });
+    const another = within(section).getByRole("button", { name: "Check another URL" });
+    await user.click(another);
+    await user.type(within(section).getByLabelText("One-time health-check URL"), "https://other.example.com/health");
+    await user.click(within(section).getByRole("button", { name: "Cancel" }));
+    expect(another).toHaveFocus();
+    expect(within(section).queryByLabelText("One-time health-check URL")).not.toBeInTheDocument();
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "POST")).toBe(false);
+    await user.click(another);
+    expect(within(section).getByLabelText("One-time health-check URL")).toHaveValue("");
+    await user.type(within(section).getByLabelText("One-time health-check URL"), "https://other.example.com/health");
+    await user.click(within(section).getByRole("button", { name: "Run Health Check" }));
+    await waitFor(() => expect(fetchMock.mock.calls.some(([url, init]) => String(url).endsWith("/health-checks/run") && init?.method === "POST")).toBe(true));
+    expect(fetchMock.mock.calls.some(([, init]) => String(init?.body ?? "").includes("other.example.com"))).toBe(false);
   });
 
   it("disables the Run Health Check button while pending and then shows the result", async () => {
@@ -186,7 +224,7 @@ describe("Project detail Health Monitoring", () => {
     resolveRun(json(healthyCheck, 201));
 
     expect(await within(section).findByText("Healthy")).toBeInTheDocument();
-    const runAgainButton = within(section).getByRole("button", { name: "Run Again" });
+    const runAgainButton = within(section).getByRole("button", { name: "Run check again" });
     expect(runAgainButton).toBeEnabled();
     await waitFor(() => expect(runAgainButton).toHaveFocus());
   });
@@ -200,9 +238,9 @@ describe("Project detail Health Monitoring", () => {
     renderDetail();
 
     const section = await screen.findByRole("region", { name: "Health Monitoring" });
-    await user.click(within(section).getByLabelText("Check a different URL this time"));
+    await user.click(within(section).getByRole("button", { name: "Check another URL" }));
     await user.type(within(section).getByLabelText("One-time health-check URL"), "https://status.example.com/ready");
-    await user.click(within(section).getByRole("button", { name: "Run Health Check" }));
+    await user.click(within(section).getByRole("button", { name: "Check this URL" }));
 
     expect((await within(section).findAllByText("https://status.example.com/ready")).length).toBeGreaterThan(0);
     expect(within(section).getByText("https://civicpermit.example.com/health")).toBeInTheDocument();
@@ -263,9 +301,9 @@ describe("Project detail Health Monitoring", () => {
     renderDetail();
 
     const section = await screen.findByRole("region", { name: "Health Monitoring" });
-    await user.click(within(section).getByLabelText("Check a different URL this time"));
+    await user.click(within(section).getByRole("button", { name: "Check another URL" }));
     await user.type(within(section).getByLabelText("One-time health-check URL"), "http://127.0.0.1");
-    await user.click(within(section).getByRole("button", { name: "Run Health Check" }));
+    await user.click(within(section).getByRole("button", { name: "Check this URL" }));
 
     expect(await within(section).findByRole("alert")).toHaveTextContent(
       "ProjectOps blocked this URL because health checks cannot target local, private, link-local, or otherwise unsafe network addresses.",

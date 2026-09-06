@@ -142,10 +142,12 @@ def test_cross_project_repo_analysis_returns_latest_status_per_project(client, m
     assert analyzed["repo_name"] == "codex"
     assert analyzed["latest_status"] == "completed"
     assert analyzed["total_files_scanned"] == 5
+    assert analyzed["detected_stack"] == run_response.json()["detected_stack"]
 
     unconnected = by_project_id[unconnected_project["id"]]
     assert unconnected["repo_owner"] is None
     assert unconnected["latest_status"] is None
+    assert unconnected["detected_stack"] == {}
 
 
 def test_cross_project_repo_analysis_returns_empty_list_with_no_projects(client):

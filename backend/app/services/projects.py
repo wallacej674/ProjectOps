@@ -58,15 +58,30 @@ class ProjectService:
             if owner_user_id is not None
             else self.get_project(db, project_id)
         )
-        updated_project = project_repository.update(db, project, project_in)
+        from datetime import datetime, timezone
+        from app.services.monitor_state import lock_monitor, reset_sequence
+        from app.services.health_alerts import close_alert
+        project, schedule = lock_monitor(db, project_id)
+        old_url, old_status = project.production_url, project.status
+        updated_project = project_repository.update(db, project, project_in, commit=False)
+        archived = updated_project.status == "archived" and old_status != "archived"
+        target_changed = old_url != updated_project.production_url
+        if archived or target_changed:
+            reason = "project_archived" if archived else ("target_changed" if updated_project.production_url else "target_removed")
+            close_alert(db, project_id, reason)
+            if schedule is not None:
+                if archived or not updated_project.production_url:
+                    schedule.enabled = False
+                reset_sequence(schedule, datetime.now(timezone.utc))
+        db.commit()
         from app.services.activity import activity_service
 
         activity_service.record_event(
             db,
             project_id=updated_project.id,
-            event_type="project_updated",
+            event_type="project_archived" if archived else "project_updated",
             event_category="project",
-            message="Project details were updated.",
+            message="Project was archived." if archived else "Project details were updated.",
             related_resource_type="project",
             related_resource_id=updated_project.id,
             metadata={"name": updated_project.name, "status": updated_project.status},
@@ -74,25 +89,7 @@ class ProjectService:
         return updated_project
 
     def archive_project(self, db: Session, project_id: int, owner_user_id: int | None = None) -> Project:
-        project = (
-            self.get_project_for_user(db, project_id, owner_user_id)
-            if owner_user_id is not None
-            else self.get_project(db, project_id)
-        )
-        archived_project = project_repository.archive(db, project)
-        from app.services.activity import activity_service
-
-        activity_service.record_event(
-            db,
-            project_id=archived_project.id,
-            event_type="project_archived",
-            event_category="project",
-            message="Project was archived.",
-            related_resource_type="project",
-            related_resource_id=archived_project.id,
-            metadata={"name": archived_project.name, "status": archived_project.status},
-        )
-        return archived_project
+        return self.update_project(db, project_id, ProjectUpdate(status="archived"), owner_user_id=owner_user_id)
 
 
 project_service = ProjectService()

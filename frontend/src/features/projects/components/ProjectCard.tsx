@@ -2,26 +2,38 @@ import { Link } from "react-router-dom";
 import { StatusBadge } from "../../../components/ui/StatusBadge";
 import { formatDate } from "../../../utils/formatDate";
 import type { Project } from "../../../types/project";
+import type { ProjectOperationalSnapshot } from "../utils/projectPortfolio";
+import { ProjectActionsMenu } from "./ProjectActionsMenu";
 
-/** A single Project summary card with its recommended next setup action. */
-export function ProjectCard({ project, onArchive }: { project: Project; onArchive: (project: Project) => void }) {
+function repositoryLabel(url: string | null) {
+  if (!url) return "Not connected";
+  return url.replace(/^https?:\/\/github\.com\//i, "").replace(/\.git$/i, "");
+}
+
+/** An operational Project card with its current evidence and recommended setup action. */
+export function ProjectCard({
+  project,
+  snapshot,
+  onArchive,
+}: {
+  project: Project;
+  snapshot: ProjectOperationalSnapshot;
+  onArchive: (project: Project) => void;
+}) {
   const action = !project.repo_url
     ? "Add repository URL"
     : !project.production_url
       ? "Add production URL"
-      : "View Project Dashboard";
+      : "View Dashboard";
   return (
     <article className="panel project-card">
-      <div className="row">
+      <div className="row project-card-top">
         <StatusBadge status={project.status} />
-        <button
-          className="button archive-card-action"
-          type="button"
-          aria-label={`Archive ${project.name}`}
-          onClick={() => onArchive(project)}
-        >
-          Archive
-        </button>
+        <ProjectActionsMenu
+          projectId={project.id}
+          onArchive={() => onArchive(project)}
+          triggerLabel={`More actions for ${project.name}`}
+        />
       </div>
       <div>
         <h2>
@@ -29,15 +41,34 @@ export function ProjectCard({ project, onArchive }: { project: Project; onArchiv
         </h2>
         <p>{project.description || "No description added."}</p>
       </div>
-      <div className="meta">
-        Repository URL: {project.repo_url ? "added" : "missing"}
-        <br />
-        Production URL: {project.production_url ? "added" : "missing"}
-      </div>
-      <div className="row">
+      <p className="project-card-repository mono">{repositoryLabel(project.repo_url)}</p>
+      <dl className="project-card-signals">
+        <div>
+          <dt>Repository</dt>
+          <dd>
+            <span className={`status-dot ${project.repo_url ? "healthy" : "none"}`} aria-hidden="true" />
+            {project.repo_url ? "Connected" : "Missing"}
+          </dd>
+        </div>
+        <div>
+          <dt>Health</dt>
+          <dd>
+            <span className={`status-dot ${snapshot.healthTone}`} aria-hidden="true" />
+            {snapshot.healthLabel}
+          </dd>
+        </div>
+        <div>
+          <dt>Readiness</dt>
+          <dd>
+            <span className={`status-dot ${snapshot.readinessTone}`} aria-hidden="true" />
+            {snapshot.readinessLabel}
+          </dd>
+        </div>
+      </dl>
+      <div className="row project-card-foot">
         <span className="meta">Updated {formatDate(project.updated_at)}</span>
         <Link
-          className="link"
+          className="project-card-action"
           to={
             project.repo_url || project.production_url
               ? `/app/projects/${project.id}`

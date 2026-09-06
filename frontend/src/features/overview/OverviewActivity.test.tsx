@@ -79,6 +79,18 @@ describe("Overview activity", () => {
     expect(within(feed).getByText("Deployment runbook was created.")).toBeInTheDocument();
   });
 
+  it("prioritizes portfolio state and removes duplicate sidebar statistics", async () => {
+    mockOverview();
+    goOverview();
+    render(<App />);
+
+    expect(await screen.findByRole("heading", { name: "2 projects need attention" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Attention queue" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Operational coverage" })).toBeInTheDocument();
+    expect(screen.getByRole("table", { name: "Recent Projects" })).toBeInTheDocument();
+    expect(screen.queryByLabelText("Cross-project stats at a glance")).not.toBeInTheDocument();
+  });
+
   it("shows recently active Projects from the activity feed", async () => {
     mockOverview();
     goOverview();
@@ -169,7 +181,8 @@ describe("Overview activity", () => {
     await within(feed).findByText("Manual health check was healthy.");
     await user.selectOptions(within(feed).getByLabelText("Filter activity by category"), "health");
     await within(feed).findByText("1 event shown");
-    await user.click(within(feed).getByRole("button", { name: "Refresh activity" }));
+    const status = screen.getByRole("region", { name: "2 projects need attention" });
+    await user.click(within(status).getByRole("button", { name: "Refresh portfolio data" }));
 
     expect(fetchMock).toHaveBeenCalledWith(
       "http://127.0.0.1:8000/api/v1/activity?category=health&limit=25",
@@ -260,4 +273,26 @@ describe("Overview activity", () => {
     expect(within(panel).queryByRole("button", { name: "Load demo workspace" })).not.toBeInTheDocument();
     expect(within(panel).getByText("Demo data seeding is disabled in production environments.")).toBeInTheDocument();
   });
+});
+
+it("orders active alerts ahead of overdue monitoring and keeps acknowledgement visible", async () => {
+  const portfolioProjects = [makeProject({ id: 1, name: "Setup needed" }), makeProject({ id: 2, name: "Overdue" }), makeProject({ id: 3, name: "Acknowledged failure" })];
+  mockFetch((url) => {
+    if (url.includes("/projects?")) return json(portfolioProjects);
+    if (url.endsWith("/health-checks")) return json([
+      { project_id: 2, monitor: { enabled: true, freshness: "overdue", active_alert: null } },
+      { project_id: 3, monitor: { enabled: false, freshness: "disabled", active_alert: { acknowledged_at: "2026-09-01T00:00:00Z", last_observed_at: "2026-09-01T00:00:00Z" } } },
+    ]);
+    if (url.endsWith("/demo-data/status")) return json({ enabled: false, reason: "Disabled" });
+    return json([]);
+  });
+  goOverview();
+  render(<App />);
+  const queue = await screen.findByRole("region", { name: "Attention queue" });
+  const items = within(queue).getAllByRole("listitem");
+  expect(items[0]).toHaveTextContent("Acknowledged failure");
+  expect(items[0]).toHaveTextContent("Acknowledged.");
+  expect(items[0]).toHaveTextContent("Monitoring paused; recovery unconfirmed.");
+  expect(items[1]).toHaveTextContent("Monitoring overdue");
+  expect(items[2]).toHaveTextContent("Setup needed");
 });

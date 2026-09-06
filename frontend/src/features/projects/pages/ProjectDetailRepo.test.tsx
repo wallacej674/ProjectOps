@@ -24,13 +24,14 @@ const repo = {
 };
 
 function renderDetail() {
-  window.history.pushState({}, "", "/app/projects/7");
+  window.history.pushState({}, "", "/app/projects/7?view=repository");
   return render(<App />);
 }
 
 function mockProjectDetailWithRepo(response: Response, attachResponse?: Response, removeResponse?: Response) {
   return mockFetch((url, init) => {
     const method = (init.method ?? "GET").toUpperCase();
+    if (url.includes("/health-alerts") && method === "GET") return json({ items: [], total: 0 });
     if (url.endsWith("/api/v1/projects/7/repo") && method === "GET") return response;
     if (url.endsWith("/api/v1/projects/7/repo") && method === "POST") return attachResponse ?? json(repo, 201);
     if (url.endsWith("/api/v1/projects/7/repo") && method === "DELETE") return removeResponse ?? new Response(null, { status: 204 });
@@ -66,6 +67,7 @@ describe("Project detail repository connection", () => {
   it("offers private repositories verified through the configured GitHub App", async () => {
     mockFetch((url, init) => {
       const method = (init.method ?? "GET").toUpperCase();
+    if (url.includes("/health-alerts") && method === "GET") return json({ items: [], total: 0 });
       if (url.endsWith("/api/v1/projects/7") && method === "GET") return json(project);
       if (url.endsWith("/api/v1/projects/7/repo") && method === "GET") return json({ detail: "missing" }, 404);
       if (url.endsWith("/github-app/authorize")) return json({ enabled: true, authorize_url: "https://github.com/login/oauth/authorize" });
@@ -89,6 +91,7 @@ describe("Project detail repository connection", () => {
   it("shows a loading state while repository connection state loads", async () => {
     mockFetch((url, init) => {
       const method = (init.method ?? "GET").toUpperCase();
+    if (url.includes("/health-alerts") && method === "GET") return json({ items: [], total: 0 });
       if (url.endsWith("/api/v1/projects/7/repo") && method === "GET") return new Promise<Response>(() => undefined);
       if (url.endsWith("/api/v1/projects/7/analyses/latest") && method === "GET") {
       return json({ detail: "Project 7 does not have a repo analysis yet." }, 404);
@@ -126,6 +129,7 @@ describe("Project detail repository connection", () => {
     expect(within(section).getByText("https://github.com/openai/codex")).toBeInTheDocument();
     expect(within(section).getByText("Connected")).toBeInTheDocument();
     expect(within(section).queryByRole("button", { name: /Run CodeMap Analysis/ })).not.toBeInTheDocument();
+    await userEvent.setup().click(within(screen.getByRole("navigation", { name: "Project sections" })).getByRole("link", { name: "Settings" }));
     expect(screen.getByText("https://github.com/example/metadata-only")).toBeInTheDocument();
   });
 

@@ -197,7 +197,7 @@ const linkedCoverage = {
 };
 
 function renderDetail() {
-  window.history.pushState({}, "", "/app/projects/7");
+  window.history.pushState({}, "", "/app/projects/7?view=launch");
   return render(<App />);
 }
 
@@ -225,6 +225,7 @@ function mockProjectDetail({
   const coverageResponses = [coverageResponse.clone()];
   return mockFetch((url, init) => {
     const method = (init.method ?? "GET").toUpperCase();
+    if (url.includes("/health-alerts") && method === "GET") return json({ items: [], total: 0 });
     if (url.endsWith("/api/v1/projects/7") && method === "GET") return json(project);
     if (url.endsWith("/api/v1/projects/7/repo") && method === "GET") {
       return json({ detail: "Project 7 does not have an attached repo." }, 404);

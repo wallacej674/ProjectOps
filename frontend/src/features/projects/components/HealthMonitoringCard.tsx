@@ -1,3 +1,4 @@
+import { HealthAlertsPanel } from "./HealthAlertsPanel";
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import type {
@@ -60,11 +61,7 @@ function HealthCheckResult({ check, projectTargetUrl }: { check: HealthCheck; pr
   const hasLog = Boolean(check.response_preview || check.error_message);
 
   return (
-    <section className="health-section latest-health" aria-labelledby="latest-health-title">
-      <div className="row">
-        <h3 id="latest-health-title">Latest Health Check</h3>
-        <HealthCheckStatusBadge status={check.status} />
-      </div>
+    <div className="health-result">
       <p>{statusMeanings[check.status]}</p>
 
       <div className="readout">
@@ -117,17 +114,12 @@ function HealthCheckResult({ check, projectTargetUrl }: { check: HealthCheck; pr
           {hasLog && (
             <div className="readout-log">
               {check.response_preview && (
-                <>
-                  <p className="readout-log-heading" id="health-response-preview-title">
-                    <span className="prompt" aria-hidden="true">
-                      &rsaquo;
-                    </span>{" "}
-                    response preview
-                  </p>
+                <details className="health-response-disclosure">
+                  <summary id="health-response-preview-title">Response preview</summary>
                   <pre className="readout-pre" aria-labelledby="health-response-preview-title">
                     {check.response_preview}
                   </pre>
-                </>
+                </details>
               )}
               {check.error_message && (
                 <>
@@ -147,7 +139,7 @@ function HealthCheckResult({ check, projectTargetUrl }: { check: HealthCheck; pr
           )}
         </div>
       </div>
-    </section>
+    </div>
   );
 }
 
@@ -205,6 +197,7 @@ export function HealthMonitoringCard({
   monitorLoading,
   monitorError,
   monitorPending,
+  onRefreshMonitor,
   onRunHealthCheck,
   onUpdateMonitor,
   onPauseMonitor,
@@ -221,18 +214,22 @@ export function HealthMonitoringCard({
   monitorLoading: boolean;
   monitorError: string;
   monitorPending: boolean;
+  onRefreshMonitor: () => void;
   onRunHealthCheck: (overrideUrl?: string) => void;
   onUpdateMonitor: (cadence: HealthMonitorCadence) => void;
   onPauseMonitor: () => void;
 }) {
   const runButtonRef = useRef<HTMLButtonElement>(null);
+  const overrideButtonRef = useRef<HTMLButtonElement>(null);
+  const configureButtonRef = useRef<HTMLButtonElement>(null);
+  const [scheduleOpen, setScheduleOpen] = useState(false);
   const wasRunningRef = useRef(false);
   const [useOverrideUrl, setUseOverrideUrl] = useState(false);
   const [overrideUrl, setOverrideUrl] = useState("");
   const [cadence, setCadence] = useState<HealthMonitorCadence>(60);
   const productionUrl = project.production_url;
   const hasProductionUrl = Boolean(productionUrl);
-  const runLabel = healthRunning ? "Running Health Check" : latestHealthCheck ? "Run Again" : "Run Health Check";
+  const runLabel = healthRunning ? "Running Health Check" : latestHealthCheck ? "Run check again" : "Run Health Check";
 
   useEffect(() => {
     if (wasRunningRef.current && !healthRunning) {
@@ -251,9 +248,9 @@ export function HealthMonitoringCard({
       <h2 id="health-monitoring-title">Health Monitoring</h2>
       <p className="health-intro">
         Manual checks are run only when you start them. You can also enable a recurring check against the saved
-        production URL. Results are operational signals, not an uptime guarantee, and ProjectOps does not create
-        alerts yet.
+        production URL. Repeated scheduled failures create in-app alerts; results are operational observations, not an uptime guarantee.
       </p>
+      <HealthAlertsPanel key={project.id} projectId={String(project.id)} monitor={monitor} onRefresh={onRefreshMonitor} />
       {!hasProductionUrl ? (
         <div className="health-empty">
           <h3>Add a production URL before running a health check.</h3>
@@ -277,12 +274,16 @@ export function HealthMonitoringCard({
             </div>
           </dl>
           <section className="health-section" aria-labelledby="scheduled-monitoring-title">
-            <h3 id="scheduled-monitoring-title">Scheduled monitoring</h3>
+            <div className="health-action-header">
+              <h3 id="scheduled-monitoring-title">Scheduled monitoring</h3>
+              <button ref={configureButtonRef} className="button" type="button" aria-expanded={scheduleOpen} aria-controls="health-schedule-form" disabled={monitorLoading || monitorPending} onClick={() => setScheduleOpen(!scheduleOpen)}>Configure schedule</button>
+            </div>
             {monitorLoading ? (
               <p className="meta" aria-live="polite">Loading scheduled monitoring...</p>
             ) : (
               <>
                 <p>{monitor?.enabled ? "Scheduled monitoring is enabled." : "Scheduled monitoring is paused."}</p>
+                {monitor && <p className="meta">Frequency: {({ 15: "Every 15 minutes", 60: "Every hour", 360: "Every 6 hours", 1440: "Daily" })[monitor.cadence_minutes]}</p>}
                 {monitor?.enabled && monitor.next_run_at && <p className="meta">Next check: {formatDate(monitor.next_run_at)}</p>}
                 {monitor?.last_completed_at && (
                   <p className="meta">
@@ -290,6 +291,7 @@ export function HealthMonitoringCard({
                   </p>
                 )}
                 {monitorError && <p className="error-text" role="alert">{monitorError}</p>}
+                {scheduleOpen && <div id="health-schedule-form" className="health-schedule-form">
                 <div className="field">
                   <label htmlFor="health-monitor-cadence">Monitoring frequency</label>
                   <select
@@ -304,7 +306,7 @@ export function HealthMonitoringCard({
                     <option value={1440}>Daily</option>
                   </select>
                 </div>
-                <div className="row">
+                <div className="health-action-group">
                   <button
                     className="button"
                     type="button"
@@ -318,10 +320,31 @@ export function HealthMonitoringCard({
                       Pause scheduled monitoring
                     </button>
                   )}
+                  <button className="button ghost" type="button" disabled={monitorPending} onClick={() => { setCadence(monitor?.cadence_minutes ?? 60); setScheduleOpen(false); configureButtonRef.current?.focus(); }}>Cancel</button>
                 </div>
+                </div>}
               </>
             )}
           </section>
+          <section className="health-section latest-health" aria-labelledby="latest-health-title">
+            <div className="health-action-header">
+              <div className="health-action-group"><h3 id="latest-health-title">Latest Health Check</h3>{latestHealthCheck && <HealthCheckStatusBadge status={latestHealthCheck.status} />}</div>
+              <div className="health-action-group">
+                <button ref={overrideButtonRef} className="button health-text-action" type="button" aria-expanded={useOverrideUrl} aria-controls="health-override-form" disabled={healthRunning} onClick={() => setUseOverrideUrl(!useOverrideUrl)}>Check another URL</button>
+                <button ref={runButtonRef} className="button primary" type="button" disabled={healthRunning} onClick={() => onRunHealthCheck()}>{runLabel}</button>
+              </div>
+            </div>
+            {useOverrideUrl && <form id="health-override-form" className="health-override-form" onSubmit={(event) => { event.preventDefault(); if (!healthRunning) onRunHealthCheck(overrideUrl); }}>
+              <div className="field">
+                <label htmlFor="health-override-url">One-time health-check URL</label>
+                <input autoFocus required id="health-override-url" type="url" aria-describedby="health-override-url-hint" value={overrideUrl} disabled={healthRunning} onChange={(event) => setOverrideUrl(event.target.value)} />
+                <div className="hint" id="health-override-url-hint">This does not update the Project production URL. Edit the Project to change the saved target.</div>
+              </div>
+              <div className="health-action-group">
+                <button className="button primary" type="submit" disabled={healthRunning}>{healthRunning ? "Running Health Check" : "Check this URL"}</button>
+                <button className="button ghost" type="button" disabled={healthRunning} onClick={() => { setUseOverrideUrl(false); setOverrideUrl(""); overrideButtonRef.current?.focus(); }}>Cancel</button>
+              </div>
+            </form>}
           {healthRunning && (
             <p className="meta" aria-live="polite">
               Manual health check is running...
@@ -352,38 +375,7 @@ export function HealthMonitoringCard({
               </div>
             </>
           )}
-          <label className="check-row">
-            <input
-              type="checkbox"
-              checked={useOverrideUrl}
-              onChange={(event) => setUseOverrideUrl(event.target.checked)}
-            />
-            Check a different URL this time
-          </label>
-          {useOverrideUrl && (
-            <div className="field">
-              <label htmlFor="health-override-url">One-time health-check URL</label>
-              <input
-                id="health-override-url"
-                type="url"
-                aria-describedby="health-override-url-hint"
-                value={overrideUrl}
-                onChange={(event) => setOverrideUrl(event.target.value)}
-              />
-              <div className="hint" id="health-override-url-hint">
-                This does not update the Project production URL. Edit the Project to change the saved target.
-              </div>
-            </div>
-          )}
-          <button
-            ref={runButtonRef}
-            className="button primary"
-            type="button"
-            disabled={healthRunning}
-            onClick={() => onRunHealthCheck(useOverrideUrl ? overrideUrl : undefined)}
-          >
-            {runLabel}
-          </button>
+          </section>
           <HealthCheckHistoryList history={healthHistory} loading={historyLoading} error={historyError} />
         </div>
       )}

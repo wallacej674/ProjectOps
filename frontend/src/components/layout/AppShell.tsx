@@ -23,7 +23,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       <main id="main-content" tabIndex={-1}>
         <TopBar
           theme={theme}
-          onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
+          onChangeTheme={setTheme}
           mobileOpen={mobileOpen}
           onOpenMobileNav={() => setMobileOpen(true)}
           currentUser={auth.user}

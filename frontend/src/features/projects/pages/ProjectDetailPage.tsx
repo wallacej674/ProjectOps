@@ -1,5 +1,6 @@
+import { usePolledResource } from "../../../hooks/usePolledResource";
 import { useCallback, useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { ApiError } from "../../../api/client";
 import { projectsApi } from "../../../api/projects";
 import { AppShell } from "../../../components/layout/AppShell";
@@ -11,7 +12,7 @@ import { formatDate } from "../../../utils/formatDate";
 import type { Project } from "../../../types/project";
 import type { ProjectActivityCategory, ProjectActivityEvent } from "../../../types/projectActivity";
 import type { ProjectArtifact, ProjectArtifactCreate, ProjectArtifactUpdate } from "../../../types/projectArtifact";
-import type { HealthCheck, HealthMonitorCadence, HealthMonitorSchedule } from "../../../types/healthCheck";
+import type { HealthCheck, HealthMonitorCadence } from "../../../types/healthCheck";
 import type { ProjectLaunchChecklist, ProjectLaunchReport } from "../../../types/launchReport";
 import type {
   ProjectReadinessEvidenceCoverage,
@@ -50,9 +51,12 @@ import { ProjectArtifactsCard } from "../components/ProjectArtifactsCard";
 import { ProjectActivityTimeline } from "../components/ProjectActivityTimeline";
 import { ProjectCommandCenterHeader } from "../components/ProjectCommandCenterHeader";
 import { ProjectNextActions } from "../components/ProjectNextActions";
+import { ProjectOperationsMap } from "../components/ProjectOperationsMap";
+import { ProjectRecordOverview } from "../components/ProjectRecordOverview";
+import { projectWorkspaceLocation, workspaceHref } from "../utils/projectWorkspace";
+import "../components/projectWorkspace.css";
 import { ProjectSectionNav } from "../components/ProjectSectionNav";
 import { ProjectSetupProgress } from "../components/ProjectSetupProgress";
-import { ProjectSummaryCards } from "../components/ProjectSummaryCards";
 import { ReadinessAssessmentCard } from "../components/ReadinessAssessmentCard";
 import { RepositoryConnectionCard } from "../components/RepositoryConnectionCard";
 import { RepositoryRemoveModal } from "../components/RepositoryRemoveModal";
@@ -241,6 +245,8 @@ function normalizeCoverageCounts(coverage: ProjectReadinessEvidenceCoverage): Pr
 export function ProjectDetailPage() {
   const { projectId = "" } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
+  const workspace = projectWorkspaceLocation(location.search, location.hash);
   const [project, setProject] = useState<Project | null>(null);
   const [error, setError] = useState("");
   useBreadcrumb(project ? ["Projects", project.name] : null);
@@ -267,9 +273,9 @@ export function ProjectDetailPage() {
   const [healthHistory, setHealthHistory] = useState<HealthCheck[]>([]);
   const [healthHistoryLoading, setHealthHistoryLoading] = useState(false);
   const [healthHistoryError, setHealthHistoryError] = useState("");
-  const [healthMonitor, setHealthMonitor] = useState<HealthMonitorSchedule | null>(null);
-  const [healthMonitorLoading, setHealthMonitorLoading] = useState(false);
-  const [healthMonitorError, setHealthMonitorError] = useState("");
+  const loadMonitor = useCallback(() => getProjectHealthMonitor(projectId), [projectId]);
+  const { data: healthMonitor, setData: setHealthMonitor, loading: healthMonitorLoading,
+    error: healthMonitorError, setError: setHealthMonitorError, refresh: refreshMonitor } = usePolledResource(loadMonitor, Boolean(project));
   const [healthMonitorPending, setHealthMonitorPending] = useState(false);
   const [readiness, setReadiness] = useState<ProjectReadinessSummary | null>(null);
   const [readinessLoading, setReadinessLoading] = useState(false);
@@ -498,18 +504,19 @@ export function ProjectDetailPage() {
       .finally(() => setHealthHistoryLoading(false));
   }, [project, projectId]);
 
+
   useEffect(() => {
-    if (!project) return;
-    setHealthMonitorLoading(true);
-    setHealthMonitorError("");
-    getProjectHealthMonitor(projectId)
-      .then((monitor) => setHealthMonitor(monitor))
-      .catch((e: unknown) => {
-        setHealthMonitor(null);
-        setHealthMonitorError(e instanceof Error ? e.message : "Scheduled monitoring could not load.");
-      })
-      .finally(() => setHealthMonitorLoading(false));
-  }, [project, projectId]);
+    if (!healthMonitor?.last_completed_at) return;
+    let active = true;
+    void Promise.allSettled([getLatestProjectHealthCheck(projectId), listProjectHealthChecks(projectId)]).then(([latest, history]) => {
+      if (!active) return;
+      if (latest.status === "fulfilled") { setLatestHealthCheck(isHealthCheck(latest.value) ? latest.value : null); setHealthError(""); }
+      else setHealthError("Latest check could not refresh; displayed data may be stale.");
+      if (history.status === "fulfilled") { setHealthHistory(history.value); setHealthHistoryError(""); }
+      else setHealthHistoryError("Check history could not refresh; displayed data may be stale.");
+    });
+    return () => { active = false; };
+  }, [healthMonitor?.last_completed_at, projectId]);
 
   useEffect(() => {
     setReadinessLoading(true);
@@ -813,7 +820,7 @@ export function ProjectDetailPage() {
 
   const repositorySummary = getRepositorySummary(repo);
   const codeMapSummary = getCodeMapSummary(repo, latestAnalysis);
-  const healthSummary = getHealthSummary(project, latestHealthCheck);
+  const healthSummary = getHealthSummary(project, latestHealthCheck, healthMonitor);
   const readinessSummary = getReadinessSummary(readiness);
   const artifactsSummary = getArtifactsSummary(projectArtifacts.artifacts);
   const activitySummary = getActivitySummary(activitySummaryEvents);
@@ -833,7 +840,15 @@ export function ProjectDetailPage() {
 
   return (
     <AppShell>
-      <div className="content">
+      <div className="content" onClickCapture={(event) => {
+        if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+        const link = (event.target as HTMLElement).closest("a");
+        const href = link?.getAttribute("href");
+        if (!href || !/^#(overview|repository|codemap|repo-connection-title|health|readiness|launch-report|launch-decision|artifacts|activity|details)$/.test(href)) return;
+        event.preventDefault();
+        const target = projectWorkspaceLocation("", href);
+        navigate(workspaceHref(target.view, target.view === "launch" ? target.launch : undefined));
+      }}>
         <section className="command-center" id="overview" aria-label="Project Command Center">
           <ProjectCommandCenterHeader
             project={project}
@@ -843,26 +858,41 @@ export function ProjectDetailPage() {
             titleId="command-center-title"
             onArchive={() => setArchive(true)}
           />
-          <ProjectSummaryCards
-            gauges={[
-              { label: "CodeMap", summary: codeMapSummary },
-              { label: "Health", summary: healthSummary },
-              { label: "Readiness", summary: readinessSummary },
-            ]}
-            chips={[
-              { label: "Repository", summary: repositorySummary },
-              { label: "Launch Decision", summary: launchDecisionSummary },
-              { label: "Artifacts", summary: artifactsSummary },
-              { label: "Activity", summary: activitySummary },
-            ]}
+        </section>
+        <div className="project-workspace">
+        <ProjectSectionNav active={workspace.view} />
+        <div className="workspace-body">
+          {workspace.view === "overview" && <>
+            <ProjectRecordOverview project={project} actions={nextActions} records={[
+              { area: "Repository", view: "repository", summary: codeMapSummary, loading: repoLoading || analysisLoading, error: repoError || analysisError },
+              { area: "Monitoring", view: "monitoring", summary: healthSummary, loading: healthLoading || healthMonitorLoading, error: healthError || healthMonitorError },
+              { area: "Launch", view: "launch", summary: readinessSummary, loading: readinessLoading, error: readinessError },
+              { area: "Artifacts", view: "artifacts", summary: artifactsSummary, loading: projectArtifacts.loading, error: projectArtifacts.error },
+            ]} />
+            <details className="workspace-disclosure"><summary>Project map and setup progress</summary><div>
+          <ProjectOperationsMap
+            signals={{
+              repository: repositorySummary,
+              codemap: codeMapSummary,
+              health: healthSummary,
+              readiness: readinessSummary,
+              launchDecision: launchDecisionSummary,
+              artifacts: artifactsSummary,
+              activity: activitySummary,
+            }}
           />
           <div className="command-grid">
             <ProjectNextActions actions={nextActions} />
             <ProjectSetupProgress steps={setupSteps} />
           </div>
-        </section>
-        <ProjectSectionNav />
-        <div className="detail-grid">
+            </div></details>
+          </>}
+          {workspace.view === "launch" && <nav className="workspace-subnav" aria-label="Launch views">
+            <Link to={workspaceHref("launch", "checklist")} aria-current={workspace.launch === "checklist" ? "page" : undefined}>Checklist</Link>
+            <Link to={workspaceHref("launch", "report")} aria-current={workspace.launch === "report" ? "page" : undefined}>Report</Link>
+            <Link to={workspaceHref("launch", "decisions")} aria-current={workspace.launch === "decisions" ? "page" : undefined}>Decisions</Link>
+          </nav>}
+          {workspace.view === "repository" && (
           <div id="repository" className="section-anchor">
             <RepositoryConnectionCard
               repo={repo}
@@ -883,6 +913,8 @@ export function ProjectDetailPage() {
               onGitHubAppAttach={attachGitHubAppRepo}
             />
           </div>
+          )}
+          {workspace.view === "repository" && (
           <div id="codemap" className="section-anchor">
             <CodeMapAnalysisCard
               repo={repo}
@@ -897,6 +929,8 @@ export function ProjectDetailPage() {
               onRunAnalysis={runAnalysis}
             />
           </div>
+          )}
+          {workspace.view === "monitoring" && (
           <div id="health" className="section-anchor">
             <HealthMonitoringCard
               project={project}
@@ -908,6 +942,7 @@ export function ProjectDetailPage() {
               historyError={healthHistoryError}
               healthRunning={healthRunning}
               monitor={healthMonitor}
+              onRefreshMonitor={refreshMonitor}
               monitorLoading={healthMonitorLoading}
               monitorError={healthMonitorError}
               monitorPending={healthMonitorPending}
@@ -916,6 +951,8 @@ export function ProjectDetailPage() {
               onPauseMonitor={pauseHealthMonitor}
             />
           </div>
+          )}
+          {workspace.view === "launch" && workspace.launch === "checklist" && (
           <div id="readiness" className="section-anchor">
             <ReadinessAssessmentCard
               readiness={readiness}
@@ -931,14 +968,20 @@ export function ProjectDetailPage() {
               onUnlinkArtifactEvidence={unlinkArtifactEvidence}
             />
           </div>
+          )}
+          {workspace.view === "launch" && workspace.launch === "report" && (
           <div id="launch-report" className="section-anchor">
             <LaunchReportCard report={launchReport} loading={launchReportLoading} error={launchReportError} />
           </div>
+          )}
+          {workspace.view === "launch" && workspace.launch === "checklist" && <details className="workspace-disclosure"><summary>Guided launch checklist</summary>
           <LaunchChecklistCard
             checklist={launchChecklist}
             loading={launchChecklistLoading}
             error={launchChecklistError}
           />
+          </details>}
+          {workspace.view === "launch" && workspace.launch === "decisions" && (
           <div id="launch-decision" className="section-anchor">
             <LaunchDecisionCard
               decisionHistory={launchDecisionHistory}
@@ -949,6 +992,8 @@ export function ProjectDetailPage() {
               onRecord={recordLaunchDecision}
             />
           </div>
+          )}
+          {workspace.view === "artifacts" && (
           <div id="artifacts" className="section-anchor">
             <ProjectArtifactsCard
               artifacts={projectArtifacts.artifacts}
@@ -972,6 +1017,8 @@ export function ProjectDetailPage() {
               onArchive={archiveArtifactAndRefreshActivity}
             />
           </div>
+          )}
+          {workspace.view === "activity" && (
           <div id="activity" className="section-anchor">
             <ProjectActivityTimeline
               events={activityEvents}
@@ -983,8 +1030,11 @@ export function ProjectDetailPage() {
               onRefresh={() => void refreshActivity()}
             />
           </div>
+          )}
+          {workspace.view === "settings" && (
           <section className="panel detail-panel" id="details" aria-label="Project Details">
-            <h2 id="project-details-title">Project information</h2>
+            <h2 id="project-details-title">Project settings</h2>
+            <div className="workspace-settings-actions"><Link className="button" to={`/app/projects/${project.id}/edit`}>Edit project</Link><button className="button" onClick={() => setArchive(true)}>Archive project</button></div>
             <dl>
               <div className="definition">
                 <dt>Status</dt>
@@ -1014,6 +1064,8 @@ export function ProjectDetailPage() {
               </div>
             </dl>
           </section>
+          )}
+        </div>
         </div>
         {archive && (
           <ArchiveProjectModal

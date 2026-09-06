@@ -1,3 +1,4 @@
+import type { HealthMonitorSchedule } from "../../../types/healthCheck";
 import type { HealthCheck, HealthCheckStatus } from "../../../types/healthCheck";
 import type { Project } from "../../../types/project";
 import type { ProjectActivityEvent } from "../../../types/projectActivity";
@@ -179,7 +180,17 @@ export function getCodeMapSummary(repo: RepoIntegration | null, latestAnalysis: 
   };
 }
 
-export function getHealthSummary(project: Project, latestHealthCheck: HealthCheck | null): CommandCenterSummary {
+export function getHealthSummary(project: Project, latestHealthCheck: HealthCheck | null, monitor?: HealthMonitorSchedule | null): CommandCenterSummary {
+  if (monitor?.active_alert) return {
+    state: "active_alert", label: monitor.active_alert.acknowledged_at ? "Acknowledged alert" : "Active alert",
+    title: "Scheduled checks are failing", detail: !monitor.enabled ? "Monitoring paused; recovery unconfirmed."
+      : monitor.freshness === "overdue" ? "Monitoring overdue; recovery unconfirmed."
+      : monitor.consecutive_healthy === 1 ? "Recovery pending: 1 of 2 healthy checks." : "Two healthy scheduled checks are required for recovery.",
+    tone: "danger", targetId: "health", timestamp: monitor.active_alert.last_observed_at,
+  };
+  if (monitor?.freshness === "overdue") return { state: "overdue", label: "Monitoring overdue", title: "Scheduled results are late",
+    detail: "Endpoint health is unconfirmed.", tone: "warning", targetId: "health" };
+  if (latestHealthCheck?.target_url !== project.production_url) latestHealthCheck = null;
   if (!project.production_url) {
     return {
       state: "no_target",

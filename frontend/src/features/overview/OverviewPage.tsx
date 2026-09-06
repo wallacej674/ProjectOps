@@ -1,25 +1,34 @@
-import { useCallback, useEffect, useState } from "react";
+import { usePolledResource } from "../../hooks/usePolledResource";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ApiError } from "../../api/client";
 import { demoDataApi } from "../../api/demoData";
 import { projectsApi } from "../../api/projects";
 import { AppShell } from "../../components/layout/AppShell";
 import { ErrorState } from "../../components/ui/ErrorState";
-import { formatDate } from "../../utils/formatDate";
 import type { Project } from "../../types/project";
+import type { ProjectArtifactOverview } from "../../types/projectArtifact";
 import type { CrossProjectActivityEvent, ProjectActivityCategory } from "../../types/projectActivity";
+import type { ProjectReadinessOverview } from "../../types/readiness";
+import type { ProjectRepoAnalysisOverview } from "../../types/repoAnalysis";
+import { formatDate } from "../../utils/formatDate";
+import { listCrossProjectArtifactsOverview } from "../artifactsOverview/api/crossProjectArtifacts";
+import { listCrossProjectHealth } from "../health/api/crossProjectHealth";
+import { buildProjectOperationalSnapshots } from "../projects/utils/projectPortfolio";
 import { listActivity } from "../projects/api/projectActivity";
-
-/** Engineering overview: high-level Project metrics and a future-state preview. */
-const categoryLabels: Record<ProjectActivityCategory, string> = {
-  project: "Project",
-  repository: "Repository",
-  codemap: "CodeMap",
-  health: "Health",
-  readiness: "Readiness",
-  artifact: "Artifact",
-  evidence: "Evidence",
-};
+import { listCrossProjectReadiness } from "../readiness/api/crossProjectReadiness";
+import { listCrossProjectRepoAnalysis } from "../repoAnalysis/api/crossProjectRepoAnalysis";
+import { AttentionQueue } from "./components/AttentionQueue";
+import { PortfolioStatus } from "./components/PortfolioStatus";
+import { RecentProjects } from "./components/RecentProjects";
+import { SignalBoard } from "./components/SignalBoard";
+import { buildOverviewPortfolio } from "./utils/overviewPortfolio";
+import {
+  summarizeArtifactsSignal,
+  summarizeHealthSignal,
+  summarizeReadinessSignal,
+  summarizeRepoAnalysisSignal,
+} from "./utils/signalBoard";
 
 const categoryOptions: { value: ProjectActivityCategory | ""; label: string }[] = [
   { value: "", label: "All categories" },
@@ -32,70 +41,116 @@ const categoryOptions: { value: ProjectActivityCategory | ""; label: string }[] 
   { value: "evidence", label: "Evidence" },
 ];
 
-function recentlyActiveProjects(events: CrossProjectActivityEvent[]) {
-  const byProject = new Map<number, CrossProjectActivityEvent>();
-  events.forEach((event) => {
-    if (!byProject.has(event.project_id)) byProject.set(event.project_id, event);
-  });
-  return Array.from(byProject.values());
-}
-
+/** Portfolio command center ordered around state, required action, evidence, and history. */
 export function OverviewPage() {
   const navigate = useNavigate();
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [error, setError] = useState("");
-  const [demoStatus, setDemoStatus] = useState<{ enabled: boolean; reason: string | null } | null>(null);
-  const [demoStatusError, setDemoStatusError] = useState("");
-  const [demoSeedPending, setDemoSeedPending] = useState(false);
-  const [demoSeedError, setDemoSeedError] = useState("");
+  const healthResource = usePolledResource(listCrossProjectHealth);
+  const healthRows = useMemo(() => healthResource.data ?? [], [healthResource.data]);
+  const [readinessRows, setReadinessRows] = useState<ProjectReadinessOverview[]>([]);
+  const [repoRows, setRepoRows] = useState<ProjectRepoAnalysisOverview[]>([]);
+  const [artifactRows, setArtifactRows] = useState<ProjectArtifactOverview[]>([]);
   const [activityEvents, setActivityEvents] = useState<CrossProjectActivityEvent[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
   const [activityError, setActivityError] = useState("");
   const [activityCategoryFilter, setActivityCategoryFilter] = useState<ProjectActivityCategory | "">("");
+  const [overviewRefreshing, setOverviewRefreshing] = useState(false);
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<number | null>(null);
+  const [demoStatus, setDemoStatus] = useState<{ enabled: boolean; reason: string | null } | null>(null);
+  const [demoStatusError, setDemoStatusError] = useState("");
+  const [demoSeedPending, setDemoSeedPending] = useState(false);
+  const [demoSeedError, setDemoSeedError] = useState("");
+
+  const loadProjects = useCallback(async () => {
+    setError("");
+    try {
+      setProjects(await projectsApi.list(true));
+    } catch (loadError) {
+      setError(loadError instanceof ApiError ? loadError.message : "Projects could not load.");
+    }
+  }, []);
+
+  const loadSignals = useCallback(async () => {
+    const [readiness, repositories, artifacts] = await Promise.allSettled([
+      listCrossProjectReadiness(),
+      listCrossProjectRepoAnalysis(),
+      listCrossProjectArtifactsOverview(),
+    ]);
+    if (readiness.status === "fulfilled") setReadinessRows(Array.isArray(readiness.value) ? readiness.value : []);
+    if (repositories.status === "fulfilled") setRepoRows(Array.isArray(repositories.value) ? repositories.value : []);
+    if (artifacts.status === "fulfilled") setArtifactRows(Array.isArray(artifacts.value) ? artifacts.value : []);
+  }, []);
 
   const loadActivity = useCallback(async () => {
     setActivityLoading(true);
     setActivityError("");
     try {
-      const events = await listActivity({
-        category: activityCategoryFilter,
-        limit: 25,
-      });
+      const events = await listActivity({ category: activityCategoryFilter, limit: 25 });
       setActivityEvents(Array.isArray(events) ? events : []);
-    } catch (e) {
+    } catch (loadError) {
       setActivityEvents([]);
-      setActivityError(e instanceof Error ? e.message : "Recent activity could not load.");
+      setActivityError(loadError instanceof Error ? loadError.message : "Recent activity could not load.");
     } finally {
       setActivityLoading(false);
     }
   }, [activityCategoryFilter]);
 
-  const loadProjects = useCallback(() => {
-    setError("");
-    projectsApi
-      .list(true)
-      .then(setProjects)
-      .catch((e: ApiError) => setError(e.message));
-  }, []);
+  useEffect(() => {
+    void loadProjects();
+    void loadSignals();
+  }, [loadProjects, loadSignals]);
 
   useEffect(() => {
-    loadProjects();
-  }, [loadProjects]);
+    void loadActivity();
+  }, [loadActivity]);
+
+  useEffect(() => {
+    if (projects !== null && !activityLoading && lastUpdatedAt === null) setLastUpdatedAt(Date.now());
+  }, [activityLoading, lastUpdatedAt, projects]);
 
   useEffect(() => {
     demoDataApi
       .status()
       .then((status) => {
-        if (typeof status.enabled === "boolean") {
-          setDemoStatus(status);
-        }
+        if (typeof status.enabled === "boolean") setDemoStatus(status);
       })
-      .catch((e: Error) => setDemoStatusError(e.message));
+      .catch((statusError: Error) => setDemoStatusError(statusError.message));
   }, []);
 
-  useEffect(() => {
-    void loadActivity();
-  }, [loadActivity]);
+  const snapshots = useMemo(
+    () => buildProjectOperationalSnapshots(projects ?? [], healthRows, readinessRows),
+    [projects, healthRows, readinessRows],
+  );
+  const portfolio = useMemo(
+    () =>
+      buildOverviewPortfolio(
+        projects ?? [],
+        snapshots,
+        healthRows,
+        readinessRows,
+        repoRows,
+        artifactRows,
+        activityEvents,
+      ),
+    [projects, snapshots, healthRows, readinessRows, repoRows, artifactRows, activityEvents],
+  );
+  const visibleActivity = activityEvents.slice(0, 8);
+  const hasActiveActivityFilters = Boolean(activityCategoryFilter);
+  const healthSignal = summarizeHealthSignal(healthRows);
+  const readinessSignal = summarizeReadinessSignal(readinessRows);
+  const repoAnalysisSignal = summarizeRepoAnalysisSignal(repoRows);
+  const artifactsSignal = summarizeArtifactsSignal(artifactRows);
+
+  async function refreshOverview() {
+    setOverviewRefreshing(true);
+    try {
+      await Promise.all([loadProjects(), loadSignals(), loadActivity(), healthResource.refresh()]);
+      setLastUpdatedAt(Date.now());
+    } finally {
+      setOverviewRefreshing(false);
+    }
+  }
 
   async function seedDemoWorkspace() {
     setDemoSeedPending(true);
@@ -103,59 +158,144 @@ export function OverviewPage() {
     try {
       const result = await demoDataApi.seed();
       navigate(`/app/projects/${result.project.id}`);
-    } catch (e) {
-      setDemoSeedError(e instanceof Error ? e.message : "Demo workspace could not be created.");
-      loadProjects();
-      await loadActivity();
+    } catch (seedError) {
+      setDemoSeedError(seedError instanceof Error ? seedError.message : "Demo workspace could not be created.");
+      await Promise.all([loadProjects(), loadSignals(), loadActivity(), healthResource.refresh()]);
     } finally {
       setDemoSeedPending(false);
     }
   }
 
-  const recentProjects = recentlyActiveProjects(activityEvents);
-  const hasActiveActivityFilters = Boolean(activityCategoryFilter);
-  const activeProjects = projects?.filter((project) => project.status !== "archived") ?? [];
-  const needsSetupCount = activeProjects.filter((project) => !project.repo_url || !project.production_url).length;
-
   return (
     <AppShell>
-      <div className="content">
-        <div className="page-head">
+      <div className="content overview-page">
+        <div className="page-head overview-page-head">
           <div>
-            <div className="eyebrow">Overview</div>
-            <h1>Understand what needs attention across every project.</h1>
-            <p>Start with project context, then add the evidence needed for production decisions.</p>
+            <div className="eyebrow">Portfolio</div>
+            <h1>Overview</h1>
+            <p>Operational state, evidence, and recent change across every project.</p>
           </div>
-          <Link to="/app/projects/new" className="button primary">
-            + Create Project
-          </Link>
+          <div className="overview-header-actions">
+            <Link to="/app/projects/new" className="button primary compact" aria-label="Create Project">
+              <span aria-hidden="true">+</span> Create Project
+            </Link>
+          </div>
         </div>
+
         {error ? (
           <ErrorState title="Projects could not load">
             <p>{error}</p>
           </ErrorState>
         ) : (
           <>
-            {projects && (
-              <section className="overview-metrics" aria-label="Project overview metrics">
-                <div className="metric">
-                  <span>Active projects</span>
-                  <strong>{activeProjects.length}</strong>
+            {projects && projects.length > 0 && (
+              <>
+                <PortfolioStatus
+                  model={portfolio}
+                  lastUpdatedAt={lastUpdatedAt}
+                  refreshing={overviewRefreshing}
+                  onRefresh={() => void refreshOverview()}
+                />
+                <div className="overview-work-grid">
+                  {healthResource.error && <p role="alert">Health signals could not refresh. Displayed data may be stale. {healthResource.error}</p>}
+            {healthResource.data ? <AttentionQueue items={portfolio.attentionItems} /> : <p>Health attention status unavailable while signals load.</p>}
+                  <section
+                    className="panel overview-activity-rail"
+                    aria-label="Recent Activity Across Projects"
+                    aria-busy={activityLoading}
+                  >
+                    <header className="overview-panel-heading">
+                      <div>
+                        <div className="eyebrow">History</div>
+                        <h2 id="overview-activity-title">Recent activity</h2>
+                      </div>
+                      <span className="overview-panel-count">{activityEvents.length}</span>
+                    </header>
+                    <div className="activity-toolbar compact">
+                      <label htmlFor="overview-activity-category-filter" className="sr-only">
+                        Filter activity by category
+                      </label>
+                      <select
+                        id="overview-activity-category-filter"
+                        value={activityCategoryFilter}
+                        onChange={(event) => setActivityCategoryFilter(event.target.value as ProjectActivityCategory | "")}
+                      >
+                        {categoryOptions.map((option) => (
+                          <option value={option.value} key={option.value || "all"}>
+                            {option.label}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="meta">
+                        {activityEvents.length} event{activityEvents.length === 1 ? "" : "s"} shown
+                      </span>
+                      {hasActiveActivityFilters && (
+                        <button
+                          className="ghost-action"
+                          type="button"
+                          aria-label="Clear activity filters"
+                          onClick={() => setActivityCategoryFilter("")}
+                        >
+                          Clear
+                        </button>
+                      )}
+                    </div>
+                    {activityLoading && (
+                      <p className="meta" aria-live="polite">
+                        Loading recent activity...
+                      </p>
+                    )}
+                    {!activityLoading && activityError && (
+                      <p className="error-text" role="alert">
+                        {activityError}
+                      </p>
+                    )}
+                    {!activityLoading && !activityError && activityEvents.length === 0 && (
+                      <div className="activity-empty">
+                        <h3>{hasActiveActivityFilters ? "No activity matches these filters." : "No activity recorded yet."}</h3>
+                        <p>
+                          {hasActiveActivityFilters
+                            ? "Clear the category filter to review all project history."
+                            : "Project actions will appear here as evidence changes."}
+                        </p>
+                      </div>
+                    )}
+                    {!activityLoading && !activityError && visibleActivity.length > 0 && (
+                      <ol className="overview-timeline" aria-label="Recent activity across Projects">
+                        {visibleActivity.map((event) => (
+                          <li key={event.id}>
+                            <span className={`row-dot ${event.event_category}`} aria-hidden="true" />
+                            <div>
+                              <Link to={`/app/projects/${event.project_id}`} aria-label={`Open ${event.project_name}`}>
+                                {event.project_name}
+                              </Link>
+                              <p>{event.message}</p>
+                              <time dateTime={event.created_at}>{formatDate(event.created_at)}</time>
+                            </div>
+                          </li>
+                        ))}
+                      </ol>
+                    )}
+                    {!activityLoading && activityEvents.length > visibleActivity.length && (
+                      <p className="overview-timeline-count">
+                        Showing {visibleActivity.length} of {activityEvents.length} events
+                      </p>
+                    )}
+                  </section>
                 </div>
-                <div className="metric">
-                  <span>Recently active Projects</span>
-                  <strong>{recentProjects.length}</strong>
-                </div>
-                <div className="metric">
-                  <span>Recent activity events</span>
-                  <strong>{activityEvents.length}</strong>
-                </div>
-                <div className="metric">
-                  <span>Needs setup</span>
-                  <strong>{needsSetupCount}</strong>
-                </div>
-              </section>
+
+                <SignalBoard
+                  items={[
+                    { label: "Health", to: "/app/health", summary: healthSignal },
+                    { label: "Readiness", to: "/app/readiness", summary: readinessSignal },
+                    { label: "Repository Analysis", to: "/app/repository-analysis", summary: repoAnalysisSignal },
+                    { label: "Artifacts", to: "/app/artifacts", summary: artifactsSignal },
+                  ]}
+                />
+                <RecentProjects rows={portfolio.recentProjects} />
+              </>
             )}
+
             {projects && projects.length === 0 && (
               <section className="panel first-run-panel" aria-labelledby="first-run-title">
                 <div>
@@ -185,128 +325,6 @@ export function OverviewPage() {
                 </div>
               </section>
             )}
-            <div className="overview-activity-grid">
-              <section className="panel detail-panel activity-panel" aria-labelledby="overview-activity-title">
-                <div className="row activity-heading">
-                  <div>
-                    <h2 id="overview-activity-title">
-                      <span className="section-dot activity" aria-hidden="true" />
-                      Recent Activity Across Projects
-                    </h2>
-                    <p className="activity-intro">
-                      Activity updates when ProjectOps actions are recorded. This is product history, not realtime
-                      notifications.
-                    </p>
-                  </div>
-                  <button className="button" type="button" onClick={() => void loadActivity()} disabled={activityLoading}>
-                    {activityLoading ? "Refreshing..." : "Refresh activity"}
-                  </button>
-                </div>
-                <div className="activity-controls">
-                  <div className="field">
-                    <label htmlFor="overview-activity-category-filter">Filter activity by category</label>
-                    <select
-                      id="overview-activity-category-filter"
-                      value={activityCategoryFilter}
-                      onChange={(event) => setActivityCategoryFilter(event.target.value as ProjectActivityCategory | "")}
-                    >
-                      {categoryOptions.map((option) => (
-                        <option value={option.value} key={option.value || "all"}>
-                          {option.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="activity-filter-status">
-                    <p className="meta" aria-live="polite">
-                      {activityEvents.length} event{activityEvents.length === 1 ? "" : "s"} shown
-                    </p>
-                    {hasActiveActivityFilters && <span className="badge">Filters active</span>}
-                    {hasActiveActivityFilters && (
-                      <button className="button" type="button" onClick={() => setActivityCategoryFilter("")}>
-                        Clear activity filters
-                      </button>
-                    )}
-                  </div>
-                </div>
-                {activityLoading && (
-                  <p className="meta" aria-live="polite">
-                    Loading recent activity...
-                  </p>
-                )}
-                {!activityLoading && activityError && (
-                  <p className="error-text" role="alert">
-                    {activityError}
-                  </p>
-                )}
-                {!activityLoading && !activityError && activityEvents.length === 0 && !hasActiveActivityFilters && (
-                  <div className="activity-empty">
-                    <h3>No activity recorded yet.</h3>
-                    <p>ProjectOps will record activity as Projects are created, checked, evaluated, and updated.</p>
-                  </div>
-                )}
-                {!activityLoading && !activityError && activityEvents.length === 0 && hasActiveActivityFilters && (
-                  <div className="activity-empty">
-                    <h3>No activity matches these filters.</h3>
-                    <p>Clear filters or choose another category to review activity across Projects.</p>
-                  </div>
-                )}
-                {!activityLoading && !activityError && activityEvents.length > 0 && (
-                  <ol className="activity-timeline overview-activity-list" aria-label="Recent activity across Projects">
-                    {activityEvents.map((event) => (
-                      <li className={`activity-event ${event.event_category}`} key={event.id}>
-                        <div className="activity-marker" aria-hidden="true" />
-                        <div className="activity-event-body">
-                          <div className="activity-event-head">
-                            <span className={`badge ${event.event_category}`}>{categoryLabels[event.event_category]}</span>
-                            <time dateTime={event.created_at}>{formatDate(event.created_at)}</time>
-                          </div>
-                          <p>{event.message}</p>
-                          <div className="summary-meta activity-meta">
-                            <span>{event.project_name}</span>
-                            <span>{event.project_status}</span>
-                          </div>
-                          <Link className="link overview-activity-link" to={`/app/projects/${event.project_id}`} aria-label={`Open ${event.project_name}`}>
-                            Open Project
-                          </Link>
-                        </div>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </section>
-              <section className="panel detail-panel recently-active-panel" aria-labelledby="recently-active-projects-title">
-                <h2 id="recently-active-projects-title">
-                  <span className="section-dot projects" aria-hidden="true" />
-                  Recently Active Projects
-                </h2>
-                <p className="activity-intro">
-                  Projects represented in the latest activity window. Counts are recent indicators, not unread state.
-                </p>
-                {!activityLoading && !activityError && recentProjects.length === 0 && (
-                  <div className="activity-empty">
-                    <h3>No recently active Projects.</h3>
-                    <p>Activity appears here after ProjectOps records product actions.</p>
-                  </div>
-                )}
-                {!activityLoading && !activityError && recentProjects.length > 0 && (
-                  <ol className="recently-active-list" aria-label="Recently active Projects">
-                    {recentProjects.map((event) => (
-                      <li key={event.project_id}>
-                        <div>
-                          <strong>{event.project_name}</strong>
-                          <p>{event.message}</p>
-                          <time dateTime={event.created_at}>{formatDate(event.created_at)}</time>
-                        </div>
-                        <Link className="link" to={`/app/projects/${event.project_id}`} aria-label={`Open ${event.project_name}`}>
-                          Open
-                        </Link>
-                      </li>
-                    ))}
-                  </ol>
-                )}
-              </section>
-            </div>
           </>
         )}
       </div>

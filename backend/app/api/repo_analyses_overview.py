@@ -27,6 +27,7 @@ def list_cross_project_repo_analysis(
             repo_name=repo.repo_name if repo else None,
             latest_status=latest.status if latest else None,
             summary=latest.summary if latest else None,
+            detected_stack=latest.detected_stack if latest else {},
             total_files_scanned=latest.total_files_scanned if latest else None,
             analyzed_at=latest.created_at if latest else None,
         )

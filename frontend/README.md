@@ -260,7 +260,7 @@ The Project Dashboard includes a real Health Monitoring section backed by
 `/api/v1/projects/:projectId/health-monitor`. A user can run an on-demand check
 or enable recurring checks at a supported cadence. Every result records whether
 its execution source was manual or scheduled. This is operational observation
-history, not an uptime guarantee, and it does not create alerts.
+history, with in-app alerts after two scheduled failures and recovery after two scheduled successes. It is not an uptime guarantee.
 
 States shown in the UI:
 
@@ -626,7 +626,7 @@ Manual and scheduled Health Monitoring verification:
 9. Try a blocked local/private URL through the override and confirm the safety
    message is shown.
 10. Enable a supported schedule, confirm its next-run state, then pause it.
-11. Confirm the section does not claim uptime percentage, alerts, readiness, or
+11. Confirm the section does not claim uptime percentage, external alert delivery, readiness, or
     production status pages exist.
 
 Manual Production Readiness verification:
@@ -659,3 +659,14 @@ Manual Project Artifacts verification:
 11. Enable Include archived artifacts and confirm archived records appear.
 12. Confirm no UI copy claims file analysis, AI extraction, or document
     verification exists.
+
+
+### Health Alerts
+
+The Health section shows attributed acknowledgement, recovery progress, alert
+history, and paginated supporting scheduled checks. Overview and the Operations
+Map distinguish active alerts, isolated failures, and overdue monitoring. The
+cross-Project Health Monitoring page filters active alerts and overdue schedules.
+Alternative-target manual checks do not determine production-target health.
+Visible pages refresh monitoring every 60 seconds and on return; errors retain
+prior data with a stale-data warning. See `../docs/milestone-health-alerts.md`.

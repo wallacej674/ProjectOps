@@ -1,5 +1,7 @@
 import { vi } from "vitest";
 import type { Project } from "../types/project";
+import type { ProjectHealthSummary } from "../types/healthCheck";
+import type { ProjectReadinessOverview } from "../types/readiness";
 import { storeAuthSession } from "../api/authStorage";
 import type { AuthUser } from "../api/authTypes";
 
@@ -71,6 +73,8 @@ export function mockFetch(handler: Handler) {
  */
 export function mockProjectsApi(opts: {
   list?: Project[] | Response;
+  health?: ProjectHealthSummary[] | Response;
+  readiness?: ProjectReadinessOverview[] | Response;
   get?: Project | "not-found";
   create?: Project | Response;
   update?: Project | Response;
@@ -85,6 +89,12 @@ export function mockProjectsApi(opts: {
     if (url.includes("/api/v1/activity") && method === "GET") {
       return json([]);
     }
+    if (url.endsWith("/api/v1/health-checks") && method === "GET") {
+      return responseFrom(opts.health ?? []);
+    }
+    if (url.endsWith("/api/v1/readiness") && method === "GET") {
+      return responseFrom(opts.readiness ?? []);
+    }
     if (url.includes("/api/v1/projects") && !url.match(/projects\/[^?]/) && method === "GET") {
       return responseFrom(opts.list ?? []);
     }
@@ -94,6 +104,7 @@ export function mockProjectsApi(opts: {
     if (url.includes("/analyses") && method === "GET") return json([]);
     if (url.includes("/health-checks/latest") && method === "GET") return json({ detail: "No health check yet." }, 404);
     if (url.includes("/health-checks") && method === "GET") return json([]);
+    if (url.includes("/health-alerts") && method === "GET") return json({ items: [], total: 0 });
     if (url.includes("/health-monitor") && method === "GET") {
       return json({
         project_id: 7,

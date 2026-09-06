@@ -13,6 +13,9 @@ class JsonLogFormatter(logging.Formatter):
             "message": record.getMessage(),
         }
         for field in (
+            "project_id",
+            "alert_id",
+            "claim_id",
             "request_id",
             "http_method",
             "path",

@@ -58,7 +58,7 @@ Render/Vercel-specific setup notes live in
 - [ ] Confirm Render HTTP health check path is `/health`.
 - [ ] Deploy the backend service.
 - [ ] Confirm the Render pre-deploy command runs Alembic migrations.
-- [ ] Confirm the deployed database revision is `0013_health_monitor`.
+- [ ] Confirm the deployed database revision is `0014_health_alerts`.
 - [ ] Confirm the cron command is `python -m app.jobs.run_due_health_checks`.
 - [ ] Record migration timestamp and result.
 - [ ] Confirm provider logs are accessible.
@@ -215,7 +215,7 @@ Local evidence recorded on 2026-08-31 against the preserved dirty worktree:
 
 - Backend compilation completed successfully for `app` and `tests`.
 - `python -m alembic heads` reported the single head
-  `0013_health_monitor`.
+  `0014_health_alerts`.
 - The Render deployment and private-beta drill configuration tests passed:
   5 tests passed.
 - The frontend suite passed: 39 files and 258 tests.

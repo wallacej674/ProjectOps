@@ -1,25 +1,13 @@
-import type { ProjectSectionId } from "../utils/projectCommandCenter";
+import { Link } from "react-router-dom";
+import { projectViews, workspaceHref, type ProjectView } from "../utils/projectWorkspace";
 
-const sections: { id: ProjectSectionId; label: string }[] = [
-  { id: "overview", label: "Overview" },
-  { id: "repository", label: "Repository" },
-  { id: "codemap", label: "CodeMap" },
-  { id: "health", label: "Health" },
-  { id: "readiness", label: "Readiness" },
-  { id: "launch-report", label: "Launch Report" },
-  { id: "launch-decision", label: "Launch Decision" },
-  { id: "artifacts", label: "Artifacts" },
-  { id: "activity", label: "Activity" },
-  { id: "details", label: "Details" },
-];
-
-export function ProjectSectionNav() {
+export function ProjectSectionNav({ active }: { active: ProjectView }) {
   return (
-    <nav className="section-nav" aria-label="Project sections">
-      {sections.map((section) => (
-        <a href={`#${section.id}`} key={section.id}>
-          {section.label}
-        </a>
+    <nav className="workspace-nav" aria-label="Project sections">
+      {projectViews.map((view) => (
+        <Link to={workspaceHref(view)} key={view} aria-current={active === view ? "page" : undefined}>
+          {view[0].toUpperCase() + view.slice(1)}
+        </Link>
       ))}
     </nav>
   );

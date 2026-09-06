@@ -44,7 +44,7 @@ class ProjectRepository:
             .limit(1)
         )
 
-    def update(self, db: Session, project: Project, project_in: ProjectUpdate) -> Project:
+    def update(self, db: Session, project: Project, project_in: ProjectUpdate, *, commit: bool = True) -> Project:
         update_data = project_in.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             if field == "status" and isinstance(value, ProjectStatus):
@@ -52,8 +52,11 @@ class ProjectRepository:
             setattr(project, field, value)
 
         db.add(project)
-        db.commit()
-        db.refresh(project)
+        if commit:
+            db.commit()
+            db.refresh(project)
+        else:
+            db.flush()
         return project
 
     def archive(self, db: Session, project: Project) -> Project:

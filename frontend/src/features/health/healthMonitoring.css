@@ -1,0 +1,46 @@
+.health-overview .page-head { align-items:center; }
+.health-counts { display:flex; flex-wrap:wrap; gap:12px 26px; color:var(--secondary); font-size:13px; margin:0 0 22px; }
+.health-counts strong { color:var(--text); margin-left:5px; }
+.health-inbox { display:grid; grid-template-columns:minmax(240px,310px) minmax(0,1fr); border:1px solid var(--border); border-radius:8px; background:var(--surface); min-height:540px; }
+.health-projects { border-right:1px solid var(--border); min-width:0; background:var(--bg); border-radius:8px 0 0 8px; }
+.health-project-filters { display:grid; gap:8px; padding:18px; border-bottom:1px solid var(--border); }
+.health-project-filters label { font-size:12px; color:var(--secondary); }
+.health-project-filters .control { width:100%; min-width:0; font-size:13px; }
+.health-project-list { list-style:none; margin:0; padding:0; }
+.health-project-choice { display:grid; gap:8px; text-align:left; width:100%; padding:18px; border:0; border-bottom:1px solid var(--border); border-left:3px solid transparent; color:var(--text); background:transparent; }
+.health-project-choice:hover { background:var(--muted); }
+.health-project-choice[aria-current=true] { background:var(--accent-tint); border-left-color:var(--accent); }
+.health-project-choice strong { font-size:14px; overflow-wrap:anywhere; }
+.health-project-target { font-size:12px; color:var(--secondary); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.health-list-status { font-size:12px; text-transform:capitalize; }
+.health-overview .is-healthy { color:var(--success); }
+.health-inspector { padding:26px; min-width:0; }
+.health-inspector-header { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:14px; }
+.health-inspector-header > div { min-width:0; flex:1; }
+.health-inspector h2 { font-size:24px; margin:6px 0 8px; overflow-wrap:anywhere; }
+.health-inspector h3 { font-size:15px; margin:0 0 12px; }
+.health-detail-caption { color:var(--quiet); font-size:12px; margin:0; }
+.health-detail-url { color:var(--secondary); font-size:13px; margin:0; }
+.health-inspector .button { width:fit-content; max-width:100%; flex:none; font-size:12px; }
+.health-inspector-signals { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px; border-top:1px solid var(--border); border-bottom:1px solid var(--border); margin:24px 0; padding:18px 0; }
+.health-inspector-signals span { display:block; color:var(--quiet); font-size:12px; margin-bottom:8px; }
+.health-inspector-signals strong { display:block; font-size:14px; }
+.health-inspector-signals p { color:var(--secondary); font-size:12px; margin:6px 0 0; }
+.health-attention { padding:10px 12px; background:var(--warning-tint); border-left:3px solid var(--warning); font-size:13px; overflow-wrap:anywhere; }
+.health-detail-section { border-top:1px solid var(--border); margin-top:24px; padding-top:20px; }
+.health-observations { margin:0; font-size:13px; }
+.health-observations > div { display:grid; grid-template-columns:140px minmax(0,1fr); gap:12px; margin:10px 0; }
+.health-observations dt { color:var(--quiet); }
+.health-observations dd { margin:0; overflow-wrap:anywhere; }
+.health-inspector .health-alerts { font-size:13px; }
+.health-inspector .health-alerts .button { margin:6px 8px 6px 0; }
+.health-inspector .health-alerts .button[aria-expanded] { color:var(--accent); background:transparent; border-color:transparent; }
+.health-check-records { list-style:none; padding:0; margin:12px 0 0; }
+.health-check-records li { border-top:1px solid var(--border); }
+.health-check-records summary { cursor:pointer; padding:13px 0; font-size:12px; }
+.health-check-records summary span { display:inline-block; margin-right:16px; }
+.health-check-evidence { padding:0 0 16px; font-size:12px; overflow-wrap:anywhere; }
+.health-check-evidence pre { white-space:pre-wrap; overflow-wrap:anywhere; max-height:280px; overflow:auto; background:var(--bg); padding:12px; }
+.health-list-empty,.health-inspector-empty { padding:24px; color:var(--secondary); font-size:13px; }
+@media(max-width:1050px) { .health-inbox { grid-template-columns:250px minmax(0,1fr); } .health-inspector { padding:20px; } .health-inspector-signals { grid-template-columns:1fr; gap:14px; } }
+@media(max-width:760px) { .health-inbox { grid-template-columns:minmax(0,1fr); } .health-projects { border-right:0; border-bottom:1px solid var(--border); border-radius:8px 8px 0 0; } .health-project-list { max-height:300px; overflow:auto; } .health-inspector { padding:18px; } .health-observations > div { grid-template-columns:1fr; gap:5px; } .health-inspector-header { align-items:flex-start; } }

@@ -1,120 +1,59 @@
-import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
-import { ApiError } from "../../api/client";
+import "./healthMonitoring.css";
+import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { AppShell } from "../../components/layout/AppShell";
-import { EmptyState } from "../../components/ui/EmptyState";
-import { ErrorState } from "../../components/ui/ErrorState";
-import type { HealthCheckStatus, ProjectHealthSummary } from "../../types/healthCheck";
-import { formatDate } from "../../utils/formatDate";
+import { usePolledResource } from "../../hooks/usePolledResource";
 import { listCrossProjectHealth } from "./api/crossProjectHealth";
+import { productionCheck } from "./productionHealth";
+import { HealthProjectDetail } from "./HealthProjectDetail";
 
-function statusDotClass(summary: ProjectHealthSummary): HealthCheckStatus | "none" {
-  if (!summary.production_url || !summary.latest_check) return "none";
-  return summary.latest_check.status;
-}
-
-/** Cross-project Health Monitoring: the latest manual health check for every Project. */
 export function HealthMonitoringPage() {
-  const [summaries, setSummaries] = useState<ProjectHealthSummary[] | null>(null);
-  const [error, setError] = useState<{ message: string; requestId?: string } | null>(null);
+  const { data: summaries, error, refresh } = usePolledResource(listCrossProjectHealth);
+  const [filter, setFilter] = useState("all");
+  const [search, setSearch] = useState("");
+  const [params, setParams] = useSearchParams();
+  const rows = summaries?.filter(row => {
+    const matchesFilter = filter === "active" ? !!row.monitor?.active_alert : filter === "overdue" ? row.monitor?.freshness === "overdue" : true;
+    return matchesFilter && `${row.project_name} ${row.production_url ?? ""}`.toLowerCase().includes(search.trim().toLowerCase());
+  }) ?? [];
+  const selected = rows.find(row => String(row.project_id) === params.get("project")) ?? rows[0];
 
-  useEffect(() => {
-    listCrossProjectHealth()
-      .then(setSummaries)
-      .catch((e: ApiError) => setError({ message: e.message, requestId: e.requestId }));
-  }, []);
-
-  const total = summaries?.length ?? 0;
-  const healthy = summaries?.filter((s) => s.latest_check?.status === "healthy").length ?? 0;
-  const noTarget = summaries?.filter((s) => !s.production_url).length ?? 0;
-  const needsAttention = total - healthy - noTarget;
-
-  return (
-    <AppShell>
-      <section className="content" aria-labelledby="health-monitoring-title">
-        <div className="page-head">
-          <div>
-            <div className="eyebrow">Cross-Project Monitoring</div>
-            <h1 id="health-monitoring-title">Health Monitoring</h1>
-            <p>
-              The latest manual health check for every Project with a production URL. Open a Project for history and
-              to run a new check.
-            </p>
+  return <AppShell><section className="content health-overview" aria-labelledby="health-monitoring-title">
+    <div className="page-head"><div><div className="eyebrow">Cross-Project Monitoring</div>
+      <h1 id="health-monitoring-title">Health Monitoring</h1>
+      <p>Select a project to inspect its health, scheduled alerts, and recent checks.</p>
+    </div><button className="button" onClick={() => void refresh()}>Refresh health</button></div>
+    {error && <p role="alert">Health Monitoring could not refresh. Displayed data may be stale. {error}</p>}
+    {!summaries ? <p aria-live="polite">{error ? "Health status unavailable." : "Loading health monitoring..."}</p> : !summaries.length ? <p>No projects yet.</p> : <>
+      <div className="health-counts" aria-label="Health monitoring summary">
+        <span>Projects <strong>{summaries.length}</strong></span>
+        <span>Active alerts <strong>{summaries.filter(row => row.monitor?.active_alert).length}</strong></span>
+        <span>Monitoring overdue <strong>{summaries.filter(row => row.monitor?.freshness === "overdue").length}</strong></span>
+        <span>No target <strong>{summaries.filter(row => !row.production_url).length}</strong></span>
+      </div>
+      <div className="health-inbox">
+        <aside className="health-projects" aria-label="Project selector">
+          <div className="health-project-filters">
+            <label htmlFor="health-search">Find a project</label>
+            <input className="control" id="health-search" type="search" placeholder="Search projects or URLs" value={search} onChange={event => setSearch(event.target.value)} />
+            <label htmlFor="health-filter">Show health</label>
+            <select className="control" id="health-filter" value={filter} onChange={event => setFilter(event.target.value)}>
+              <option value="all">All Projects</option><option value="active">Active alerts</option><option value="overdue">Monitoring overdue</option>
+            </select>
           </div>
-        </div>
-
-        {error ? (
-          <ErrorState title="Health Monitoring could not load." requestId={error.requestId}>
-            <p>{error.message}</p>
-          </ErrorState>
-        ) : summaries === null ? (
-          <p className="meta" aria-live="polite">
-            Loading health monitoring...
-          </p>
-        ) : summaries.length === 0 ? (
-          <EmptyState title="No projects yet.">
-            <p>Create a Project and add a production URL to start monitoring it here.</p>
-          </EmptyState>
-        ) : (
-          <>
-            <div className="stat-strip" aria-label="Health monitoring summary">
-              <div className="stat-cell">
-                <div className="stat-label">Projects</div>
-                <div className="stat-value">{total}</div>
-              </div>
-              <div className="stat-cell">
-                <div className="stat-label">Healthy</div>
-                <div className="stat-value" style={{ color: "var(--success)" }}>
-                  {healthy}
-                </div>
-              </div>
-              <div className="stat-cell">
-                <div className="stat-label">Needs attention</div>
-                <div className="stat-value" style={{ color: needsAttention > 0 ? "var(--warning)" : undefined }}>
-                  {needsAttention}
-                </div>
-              </div>
-              <div className="stat-cell">
-                <div className="stat-label">No target</div>
-                <div className="stat-value" style={{ color: "var(--quiet)" }}>
-                  {noTarget}
-                </div>
-              </div>
-            </div>
-
-            <ol className="health-row-list" aria-label="Project health status">
-              {summaries.map((summary) => (
-                <li className="health-row" key={summary.project_id}>
-                  <span className={`status-dot ${statusDotClass(summary)}`} aria-hidden="true" />
-                  <div className="health-row-identity">
-                    <Link
-                      className="health-row-name"
-                      to={`/app/projects/${summary.project_id}#health`}
-                      style={!summary.production_url ? { color: "var(--quiet)" } : undefined}
-                    >
-                      {summary.project_name}
-                    </Link>
-                    <div className="health-row-url mono" style={!summary.production_url ? { color: "var(--quiet)" } : undefined}>
-                      {summary.production_url ?? "No production URL configured"}
-                    </div>
-                  </div>
-                  <div className="health-row-meta">
-                    {summary.latest_check ? (
-                      <>
-                        <span>{summary.latest_check.http_status_code ? `HTTP ${summary.latest_check.http_status_code}` : "No HTTP status"}</span>
-                        <span>{summary.latest_check.response_time_ms !== null ? `${summary.latest_check.response_time_ms}ms` : "No response time"}</span>
-                        <span className="dim">{formatDate(summary.latest_check.checked_at)}</span>
-                      </>
-                    ) : (
-                      <span className="dim">{summary.production_url ? "Not checked yet" : "—"}</span>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </>
-        )}
-      </section>
-    </AppShell>
-  );
+          {!rows.length && <p className="health-list-empty">No Projects match this filter.</p>}
+          <ol className="health-project-list" aria-label="Project health status">{rows.map(row => {
+            const check = productionCheck(row);
+            const status = row.monitor?.active_alert ? "Active alert" : row.monitor?.freshness === "overdue" ? "Monitoring overdue" : check?.status ?? (row.production_url ? "Not checked yet" : "No target");
+            return <li key={row.project_id}><button className="health-project-choice" aria-current={selected?.project_id === row.project_id ? "true" : undefined} aria-controls="health-project-detail" onClick={() => setParams(previous => { const next = new URLSearchParams(previous); next.set("project", String(row.project_id)); return next; })}>
+              <strong>{row.project_name}</strong>
+              <span className="health-project-target">{row.production_url ?? "No production URL configured"}</span>
+              <span className={`health-list-status ${status === "healthy" ? "is-healthy" : ""}`}>{status}</span>
+            </button></li>;
+          })}</ol>
+        </aside>
+        {selected ? <HealthProjectDetail key={selected.project_id} row={selected} onRefresh={() => void refresh()} /> : <div className="health-inspector-empty">Choose another filter to find a project.</div>}
+      </div>
+    </>}
+  </section></AppShell>;
 }

@@ -19,6 +19,7 @@ ProjectOps is a working single-user-owner project command center with:
   snapshots remain readable.
 - Manual and scheduled Health Checks. Scheduled checks support 15-minute,
   hourly, 6-hour, and daily cadences through a Render cron worker.
+- In-app Health Alerts with acknowledgement, evidence, recovery, and monitoring-overdue warnings.
 - Advisory Production Readiness evaluation and manual review items.
 - Project Artifacts, evidence links, coverage, and traceability.
 - Launch Report, Guided Launch Checklist, and attributed Launch Decisions.
@@ -32,7 +33,7 @@ ProjectOps is a working single-user-owner project command center with:
 ## What Is Ready in the Repository
 
 - The backend container and production entrypoint exist.
-- Alembic migrations are linear through `0013_health_monitor`.
+- Alembic migrations are linear through `0014_health_alerts`.
 - `render.yaml` declares the API, scheduler, and PostgreSQL database.
 - `frontend/vercel.json` provides SPA rewrites and browser security headers.
 - Production configuration rejects localhost API fallback, wildcard CORS, and
@@ -62,7 +63,7 @@ Required work:
    `PROJECTOPS_CORS_ALLOWED_ORIGINS`.
 3. Configure optional GitHub App and Sentry variables only if those features
    will be exercised in the private beta.
-4. Confirm Alembic reaches `0013_health_monitor` during the Render pre-deploy
+4. Confirm Alembic reaches `0014_health_alerts` during the Render pre-deploy
    phase.
 5. Confirm `/health` and `/health/db` on the hosted API.
 6. Import `frontend/` into Vercel and set `VITE_API_BASE_URL` to the Render API.
@@ -121,8 +122,11 @@ Use `private-beta-hosting-todo-checklist.md` while performing the work and
 ### Priority 5: Product Expansion
 
 - Teams, Organizations, invitations, roles, and ownership transfer.
-- Health Alerts derived from repeated scheduled results, with deduplication,
-  recovery events, and notification preferences.
+- Deployment Operations with Project-scoped Environments, Infrastructure
+  Services, immutable provider-sourced Deployment Records, and bounded log
+  references or queries. Start with read-only Render and Vercel adapters; keep
+  configured state, deployment history, runtime health, and logs distinct.
+- External health alert delivery and notification preferences, building on implemented in-app alerts.
 - Multiple monitored endpoints and health trends only after alert semantics are
   trustworthy.
 - Artifact file upload, object storage, malware scanning, preview, and retention.
@@ -140,11 +144,8 @@ Use `private-beta-hosting-todo-checklist.md` while performing the work and
 
 ### Health checking
 
-- `httpx` currently bounds the stored preview but may buffer more response data
-  than the preview limit. Move to bounded streaming before accepting arbitrary
-  large or untrusted response bodies at scale.
-- Scheduled monitoring records observations but has no alerting, uptime SLA,
-  incident state, or public status page.
+- The real HTTP client now uses bounded streaming. Continue preserving URL safety and response limits.
+- Scheduled monitoring now has in-app alerts; external delivery, uptime SLA, incident management, and public status pages remain future work.
 - Add worker-level metrics and alerting before depending on the scheduler for
   operational paging.
 
@@ -165,8 +166,7 @@ Use `private-beta-hosting-todo-checklist.md` while performing the work and
   locations and should be centralized when they next change materially.
 - The Project Dashboard coordinates several independent requests; continue
   preserving isolated loading and error states when adding features.
-- Health Monitor schedule repositories currently contain due-run lifecycle
-  policy. Move orchestration into the service layer when that area next changes.
+- Scheduled Health Check orchestration now lives in the service layer, with database locking in the repository.
 - GitHub App repository metadata crosses backend layers as untyped dictionaries.
   Introduce a typed value object and keep provider parsing in the service layer
   when the integration next changes.
@@ -192,7 +192,7 @@ Use `private-beta-hosting-todo-checklist.md` while performing the work and
 - Password reset, email verification, refresh tokens, and OAuth login.
 - GitHub webhooks or automatic repository synchronization.
 - General-purpose job queues or workflow orchestration.
-- Health alert delivery, incident management, uptime percentages, or status pages.
+- External health alert delivery, incident management, uptime percentages, or status pages.
 - File uploads, OCR, document processing, embeddings, or semantic search.
 - AI-generated analysis or recommendations.
 - Compliance certification or guaranteed production readiness.

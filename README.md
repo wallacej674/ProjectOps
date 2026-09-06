@@ -14,7 +14,7 @@ coverage and artifact usage, review recent Project activity from Project detail
 pages, and scan recent activity across Projects from the app Overview.
 
 ProjectOps is still intentionally staged. It does not yet include teams,
-organizations, roles, OAuth, password reset, refresh tokens, alerts, file
+organizations, roles, OAuth, password reset, refresh tokens, external alert delivery, file
 processing, notifications, OpenTelemetry, or AI
 features.
 
@@ -33,6 +33,7 @@ Implemented:
 - CodeMap Medium deterministic repository analysis using paths and a bounded allowlist of public manifests and configuration files.
 - Manual Health Monitor for on-demand Project URL checks.
 - Scheduled Health Monitoring at supported cadences through a Render cron worker.
+- In-app Health Alerts with acknowledgement, evidence history, confirmed recovery, and separate monitoring-overdue warnings.
 - Advisory Production Readiness checklist.
 - Launch Report and Guided Launch Checklist APIs.
 - Launch Decision UI that records go/no-go/defer decisions as Project Artifacts.
@@ -66,7 +67,7 @@ Not implemented yet:
 - Deep repository analysis, file content fetching, language percentages, AST
   parsing, or dependency graph analysis.
 - File upload storage, OCR, document preview, embeddings, semantic search, LLM
-  extraction, general-purpose background jobs, alerts, notification
+  extraction, general-purpose background jobs, external alert delivery, notification
   inboxes, or AI summaries.
 - Terraform, Kubernetes, Docker image publishing, or full CI/CD deployment
   automation.
@@ -342,6 +343,7 @@ contents in DataForge Lite.
 - `docs/authentication-ownership.md`: local auth and Project ownership model.
 - `docs/github-app-private-repositories.md`: read-only GitHub App setup and
   private-repository token lifecycle.
+- `docs/milestone-health-alerts.md`: in-app alert lifecycle, atomic worker, freshness, and rollout.
 - `docs/milestone-34-scheduled-health-monitoring.md`: schedule API, worker, UI,
   and deployment boundary.
 - `docs/milestone-40-codemap-medium-repository-insights.md`: bounded manifest

@@ -26,6 +26,8 @@ reference. It is not the selected private-beta deployment path.
 
 ## Current Capability Notes
 
+- `milestone-health-alerts.md`
+
 - `github-app-private-repositories.md`
 - `milestone-34-scheduled-health-monitoring.md`
 - `milestone-40-codemap-medium-repository-insights.md`

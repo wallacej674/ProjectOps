@@ -15,39 +15,41 @@ describe("Theme control", () => {
   });
   afterEach(() => vi.restoreAllMocks());
 
-  it("starts in dark mode with an explicit, accessible label", async () => {
-    mockProjectsApi({ list: [] });
-    renderApp();
-
-    const toggle = await screen.findByRole("button", { name: "Switch to light theme" });
-    expect(toggle).toHaveTextContent("Theme: Dark");
-    expect(document.documentElement.dataset.theme).toBe("dark");
-  });
-
-  it("toggles the document theme and updates its visible label", async () => {
+  it("starts in dark mode with appearance controls inside the account menu", async () => {
     mockProjectsApi({ list: [] });
     const user = userEvent.setup();
     renderApp();
 
-    await user.click(await screen.findByRole("button", { name: "Switch to light theme" }));
+    expect(screen.queryByText("Theme: Dark")).not.toBeInTheDocument();
+    await user.click(await screen.findByRole("button", { name: "Account menu" }));
+    expect(screen.getByRole("menuitemradio", { name: "Dark" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("menuitemradio", { name: "Light" })).toHaveAttribute("aria-checked", "false");
+    expect(document.documentElement.dataset.theme).toBe("dark");
+  });
+
+  it("changes the document theme from the account menu", async () => {
+    mockProjectsApi({ list: [] });
+    const user = userEvent.setup();
+    renderApp();
+
+    await user.click(await screen.findByRole("button", { name: "Account menu" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Light" }));
     expect(document.documentElement.dataset.theme).toBe("light");
-    expect(screen.getByRole("button", { name: "Switch to dark theme" })).toHaveTextContent("Theme: Light");
+    expect(screen.getByRole("menuitemradio", { name: "Light" })).toHaveAttribute("aria-checked", "true");
 
-    await user.click(screen.getByRole("button", { name: "Switch to dark theme" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Dark" }));
     expect(document.documentElement.dataset.theme).toBe("dark");
-    expect(screen.getByRole("button", { name: "Switch to light theme" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitemradio", { name: "Dark" })).toHaveAttribute("aria-checked", "true");
   });
 
-  it("keeps an explicit accessible label in both modes (never an empty icon control)", async () => {
+  it("keeps each appearance choice explicitly labeled", async () => {
     mockProjectsApi({ list: [] });
     const user = userEvent.setup();
     renderApp();
 
-    const dark = await screen.findByRole("button", { name: "Switch to light theme" });
-    expect(dark.textContent?.trim()).not.toBe("");
-    await user.click(dark);
-    const light = screen.getByRole("button", { name: "Switch to dark theme" });
-    expect(light.textContent?.trim()).not.toBe("");
+    await user.click(await screen.findByRole("button", { name: "Account menu" }));
+    expect(screen.getByRole("menuitemradio", { name: "Light" })).toHaveTextContent("Light");
+    expect(screen.getByRole("menuitemradio", { name: "Dark" })).toHaveTextContent("Dark");
   });
 
   it("persists the chosen theme to storage", async () => {
@@ -55,7 +57,8 @@ describe("Theme control", () => {
     const user = userEvent.setup();
     renderApp();
 
-    await user.click(await screen.findByRole("button", { name: "Switch to light theme" }));
+    await user.click(await screen.findByRole("button", { name: "Account menu" }));
+    await user.click(screen.getByRole("menuitemradio", { name: "Light" }));
     expect(localStorage.getItem("projectops-theme")).toBe("light");
   });
 });

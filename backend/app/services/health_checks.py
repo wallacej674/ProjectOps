@@ -60,6 +60,7 @@ class HealthCheckService:
         health_check_in: HealthCheckRunRequest,
         http_client: HealthCheckHttpClient | None = None,
         execution_source: HealthCheckExecutionSource = HealthCheckExecutionSource.manual,
+        persist: bool = True,
     ) -> HealthCheck:
         project = project_service.get_project(db, project_id)
         target_url = health_check_in.url or project.production_url
@@ -82,18 +83,19 @@ class HealthCheckService:
                 error_message=str(error),
                 response_preview=None,
                 execution_source=execution_source,
+                persist=persist,
             )
 
         active_http_client = http_client or self.http_client
         if active_http_client is not None:
-            return self._run_with_client(db, project_id, target_url, active_http_client, execution_source)
+            return self._run_with_client(db, project_id, target_url, active_http_client, execution_source, persist)
 
         settings = get_settings()
         with httpx.Client(
             timeout=settings.health_check_timeout_seconds,
             follow_redirects=False,
         ) as client:
-            return self._run_with_client(db, project_id, target_url, client, execution_source)
+            return self._run_with_client(db, project_id, target_url, client, execution_source, persist)
 
     def get_latest_project_health_check(self, db: Session, project_id: int) -> HealthCheck:
         project_service.get_project(db, project_id)
@@ -121,12 +123,22 @@ class HealthCheckService:
         target_url: str,
         http_client: HealthCheckHttpClient,
         execution_source: HealthCheckExecutionSource,
+        persist: bool = True,
     ) -> HealthCheck:
         checked_at = datetime.now(timezone.utc)
         start = perf_counter()
 
         try:
-            response = http_client.get(target_url)
+            if isinstance(http_client, httpx.Client):
+                with http_client.stream("GET", target_url) as streamed:
+                    body = bytearray()
+                    for chunk in streamed.iter_bytes(chunk_size=1024):
+                        body.extend(chunk[:MAX_RESPONSE_BODY_BYTES - len(body)])
+                        if len(body) >= MAX_RESPONSE_BODY_BYTES:
+                            break
+                    response = httpx.Response(streamed.status_code, content=bytes(body))
+            else:
+                response = http_client.get(target_url)
             response_time_ms = _elapsed_ms(start)
             status = _classify_http_status(response.status_code)
             return self._store_health_check(
@@ -140,6 +152,7 @@ class HealthCheckService:
                 error_message=None,
                 response_preview=_preview_response(response.text[:MAX_RESPONSE_BODY_BYTES]),
                 execution_source=execution_source,
+                persist=persist,
             )
         except httpx.TimeoutException as error:
             return self._store_health_check(
@@ -153,6 +166,7 @@ class HealthCheckService:
                 error_message=str(error) or "Health check timed out.",
                 response_preview=None,
                 execution_source=execution_source,
+                persist=persist,
             )
         except httpx.HTTPError as error:
             return self._store_health_check(
@@ -166,6 +180,7 @@ class HealthCheckService:
                 error_message=str(error) or "Health check request failed.",
                 response_preview=None,
                 execution_source=execution_source,
+                persist=persist,
             )
 
     def _store_health_check(
@@ -180,21 +195,17 @@ class HealthCheckService:
         error_message: str | None,
         response_preview: str | None,
         execution_source: HealthCheckExecutionSource,
+        persist: bool = True,
     ) -> HealthCheck:
-        health_check = health_check_repository.create(
-            db,
-            HealthCheck(
-                project_id=project_id,
-                target_url=target_url,
-                status=status,
-                http_status_code=http_status_code,
-                response_time_ms=response_time_ms,
-                checked_at=checked_at,
-                error_message=error_message,
-                response_preview=response_preview,
-                execution_source=execution_source.value,
-            ),
+        health_check = HealthCheck(
+            project_id=project_id, target_url=target_url, status=status,
+            http_status_code=http_status_code, response_time_ms=response_time_ms,
+            checked_at=checked_at, error_message=error_message,
+            response_preview=response_preview, execution_source=execution_source.value,
         )
+        if not persist:
+            return health_check
+        health_check = health_check_repository.create(db, health_check)
         from app.services.activity import activity_service
 
         activity_service.record_event(

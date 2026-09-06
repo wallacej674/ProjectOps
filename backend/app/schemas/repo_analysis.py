@@ -29,6 +29,7 @@ class RepoAnalysisRead(BaseModel):
 
 
 class ProjectRepoAnalysisOverviewRead(BaseModel):
+    detected_stack: dict[str, list[str]] = Field(default_factory=dict)
     project_id: int
     project_name: str
     project_status: str

@@ -2,7 +2,15 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 
 /** Compact "more actions" trigger for Edit/Archive, matching the account menu's interaction pattern. */
-export function ProjectActionsMenu({ projectId, onArchive }: { projectId: number; onArchive: () => void }) {
+export function ProjectActionsMenu({
+  projectId,
+  onArchive,
+  triggerLabel = "More Project actions",
+}: {
+  projectId: number;
+  onArchive: () => void;
+  triggerLabel?: string;
+}) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
 
@@ -29,7 +37,7 @@ export function ProjectActionsMenu({ projectId, onArchive }: { projectId: number
         className="project-actions-trigger"
         aria-haspopup="menu"
         aria-expanded={open}
-        aria-label="More Project actions"
+        aria-label={triggerLabel}
         onClick={() => setOpen((value) => !value)}
       >
         &#8943;

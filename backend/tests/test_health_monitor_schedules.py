@@ -21,6 +21,11 @@ def test_project_owner_can_read_default_disabled_monitor(client):
         "last_completed_at": None,
         "last_outcome": None,
         "consecutive_failures": 0,
+        "consecutive_healthy": 0,
+        "active_alert": None,
+        "freshness": "disabled",
+        "failure_threshold": 2,
+        "recovery_threshold": 2,
         "created_at": None,
         "updated_at": None,
     }

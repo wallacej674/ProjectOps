@@ -1,3 +1,4 @@
+import type { HealthAlert } from "./healthAlert";
 export type HealthCheckStatus = "healthy" | "unhealthy" | "timeout" | "error";
 
 export interface HealthCheck {
@@ -25,6 +26,11 @@ export interface HealthMonitorSchedule {
   last_completed_at: string | null;
   last_outcome: HealthCheckStatus | null;
   consecutive_failures: number;
+  consecutive_healthy?: number;
+  active_alert?: HealthAlert | null;
+  freshness?: "disabled" | "awaiting_first_check" | "current" | "overdue";
+  failure_threshold?: number;
+  recovery_threshold?: number;
   created_at: string | null;
   updated_at: string | null;
 }
@@ -39,4 +45,6 @@ export interface ProjectHealthSummary {
   project_status: string;
   production_url: string | null;
   latest_check: HealthCheck | null;
+  latest_scheduled_check?: HealthCheck | null;
+  monitor?: HealthMonitorSchedule;
 }

@@ -4,6 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.activity import router as activity_router
 from app.api.auth import router as auth_router
 from app.api.demo_data import router as demo_data_router
+from app.api.health_alerts import router as health_alerts_router
 from app.api.health import router as health_router
 from app.api.health_checks import router as health_checks_router
 from app.api.project_artifacts_overview import router as project_artifacts_overview_router
@@ -27,11 +28,12 @@ def create_app() -> FastAPI:
         CORSMiddleware,
         allow_origins=settings.cors_origins(),
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+        allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization", REQUEST_ID_HEADER],
         expose_headers=[REQUEST_ID_HEADER, "Retry-After"],
     )
 
+    app.include_router(health_alerts_router, prefix="/api/v1")
     app.include_router(health_router)
     app.include_router(activity_router, prefix="/api/v1")
     app.include_router(auth_router, prefix="/api/v1")

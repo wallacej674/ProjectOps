@@ -1,6 +1,8 @@
 # Milestone 34: Scheduled Health Monitoring
 
-Status: implemented. Current deployment validation remains part of the hosted
+Status: implemented. The later `milestone-health-alerts.md` adds in-app alerts,
+leased claims, atomic completion, and freshness warnings; historical limitations
+below describe the original milestone. Current deployment validation remains part of the hosted
 private-beta milestone in `projectops-remaining-work-handoff.md`.
 
 Milestone 34 turns the existing safe manual URL check into an opt-in recurring

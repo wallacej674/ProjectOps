@@ -71,7 +71,7 @@ const repo = {
 };
 
 function renderDetail() {
-  window.history.pushState({}, "", "/app/projects/7");
+  window.history.pushState({}, "", "/app/projects/7?view=repository");
   return render(<App />);
 }
 
@@ -92,6 +92,7 @@ function mockProjectDetail({
 } = {}) {
   return mockFetch((url, init) => {
     const method = (init.method ?? "GET").toUpperCase();
+    if (url.includes("/health-alerts") && method === "GET") return json({ items: [], total: 0 });
     if (url.endsWith("/api/v1/projects/7") && method === "GET") return json(project);
     if (url.endsWith("/api/v1/projects/7/repo") && method === "GET") return responseClone(repoResponse);
     if (url.endsWith("/api/v1/projects/7/analyses/latest") && method === "GET") return responseClone(latestResponse);
@@ -144,6 +145,7 @@ describe("Project detail CodeMap Lite analysis", () => {
     expect(within(section).getAllByText("completed").length).toBeGreaterThan(0);
     expect(within(section).getAllByText(/42 files scanned/).length).toBeGreaterThan(0);
     expect(within(section).getByRole("button", { name: "Run Again" })).toBeEnabled();
+    await userEvent.click(within(section).getByRole("button", { name: "All evidence →" }));
     expect(within(section).getByRole("heading", { name: "Repository Insights" })).toBeInTheDocument();
     expect(within(section).getByText("node >=20")).toBeInTheDocument();
     expect(within(section).getByText("npm run test")).toBeInTheDocument();
@@ -208,6 +210,7 @@ describe("Project detail CodeMap Lite analysis", () => {
     renderDetail();
 
     const section = await screen.findByRole("region", { name: "Repository Analysis" });
+    await userEvent.click(await within(section).findByRole("button", { name: "All evidence →" }));
     expect(await within(section).findByRole("heading", { name: "Detected Stack" })).toBeInTheDocument();
     expect(within(section).getAllByText("python").length).toBeGreaterThan(0);
     expect(within(section).getByText("typescript")).toBeInTheDocument();
@@ -225,6 +228,7 @@ describe("Project detail CodeMap Lite analysis", () => {
     renderDetail();
 
     const section = await screen.findByRole("region", { name: "Repository Analysis" });
+    await userEvent.click(await within(section).findByRole("button", { name: "Run history →" }));
     expect(await within(section).findByRole("heading", { name: "Analysis History" })).toBeInTheDocument();
     expect(await within(section).findByText("Latest attempt")).toBeInTheDocument();
     expect(await within(section).findByText("18 files scanned")).toBeInTheDocument();
@@ -236,6 +240,7 @@ describe("Project detail CodeMap Lite analysis", () => {
     renderDetail();
 
     const section = await screen.findByRole("region", { name: "Repository Analysis" });
+    await userEvent.click(await within(section).findByRole("button", { name: "Run history →" }));
     expect(await within(section).findByRole("heading", { name: "Analysis History" })).toBeInTheDocument();
     expect(within(section).getByText("No analysis history yet.")).toBeInTheDocument();
   });
@@ -278,7 +283,64 @@ describe("Project detail CodeMap Lite analysis", () => {
     renderDetail();
 
     const section = await screen.findByRole("region", { name: "Repository Analysis" });
+    await userEvent.click(await within(section).findByRole("button", { name: "All evidence →" }));
     expect(await within(section).findByText(longPath)).toHaveClass("mono");
     expect(within(section).getByText(longFolder)).toHaveClass("mono");
+  });
+
+  it("opens subsystem evidence and warnings with keyboard focus restored on close", async () => {
+    mockProjectDetail({ latestResponse: json({
+      ...completedAnalysis,
+      evidence_files: { ...completedAnalysis.evidence_files, "command:npm run test": ["package.json"] },
+    }) });
+    const user = userEvent.setup();
+    renderDetail();
+    const section = await screen.findByRole("region", { name: "Repository Analysis" });
+    const frontendButton = await within(section).findByRole("button", { name: "Inspect frontend" });
+    expect(within(section).getByRole("region", { name: "Frontend" })).toHaveTextContent("React + Vite");
+    expect(within(section).getByRole("region", { name: "Backend" })).toHaveTextContent("Python + FastAPI");
+    expect(within(section).getByRole("region", { name: "Delivery" })).toHaveTextContent("GitHub Actions");
+    expect(screen.queryByRole("heading", { name: "Detected Stack" })).not.toBeInTheDocument();
+    expect(screen.queryByText("package.json")).not.toBeInTheDocument();
+    await user.click(frontendButton);
+    const dialog = screen.getByRole("dialog", { name: "Frontend" });
+    expect(within(dialog).getByRole("button", { name: "Close" })).toHaveFocus();
+    expect(within(dialog).getByText("command: npm run test")).toBeInTheDocument();
+    expect(within(dialog).getAllByText("package.json")).toHaveLength(2);
+    await user.tab();
+    expect(within(dialog).getByRole("button", { name: "Close" })).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(frontendButton).toHaveFocus();
+    await user.click(within(section).getByRole("button", { name: "1 analysis warning →" }));
+    expect(screen.getByRole("dialog", { name: "Analysis warnings" })).toHaveTextContent("No environment example detected.");
+    await user.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("keeps sparse legacy results honest and retains unclassified evidence", async () => {
+    mockProjectDetail({ latestResponse: json({
+      ...completedAnalysis,
+      analysis_version: "codemap_lite_v1",
+      detected_stack: { languages: ["rust"] },
+      signals: { has_ci: false },
+      insights: undefined,
+      inspected_files: undefined,
+      evidence_files: undefined,
+      warnings: [],
+    }) });
+    const user = userEvent.setup();
+    renderDetail();
+    const section = await screen.findByRole("region", { name: "Repository Analysis" });
+    await within(section).findByRole("button", { name: "Inspect delivery" });
+    expect(within(section).getAllByText("No signals detected")).toHaveLength(3);
+    await user.click(within(section).getByRole("button", { name: "Inspect delivery" }));
+    expect(screen.getByRole("dialog", { name: "Delivery" })).toHaveTextContent("Not detected");
+    expect(screen.getByRole("dialog", { name: "Delivery" })).not.toHaveTextContent("GitHub Actions");
+    await user.keyboard("{Escape}");
+    await user.click(within(section).getByRole("button", { name: "All evidence →" }));
+    const dialog = screen.getByRole("dialog", { name: "All evidence" });
+    expect(within(dialog).getByText("rust")).toBeInTheDocument();
+    expect(within(dialog).getByText("README.md")).toBeInTheDocument();
   });
 });

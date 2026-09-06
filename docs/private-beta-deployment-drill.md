@@ -387,3 +387,17 @@ Go only when:
 
 Current decision: No-go until provider stack, deployment, backups, observability,
 and smoke checks are completed.
+
+
+## Health Alerts - Local Implementation Evidence
+
+The health-alert milestone adds migration `0014_health_alerts` and in-app
+failure/acknowledgement/recovery behavior. PostgreSQL integration tests exercise
+the real worker entry point and API with controlled HTTP responses; an isolated
+schema migration test verifies preservation of old observations without alert
+backfill. These are local automated results, not provider-hosted proof.
+
+Hosted follow-up remains pending: pause cron, migrate, release all components,
+resume cron, exercise failure/acknowledgement/recovery on an isolated endpoint,
+and record screenshots or timestamps for paused and overdue monitoring. The
+existing hosted no-go decision remains unchanged.

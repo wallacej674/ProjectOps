@@ -110,7 +110,7 @@ const artifactCoverage = {
 };
 
 function renderDetail() {
-  window.history.pushState({}, "", "/app/projects/7");
+  window.history.pushState({}, "", "/app/projects/7?view=artifacts");
   return render(<App />);
 }
 
@@ -132,6 +132,7 @@ function mockProjectDetailArtifacts({
 
   const fetchMock = mockFetch(async (url, init) => {
     const method = (init.method ?? "GET").toUpperCase();
+    if (url.includes("/health-alerts") && method === "GET") return json({ items: [], total: 0 });
     if (url.endsWith("/api/v1/projects/7") && method === "GET") return json(project);
     if (url.endsWith("/api/v1/projects/7/repo") && method === "GET") {
       return json({ detail: "Project 7 does not have an attached repo." }, 404);
@@ -184,7 +185,7 @@ describe("Project detail Artifacts", () => {
     const artifactsSection = await screen.findByRole("region", { name: "Project Artifacts" });
     expect(within(artifactsSection).getByText("No artifacts yet.")).toBeInTheDocument();
     expect(within(artifactsSection).getByRole("button", { name: "Add Artifact" })).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "Project Details" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Project Command Center" })).toBeInTheDocument();
   });
 
   it("shows artifact loading errors without hiding Project metadata", async () => {
@@ -194,7 +195,7 @@ describe("Project detail Artifacts", () => {
 
     const artifactsSection = await screen.findByRole("region", { name: "Project Artifacts" });
     expect(await within(artifactsSection).findByRole("alert")).toHaveTextContent("Artifact service unavailable.");
-    expect(screen.getByRole("region", { name: "Project Details" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Project Command Center" })).toBeInTheDocument();
   });
 
   it("renders artifacts and filters by type", async () => {
