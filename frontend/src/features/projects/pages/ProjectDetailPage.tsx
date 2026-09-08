@@ -1,3 +1,6 @@
+import { ReleaseReadinessPanel } from '../components/ReleaseReadinessPanel';
+import { useReleaseLanding } from '../hooks/useReleaseLanding';
+import { CodeRiskReviewPanel } from '../components/CodeRiskReviewPanel';
 import { usePolledResource } from "../../../hooks/usePolledResource";
 import { useCallback, useEffect, useState } from "react";
 import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
@@ -247,6 +250,7 @@ export function ProjectDetailPage() {
   const navigate = useNavigate();
   const location = useLocation();
   const workspace = projectWorkspaceLocation(location.search, location.hash);
+  useReleaseLanding(projectId);
   const [project, setProject] = useState<Project | null>(null);
   const [error, setError] = useState("");
   useBreadcrumb(project ? ["Projects", project.name] : null);
@@ -862,7 +866,9 @@ export function ProjectDetailPage() {
         <div className="project-workspace">
         <ProjectSectionNav active={workspace.view} />
         <div className="workspace-body">
+          {workspace.view === "release" && <ReleaseReadinessPanel key={projectId} projectId={projectId} projectArchived={project.status === "archived"} />}
           {workspace.view === "overview" && <>
+            <section className="panel"><h2>Plan your next release</h2><p>Define the audience, critical journey, and requirements you need to verify.</p><Link className="button" to="?view=release">Open release workspace</Link></section>
             <ProjectRecordOverview project={project} actions={nextActions} records={[
               { area: "Repository", view: "repository", summary: codeMapSummary, loading: repoLoading || analysisLoading, error: repoError || analysisError },
               { area: "Monitoring", view: "monitoring", summary: healthSummary, loading: healthLoading || healthMonitorLoading, error: healthError || healthMonitorError },
@@ -887,12 +893,19 @@ export function ProjectDetailPage() {
           </div>
             </div></details>
           </>}
+          {workspace.view === "repository" && <>
+            <nav className="workspace-subnav" aria-label="Repository views">
+              <Link to="?view=repository">Repository insights</Link>
+              <Link to="?view=repository&section=risks">Code Risk Review</Link>
+            </nav>
+            {new URLSearchParams(location.search).get("section") === "risks" && <CodeRiskReviewPanel key={projectId} projectId={String(projectId)} />}
+          </>}
           {workspace.view === "launch" && <nav className="workspace-subnav" aria-label="Launch views">
             <Link to={workspaceHref("launch", "checklist")} aria-current={workspace.launch === "checklist" ? "page" : undefined}>Checklist</Link>
             <Link to={workspaceHref("launch", "report")} aria-current={workspace.launch === "report" ? "page" : undefined}>Report</Link>
             <Link to={workspaceHref("launch", "decisions")} aria-current={workspace.launch === "decisions" ? "page" : undefined}>Decisions</Link>
           </nav>}
-          {workspace.view === "repository" && (
+          {workspace.view === "repository" && new URLSearchParams(location.search).get("section") !== "risks" && (
           <div id="repository" className="section-anchor">
             <RepositoryConnectionCard
               repo={repo}
@@ -914,7 +927,7 @@ export function ProjectDetailPage() {
             />
           </div>
           )}
-          {workspace.view === "repository" && (
+          {workspace.view === "repository" && new URLSearchParams(location.search).get("section") !== "risks" && (
           <div id="codemap" className="section-anchor">
             <CodeMapAnalysisCard
               repo={repo}

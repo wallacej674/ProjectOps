@@ -1,3 +1,5 @@
+from app.api.code_risk import router as code_risk_router
+from app.api.releases import router as releases_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -33,6 +35,8 @@ def create_app() -> FastAPI:
         expose_headers=[REQUEST_ID_HEADER, "Retry-After"],
     )
 
+    app.include_router(releases_router, prefix="/api/v1")
+    app.include_router(code_risk_router, prefix="/api/v1")
     app.include_router(health_alerts_router, prefix="/api/v1")
     app.include_router(health_router)
     app.include_router(activity_router, prefix="/api/v1")

@@ -34,3 +34,15 @@ def test_production_cors_requires_at_least_one_origin():
 
     with pytest.raises(ValueError, match="at least one deployed frontend origin"):
         settings.cors_origins()
+
+
+def test_openai_key_loads_from_env_and_is_not_serialized(monkeypatch, tmp_path):
+    monkeypatch.setenv('OPENAI_API_KEY', 'test-only-env-key')
+    settings = Settings(_env_file=None)
+    assert settings.openai_api_key.get_secret_value() == 'test-only-env-key'
+    assert 'test-only-env-key' not in repr(settings)
+    assert 'openai_api_key' not in settings.model_dump()
+    monkeypatch.delenv('OPENAI_API_KEY')
+    env_file = tmp_path / '.env'
+    env_file.write_text('OPENAI_API_KEY=test-only-file-key\n')
+    assert Settings(_env_file=env_file).openai_api_key.get_secret_value() == 'test-only-file-key'

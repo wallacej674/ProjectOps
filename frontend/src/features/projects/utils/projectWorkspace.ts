@@ -1,4 +1,4 @@
-export const projectViews = ["overview", "repository", "monitoring", "launch", "artifacts", "activity", "settings"] as const;
+export const projectViews = ["release", "overview", "repository", "monitoring", "launch", "artifacts", "activity", "settings"] as const;
 export type ProjectView = typeof projectViews[number];
 export type LaunchView = "checklist" | "report" | "decisions";
 const legacyViews: Record<string, ProjectView> = { overview: "overview", repository: "repository", codemap: "repository", "repo-connection-title": "repository", health: "monitoring", readiness: "launch", "launch-report": "launch", "launch-decision": "launch", artifacts: "artifacts", activity: "activity", details: "settings" };

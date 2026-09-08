@@ -1,13 +1,15 @@
 from functools import lru_cache
 from typing import ClassVar
 
-from pydantic import field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
     DEVELOPMENT_AUTH_SECRET: ClassVar[str] = "projectops-local-development-auth-secret-do-not-use-in-production"
 
+    openai_api_key: SecretStr = Field(default=SecretStr(""), validation_alias="OPENAI_API_KEY", repr=False, exclude=True)
+    code_risk_ai_model: str = Field(default="gpt-5.4-mini-2026-03-17", min_length=1, max_length=200, pattern=r"^[a-zA-Z0-9._-]+$")
     app_name: str = "ProjectOps Backend"
     environment: str = "local"
     database_url: str = "postgresql+psycopg://projectops:projectops@localhost:55432/projectops"

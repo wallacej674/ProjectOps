@@ -1,0 +1,117 @@
+{
+  "results": [
+    {
+      "source": {
+        "path": "/src/package-lock.json",
+        "type": "lockfile"
+      },
+      "packages": [
+        {
+          "package": {
+            "name": "lodash",
+            "version": "4.17.20",
+            "ecosystem": "npm"
+          },
+          "vulnerabilities": [
+            {
+              "id": "GHSA-29mw-wpgm-hmr9",
+              "aliases": [
+                "CVE-2020-28500"
+              ],
+              "summary": "Regular Expression Denial of Service (ReDoS) in lodash",
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-1333",
+                  "CWE-400"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2021-03-19T22:45:28Z",
+                "nvd_published_at": "2021-02-15T11:15:00Z",
+                "severity": "MODERATE"
+              }
+            },
+            {
+              "id": "GHSA-35jh-r3h4-6jhm",
+              "aliases": [
+                "CVE-2021-23337",
+                "CVE-2026-4800",
+                "GHSA-r5fr-rjxr-66jc"
+              ],
+              "summary": "Command Injection in lodash",
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-77",
+                  "CWE-94"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2021-03-31T23:59:26Z",
+                "nvd_published_at": "2021-02-15T13:15:00Z",
+                "severity": "HIGH"
+              }
+            },
+            {
+              "id": "GHSA-f23m-r3pf-42rh",
+              "aliases": [
+                "CVE-2025-13465",
+                "CVE-2026-2950",
+                "GHSA-xxjr-mmjv-4gpg"
+              ],
+              "summary": "lodash vulnerable to Prototype Pollution via array path bypass in `_.unset` and `_.omit`",
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-1321"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-04-01T23:50:27Z",
+                "nvd_published_at": "2026-03-31T20:16:26Z",
+                "severity": "MODERATE"
+              }
+            },
+            {
+              "id": "GHSA-r5fr-rjxr-66jc",
+              "aliases": [
+                "CVE-2021-23337",
+                "CVE-2026-4800",
+                "GHSA-35jh-r3h4-6jhm"
+              ],
+              "summary": "lodash vulnerable to Code Injection via `_.template` imports key names",
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-94"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-04-01T23:51:12Z",
+                "nvd_published_at": "2026-03-31T20:16:29Z",
+                "severity": "HIGH"
+              }
+            },
+            {
+              "id": "GHSA-xxjr-mmjv-4gpg",
+              "aliases": [
+                "CVE-2025-13465",
+                "CVE-2026-2950",
+                "GHSA-f23m-r3pf-42rh"
+              ],
+              "summary": "Lodash has Prototype Pollution Vulnerability in `_.unset` and `_.omit` functions",
+              "database_specific": {
+                "cwe_ids": [
+                  "CWE-1321"
+                ],
+                "github_reviewed": true,
+                "github_reviewed_at": "2026-01-21T23:01:22Z",
+                "nvd_published_at": "2026-01-21T20:16:05Z",
+                "severity": "MODERATE"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "experimental_config": {
+    "licenses": {
+      "summary": false,
+      "allowlist": null
+    }
+  }
+}

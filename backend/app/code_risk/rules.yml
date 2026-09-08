@@ -1,0 +1,34 @@
+# ProjectOps-authored rules. No third-party rule bundle is redistributed.
+rules:
+  - id: python-eval
+    languages: [python]
+    severity: ERROR
+    message: Review dynamic eval; untrusted input can execute Python code.
+    pattern: eval(...)
+  - id: python-pickle
+    languages: [python]
+    severity: ERROR
+    message: Review pickle deserialization; untrusted payloads can execute code.
+    pattern-either:
+      - pattern: pickle.loads(...)
+      - pattern: pickle.load(...)
+  - id: python-shell
+    languages: [python]
+    severity: WARNING
+    message: Review shell execution and whether command input can be influenced externally.
+    pattern: subprocess.$METHOD(..., shell=True, ...)
+  - id: python-tls-disabled
+    languages: [python]
+    severity: WARNING
+    message: Review disabled TLS verification; transport peer identity is not checked.
+    pattern: requests.$METHOD(..., verify=False, ...)
+  - id: javascript-eval
+    languages: [javascript, typescript]
+    severity: ERROR
+    message: Review dynamic eval; untrusted input can execute JavaScript.
+    pattern: eval(...)
+  - id: javascript-html
+    languages: [javascript, typescript]
+    severity: WARNING
+    message: Review HTML assignment; unsanitized input can introduce script injection.
+    pattern: $ELEMENT.innerHTML = $VALUE

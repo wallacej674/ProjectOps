@@ -6,7 +6,7 @@ export function ProjectSectionNav({ active }: { active: ProjectView }) {
     <nav className="workspace-nav" aria-label="Project sections">
       {projectViews.map((view) => (
         <Link to={workspaceHref(view)} key={view} aria-current={active === view ? "page" : undefined}>
-          {view[0].toUpperCase() + view.slice(1)}
+          {view === "release" ? "Release Readiness" : view[0].toUpperCase() + view.slice(1)}
         </Link>
       ))}
     </nav>

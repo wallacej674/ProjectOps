@@ -1,10 +1,16 @@
 # ProjectOps Remaining Work Handoff
 
-Last reviewed: 2026-08-31
+Last reviewed: 2026-09-07
 
 This is the current source of truth for unfinished ProjectOps work. Historical
 milestone documents describe the scope that existed when each milestone was
 delivered; they do not override this roadmap.
+
+## Primary Product Direction: Release Readiness
+
+The user selected release-specific, evidence-backed production readiness as the main feature. Follow [the main feature plan](release-readiness-main-feature-plan.md), its [AI workflow catalog](release-readiness-workflows.md), and [agent context contract](release-readiness-agent-context.md) when implementing this direction. The initial Release Brief/requirement workspace is implemented; evidence assessment and AI workflows remain planned.
+
+The Release Brief and confirmed-requirement workspace is implemented; see [its milestone record](milestone-release-workspace.md). The next product milestone is release-scoped evidence contracts and deterministic assessment before the first AI gap-review workflow. Build the local review -> next-step -> agent-context -> returned-evidence journey before expanding specialist workflows. Code Risk Review is a supporting evidence source. Deployment remains a separate later milestone and is not a prerequisite for local feature development.
 
 ## Current Product State
 
@@ -20,7 +26,8 @@ ProjectOps is a working single-user-owner project command center with:
 - Manual and scheduled Health Checks. Scheduled checks support 15-minute,
   hourly, 6-hour, and daily cadences through a Render cron worker.
 - In-app Health Alerts with acknowledgement, evidence, recovery, and monitoring-overdue warnings.
-- Advisory Production Readiness evaluation and manual review items.
+- Advisory project-level Production Readiness evaluation and manual review items.
+- Local Code Risk Review with scan evidence, human review, work items, and OpenAI explanation runtime configured through backend `OPENAI_API_KEY`; live model evaluation and source excerpts remain outstanding.
 - Project Artifacts, evidence links, coverage, and traceability.
 - Launch Report, Guided Launch Checklist, and attributed Launch Decisions.
 - Project-scoped and cross-Project Activity feeds.
@@ -33,7 +40,7 @@ ProjectOps is a working single-user-owner project command center with:
 ## What Is Ready in the Repository
 
 - The backend container and production entrypoint exist.
-- Alembic migrations are linear through `0014_health_alerts`.
+- Alembic migrations are linear through `0017_release_workspace`.
 - `render.yaml` declares the API, scheduler, and PostgreSQL database.
 - `frontend/vercel.json` provides SPA rewrites and browser security headers.
 - Production configuration rejects localhost API fallback, wildcard CORS, and
@@ -44,14 +51,13 @@ ProjectOps is a working single-user-owner project command center with:
 - Deployment, backup/restore, observability, and provider-specific runbooks
   exist under `docs/`.
 
-## Immediate Ship Blocker
+## Hosted Release Blocker (Separate from Feature Development)
 
 The application has not yet completed a real hosted private-beta deployment.
 Provider access and user-controlled secrets are required for the remaining
-steps. The next milestone is operational execution, not another broad product
-feature.
+steps. These are prerequisites for hosting a private beta, not for the selected local Release Readiness feature work.
 
-## Next Milestone: Hosted Private-Beta Deployment
+## Deferred Operational Milestone: Hosted Private-Beta Deployment
 
 Goal: deploy the current repository to the selected Render and Vercel stack,
 prove it works with production configuration, and record evidence.
@@ -63,7 +69,7 @@ Required work:
    `PROJECTOPS_CORS_ALLOWED_ORIGINS`.
 3. Configure optional GitHub App and Sentry variables only if those features
    will be exercised in the private beta.
-4. Confirm Alembic reaches `0014_health_alerts` during the Render pre-deploy
+4. Confirm Alembic reaches `0017_release_workspace` during the Render pre-deploy
    phase.
 5. Confirm `/health` and `/health/db` on the hosted API.
 6. Import `frontend/` into Vercel and set `VITE_API_BASE_URL` to the Render API.
@@ -82,7 +88,7 @@ Required work:
 Use `private-beta-hosting-todo-checklist.md` while performing the work and
 `render-vercel-deployment.md` for provider setup details.
 
-## Work After the Hosted Deployment
+## Operational Work After the Hosted Deployment
 
 ### Priority 1: Private-Beta Operations
 
@@ -119,20 +125,11 @@ Use `private-beta-hosting-todo-checklist.md` while performing the work and
 - OAuth only if user demand justifies it; GitHub App authorization is repository
   access, not ProjectOps login.
 
-### Priority 5: Product Expansion
+### Product Development Priority
 
-- Teams, Organizations, invitations, roles, and ownership transfer.
-- Deployment Operations with Project-scoped Environments, Infrastructure
-  Services, immutable provider-sourced Deployment Records, and bounded log
-  references or queries. Start with read-only Render and Vercel adapters; keep
-  configured state, deployment history, runtime health, and logs distinct.
-- External health alert delivery and notification preferences, building on implemented in-app alerts.
-- Multiple monitored endpoints and health trends only after alert semantics are
-  trustworthy.
-- Artifact file upload, object storage, malware scanning, preview, and retention.
-- Exportable launch packets.
-- Deeper repository analysis, AST/static analysis, dependency/security scanning,
-  or AI-assisted evidence analysis as separate, explicitly scoped milestones.
+Release Readiness is the main feature plan linked at the top of this handoff. It defines the first complete release-assessment and agent-handoff loop, staged specialist workflows, migration boundaries, and evaluation gates. Existing Code Risk Review and OpenAI workflow notes remain implementation references.
+
+DataForge document processing and Deployment Operations provider integrations are deferred. Bounded selected artifact text and verification-result imports needed for Release Readiness are part of that plan; broad file processing is separate.
 
 ## Remaining Technical Debt
 
@@ -194,7 +191,7 @@ Use `private-beta-hosting-todo-checklist.md` while performing the work and
 - General-purpose job queues or workflow orchestration.
 - External health alert delivery, incident management, uptime percentages, or status pages.
 - File uploads, OCR, document processing, embeddings, or semantic search.
-- AI-generated analysis or recommendations.
+- Release-specific AI assessment workflows, automatic next-step planning, and agent context/result exchange. Finding-level OpenAI explanation wiring exists; live evaluation is outstanding.
 - Compliance certification or guaranteed production readiness.
 
 ## Product Truth Boundaries

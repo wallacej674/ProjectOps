@@ -1,6 +1,6 @@
 # ProjectOps Documentation Index
 
-Last reviewed: 2026-08-31
+Last reviewed: 2026-09-07
 
 ## Start Here
 
@@ -8,6 +8,15 @@ Last reviewed: 2026-08-31
 - `../CONTEXT.md`: canonical product vocabulary.
 - `projectops-remaining-work-handoff.md`: current product state, next milestone,
   remaining work, and private-beta exit criteria.
+- `release-readiness-main-feature-plan.md`: primary feature plan; release goals, confirmed requirements, evidence assessments, next steps, and agent handoffs.
+- `release-readiness-workflows.md`: 16 planned AI roles, staged delivery, triggers, and evidence requirements.
+- `release-readiness-agent-context.md`: scoped agent context export and reviewed result-import contract.
+- `code-risk-review-mvp-plan.md`: supporting feature plan; local security
+  scanning, AI explanations, actionable work items, and readiness evidence.
+- `dataforge-local-documents-mvp-plan.md`: deferred document-workflow option;
+  local text import, document reading, revisions, and evidence integration.
+- `deployment-operations-mvp-plan.md`: deferred provider-integration plan for
+  when deployed resources are available.
 
 ## Selected Hosting Path
 
@@ -26,6 +35,10 @@ reference. It is not the selected private-beta deployment path.
 
 ## Current Capability Notes
 
+- `milestone-release-workspace.md`: initial Release Readiness workspace, contracts, verification, and remaining scope.
+
+- `milestone-code-risk-review.md`: local scanner/review checkpoint and current limitations.
+
 - `milestone-health-alerts.md`
 
 - `github-app-private-repositories.md`
@@ -43,3 +56,5 @@ implemented capabilities that those files explicitly excluded. Read the
 historical boundary as “not part of that milestone,” not “not implemented in
 the current product.” Current status always comes from the remaining-work
 handoff and the current capability notes above.
+
+- [OpenAI risk explanations](openai-risk-explanations.md): workflow checkpoint and environment setup and remaining live evaluation.

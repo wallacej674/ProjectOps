@@ -1,0 +1,13 @@
+.code-risk { padding: 1.5rem; }
+.code-risk label { display: grid; gap: .4rem; margin: .8rem 0; }
+.code-risk input, .code-risk textarea, .code-risk select { max-width: 100%; padding: .55rem; border: 1px solid var(--border); border-radius: .4rem; background: var(--surface); color: inherit; }
+.code-risk textarea { min-height: 5rem; }
+.code-risk pre { white-space: pre-wrap; overflow-wrap: anywhere; padding: 1rem; background: var(--surface); }
+.risk-toolbar { display: flex; align-items: end; flex-wrap: wrap; gap: .7rem; margin: 1rem 0; }
+.risk-coverage { display: flex; flex-wrap: wrap; gap: 1rem; }
+.risk-coverage > div, .risk-work { padding: 1rem; border: 1px solid var(--border); border-radius: .5rem; margin: .6rem 0; }
+.risk-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 1.3rem; }
+.risk-finding { width: 100%; display: grid; text-align: left; gap: .45rem; background: transparent; color: inherit; padding: .9rem; border: 1px solid var(--border); border-radius: .5rem; margin: .5rem 0; overflow-wrap: anywhere; cursor: pointer; }
+.risk-finding[aria-pressed=true] { outline: 2px solid currentColor; }
+.risk-detail { min-width: 0; padding: 1rem; border: 1px solid var(--border); border-radius: .5rem; overflow-wrap: anywhere; }
+@media (max-width: 850px) { .risk-layout { grid-template-columns: 1fr; } }

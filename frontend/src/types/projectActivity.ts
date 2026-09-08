@@ -16,6 +16,7 @@ export type ProjectActivityEventType =
   | "repository_removed"
   | "codemap_analysis_completed"
   | "codemap_analysis_failed"
+  | "code_risk_scan_imported"
   | "health_alert_opened"
   | "health_alert_acknowledged"
   | "health_alert_recovered"

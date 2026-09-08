@@ -77,3 +77,69 @@ _Avoid_: Notification, alert, audit log, security event
 **Cross-Project Activity**:
 A newest-first product history feed that lists Project Activity Events across local Projects for app-level Overview surfacing. It includes Project context for navigation, but it is still recent activity history rather than unread notifications, realtime monitoring, or an audit log.
 _Avoid_: Inbox, unread feed, notification center, realtime feed
+
+**Scan Target**:
+A Project-scoped identity for one local source tree whose code-risk findings are reviewed together. It is distinct from a GitHub Repo Integration.
+_Avoid_: Hosted service, deployment target
+
+**Code Risk Scan**:
+A saved, user-imported observation of source and dependency risks for a Scan Target, including what was assessed and what could not be assessed. It is evidence for review, not proof of production safety.
+_Avoid_: Security certification, CodeMap snapshot
+
+**Risk Finding**:
+A recurring, identifiable source-code pattern or dependency advisory match that warrants human review. A finding's presence and its human disposition are separate facts.
+_Avoid_: Confirmed exploit, verified vulnerability
+
+**Finding Occurrence**:
+The evidence for a Risk Finding in a particular Code Risk Scan.
+_Avoid_: New issue, review decision
+
+**Finding Review**:
+A person's recorded disposition and reasoning about a Risk Finding based on particular evidence. Changed evidence can require another review.
+_Avoid_: Automatic clearance, scanner result
+
+**Risk Work Item**:
+A human-accepted proposed change associated with Risk Findings and explicit acceptance checks. Marking it done records human intent; rescan evidence remains separate.
+_Avoid_: Applied fix, verified remediation
+
+## Release Readiness Vocabulary (Planned)
+
+**Release Readiness**:
+An evidence-backed assessment of a particular Release's confirmed requirements, unresolved gaps, and remaining verification work. It supports a human decision and does not guarantee production safety.
+_Avoid_: Security certification, universal readiness score
+
+**Release**:
+A defined increment of a Project intended for a particular audience and stage of use.
+_Avoid_: Deployment, Git tag
+
+**Release Brief**:
+The agreed description of a Release's intended users, important journeys, data, constraints, and excluded scope.
+_Avoid_: Repository summary, generated task list
+
+**Release Requirement**:
+An explicit criterion that matters to a Release, with a defined scope and a way to assess supporting evidence.
+_Avoid_: Scanner rule, task
+
+**Readiness Evidence**:
+An attributed observation or supplied record relevant to a Release Requirement, with known scope, freshness, and limitations.
+_Avoid_: Proof by attachment, agent consensus
+
+**Requirement Assessment**:
+An interpretation of selected Readiness Evidence against a particular Release Requirement, separate from the human decision to accept a risk.
+_Avoid_: Test result, release approval
+
+**Next Step**:
+A proposed or human-accepted action intended to resolve a release gap or unanswered question, with observable completion criteria.
+_Avoid_: Automatically applied fix, confirmed remediation
+
+**Agent Context Packet**:
+A human-selected assignment containing one accepted Next Step, relevant release context, evidence, constraints, and return expectations for a coding agent.
+_Avoid_: Permission grant, whole-project memory
+
+**Agent Result**:
+An attributed report of work and verification returned for an Agent Context Packet. Its completion claim remains separate from a Requirement Assessment.
+_Avoid_: Independently verified fix, automatic readiness pass
+
+**Release Decision**:
+A person's recorded go, no-go, or defer decision for a particular Release and supporting assessment scope.
+_Avoid_: Automated certification, deployment action

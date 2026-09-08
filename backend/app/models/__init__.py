@@ -43,3 +43,7 @@ __all__ = [
     "User",
     "UserStatus",
 ]
+
+from app.models.code_risk import ScanTarget, CodeRiskScan, RiskFinding, FindingOccurrence
+
+from app.models.releases import Release, ReleaseBriefRevision

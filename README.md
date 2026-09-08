@@ -3,6 +3,11 @@
 ProjectOps is a software project command center for understanding, monitoring,
 and preparing projects for production.
 
+The primary feature direction is release-specific readiness: connect release goals to
+confirmed requirements, evidence, prioritized next steps, and context for coding
+agents. See [the implementation plan](docs/release-readiness-main-feature-plan.md).
+The initial Release Brief and confirmed-requirement workspace is implemented. Evidence assessment, next-step planning, and agent handoffs remain planned.
+
 ProjectOps currently lets developers register, sign in, create account-owned
 Projects, read, update, list, archive, view dashboard summaries, attach public
 GitHub repository connections, run evidence-backed repository path and manifest analysis, run
@@ -15,13 +20,14 @@ pages, and scan recent activity across Projects from the app Overview.
 
 ProjectOps is still intentionally staged. It does not yet include teams,
 organizations, roles, OAuth, password reset, refresh tokens, external alert delivery, file
-processing, notifications, OpenTelemetry, or AI
-features.
+processing, notifications, OpenTelemetry, or release-specific AI agent workflows.
 
 ## Current Status
 
 Implemented:
 
+- Release Readiness workspace with versioned briefs, confirmed requirements, immutable supporting artifact snapshots, and active-release navigation.
+- Release Readiness workspace with versioned briefs, confirmed requirements, immutable supporting artifact snapshots, and active-release navigation.
 - FastAPI backend application.
 - PostgreSQL database through Docker Compose.
 - SQLAlchemy and Alembic migrations.
@@ -30,6 +36,7 @@ Implemented:
 - Project CRUD and archive-on-delete behavior.
 - Project Dashboard API.
 - GitHub repo intake for public URLs and read-only GitHub App installations, including private repositories.
+- Local Code Risk Review with Semgrep/OSV report import, human review, scan comparison, work items, and readiness evidence references. Finding-level OpenAI explanations use backend `OPENAI_API_KEY`; live model evaluation and source excerpts remain outstanding.
 - CodeMap Medium deterministic repository analysis using paths and a bounded allowlist of public manifests and configuration files.
 - Manual Health Monitor for on-demand Project URL checks.
 - Scheduled Health Monitoring at supported cadences through a Render cron worker.
@@ -321,6 +328,12 @@ and unlinked active artifacts, readiness items with or without supporting
 artifact links, and artifact usage by readiness item. Linked artifacts do not
 automatically change readiness status, and ProjectOps does not verify artifact
 contents in DataForge Lite.
+
+## Code Risk Review
+
+Open a Project's Repository view and choose **Code Risk Review**. See
+[the local workflow guide](docs/milestone-code-risk-review.md) for scanner commands,
+supported inputs, coverage limits, and the remaining AI integration work.
 
 ## Key Documentation
 
