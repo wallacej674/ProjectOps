@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react';
+import { Profiler } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { expect, test, vi } from 'vitest';
 import { CodeRiskReviewPanel } from './CodeRiskReviewPanel';
@@ -57,11 +58,18 @@ test('URL navigation resets the work draft to the selected occurrence', async ()
     const body = url.endsWith('/scans/2') ? scan : url.includes('/findings?') ? { items, total: 2 } : url.endsWith('/targets') ? [] : { items: [], total: 0 };
     return new Response(JSON.stringify(body), { status: 200 });
   });
-  render(<MemoryRouter initialEntries={['/?scan=2&finding=4']}><Link to="/?scan=2&finding=5">Open second finding</Link><CodeRiskReviewPanel projectId="1" /></MemoryRouter>);
+  const committedTitles: string[] = [];
+  render(<Profiler id="finding-navigation" onRender={() => {
+    if (screen.queryByRole('heading', { name: 'rule-5' })) {
+      committedTitles.push((screen.getByLabelText('Work item title') as HTMLInputElement).value);
+    }
+  }}><MemoryRouter initialEntries={['/?scan=2&finding=4']}><Link to="/?scan=2&finding=5">Open second finding</Link><CodeRiskReviewPanel projectId="1" /></MemoryRouter></Profiler>);
   const input = await screen.findByLabelText('Work item title');
   fireEvent.change(input, { target: { value: 'Draft belonging to first finding' } });
   fireEvent.click(screen.getByRole('link', { name: 'Open second finding' }));
   await screen.findByRole('heading', { name: 'rule-5' });
   expect(screen.getByLabelText('Work item title')).toHaveValue('Review rule-5');
+  expect(committedTitles.length).toBeGreaterThan(0);
+  expect(committedTitles.every(title => title === 'Review rule-5')).toBe(true);
   mock.mockRestore();
 });

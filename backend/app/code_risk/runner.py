@@ -243,4 +243,3 @@ def eligible_inventories(snapshot, files):
         elif name == 'pyproject.toml' and str(Path(path).with_name('requirements.txt')).replace('\\', '/') not in files:
             unresolved.append(path)
     return accepted, unresolved
-

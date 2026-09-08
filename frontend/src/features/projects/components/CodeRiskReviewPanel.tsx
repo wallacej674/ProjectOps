@@ -43,12 +43,19 @@ export function CodeRiskReviewPanel({ projectId }: { projectId: string }) {
   const selectedMessage = selected?.evidence.message;
   const selectedSeverity = selected?.evidence.severity;
 
-  useEffect(() => {
+  const draftSource = JSON.stringify([projectId, selectedId, selectedRule, selectedMessage, selectedSeverity]);
+  const [previousDraftSource, setPreviousDraftSource] = useState(draftSource);
+
+  // Reset before committing the new finding so its forms cannot briefly expose
+  // or submit the previous occurrence's draft. Same-occurrence refreshes keep edits.
+  if (previousDraftSource !== draftSource) {
+    setPreviousDraftSource(draftSource);
+    setDisposition('acknowledged');
     setExplanationId(null);
     setTitle(selectedRule ? `Review ${selectedRule}` : '');
     setRationale(selectedMessage || ''); setChecks(''); setReason('');
     setPriority(selectedSeverity === 'critical' || selectedSeverity === 'high' ? selectedSeverity : 'medium');
-  }, [selectedId, selectedRule, selectedMessage, selectedSeverity]);
+  }
 
 
   useEffect(() => {

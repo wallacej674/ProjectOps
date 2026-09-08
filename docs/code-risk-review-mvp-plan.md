@@ -203,4 +203,3 @@ Later extensions: AI discovery beyond scanner findings, broader languages, confi
 - [OSV installation](https://google.github.io/osv-scanner/installation/): Windows support and version compatibility information.
 
 Planning verification: inspected repository models, services, schemas, navigation, and roadmap; checked scanner primary documentation. No scanner installation, application changes, database migration, model calls, or security scan was performed. This document does not claim any vulnerability was found in ProjectOps.
-

@@ -199,4 +199,3 @@ def evidence_artifact(db, project_id, scan_id, user_id):
         message='Code risk review evidence reference created.', related_resource_type='project_artifact', related_resource_id=artifact.id))
     db.commit()
     return {'id': artifact.id}
-
