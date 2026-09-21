@@ -86,8 +86,8 @@ def explain(db, project_id, occurrence_id, user_id, data):
     if not provider_available():
         raise HTTPException(503, 'OpenAI runtime access is not configured.')
     now = datetime.now(timezone.utc)
-    if repository.count(db, user_id, pending=True) >= 1 or repository.count(db, user_id, since=now - timedelta(days=1)) >= 20:
-        raise HTTPException(429, 'AI limit reached: one active request and 20 requests per rolling day.')
+    from app.services.rehearsal_workflows import admit
+    admit(db, user_id, now=now)
     record = RiskExplanation(project_id=project_id, occurrence_id=occurrence_id, created_by=user_id,
         request_key=str(data.request_key), context_digest=data.context_digest, model=prepared['model'],
         prompt_version=PROMPT_VERSION, packet=prepared['packet'], status='pending', expires_at=now + timedelta(seconds=90))

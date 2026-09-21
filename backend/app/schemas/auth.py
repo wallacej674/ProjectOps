@@ -1,7 +1,7 @@
 from datetime import datetime
 import re
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, SecretStr, field_validator
 
 from app.models.user import UserStatus
 
@@ -32,6 +32,7 @@ class UserRead(BaseModel):
 
 
 class AuthRegisterRequest(BaseModel):
+    invitation_code: SecretStr | None = Field(default=None, max_length=256, repr=False, exclude=True)
     email: str = Field(min_length=3, max_length=320)
     password: str = Field(min_length=8, max_length=256)
     display_name: str | None = Field(default=None, max_length=200)

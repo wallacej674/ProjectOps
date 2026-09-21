@@ -6,9 +6,9 @@ or screenshots containing credentials into the repository.
 
 ## 1. Provider Accounts
 
-- [ ] Confirm frontend provider account is available.
-- [ ] Confirm backend provider account is available.
-- [ ] Confirm managed PostgreSQL provider account is available.
+- [x] Confirm frontend provider account is available (2026-09-08).
+- [x] Confirm backend provider account is available (2026-09-08).
+- [x] Confirm managed PostgreSQL provider account is available through Render (2026-09-08).
 - [ ] Confirm Sentry account/project access is available, if monitoring will be enabled.
 - [ ] Record the chosen provider stack in `docs/private-beta-deployment-drill.md`.
 
@@ -58,8 +58,8 @@ Render/Vercel-specific setup notes live in
 - [ ] Confirm Render HTTP health check path is `/health`.
 - [ ] Deploy the backend service.
 - [ ] Confirm the Render pre-deploy command runs Alembic migrations.
-- [ ] Confirm the deployed database revision is `0014_health_alerts`.
-- [ ] Confirm the cron command is `python -m app.jobs.run_due_health_checks`.
+- [ ] Confirm the deployed database revision is `0020_rehearsal_handoff`.
+- [ ] Confirm cron runs the schema-only preflight before `python -m app.jobs.run_due_health_checks`.
 - [ ] Record migration timestamp and result.
 - [ ] Confirm provider logs are accessible.
 - [ ] Confirm backend health check endpoint is configured as `/health`.
@@ -100,12 +100,13 @@ cd backend
 ## 8. Hosted Auth Smoke
 
 - [ ] Open the deployed frontend.
-- [ ] Register a safe test account.
+- [ ] Confirm registration without a code and with an invalid code returns 403.
+- [ ] Register a safe test account with the valid invitation code.
 - [ ] Log out.
 - [ ] Log back in.
 - [ ] Confirm current-user behavior works.
 - [ ] Confirm protected routes require login.
-- [ ] Optional: confirm a second user cannot see the first user's Projects.
+- [ ] Confirm a second user cannot see the first user's Projects or rehearsal records.
 - [ ] Do not record real passwords.
 
 ## 9. Hosted Product Smoke
@@ -295,3 +296,24 @@ CI follow-up evidence recorded on 2026-09-01 for commit `8825190`:
 - Commit `795ffef` was pushed, and GitHub Actions run 12 passed Backend,
   Frontend, Dependency Security Scan, and Diff Hygiene. This satisfies the
   repository-side CI gate; provider deployment evidence is still required.
+
+## 16. Current Release Rehearsal beta gate (2026-09-08)
+
+Historical local/CI evidence above applies only to its dated revision. The current
+workspace needs a new reviewed commit and green CI before deployment.
+
+- [ ] Approve recurring hosting and a separate beta AI allowance using `private-beta-setup.md`.
+- [ ] Resolve Vercel billing-address setup and select the approved plan.
+- [ ] Confirm the new commit passes CI, including dependency audits.
+- [ ] Confirm API, worker, and cron run that same commit.
+- [ ] Confirm `projectops-rehearsal-worker` starts only after the current schema is ready.
+- [ ] Confirm API and worker share the evaluated model and runtime provider access.
+- [ ] Confirm invitation-only enrollment and closed enrollment behavior.
+- [ ] Run the hosted Release Rehearsal smoke in `render-vercel-deployment.md`.
+- [ ] Restart the worker and confirm completed results remain available.
+- [ ] Verify backup retention and complete a timed restore drill before participants.
+- [ ] Configure cost notifications and review fixed database storage daily.
+- [ ] Choose support contact, consent wording, and data retention/deletion procedure.
+- [ ] Admit five participants only after hosted gates pass, using `private-beta-user-testing.md`.
+- [ ] Capture actual observations with `private-beta-feedback-template.md`.
+- [ ] Record human relevance/actionability and real verification outcomes; do not infer them from synthetic evaluation.

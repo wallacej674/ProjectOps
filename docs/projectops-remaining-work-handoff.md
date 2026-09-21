@@ -8,9 +8,11 @@ delivered; they do not override this roadmap.
 
 ## Primary Product Direction: Release Readiness
 
-The user selected release-specific, evidence-backed production readiness as the main feature. Follow [the main feature plan](release-readiness-main-feature-plan.md), its [AI workflow catalog](release-readiness-workflows.md), and [agent context contract](release-readiness-agent-context.md) when implementing this direction. The initial Release Brief/requirement workspace is implemented; evidence assessment and AI workflows remain planned.
+The user approved the [Release Rehearsal implementation sequence](release-rehearsal-implementation-plan.md), milestones M0-M6, including the public TDD seams and development subagents. The local workflow is implemented under [the frozen contracts](release-rehearsal-contracts.md); see [the implementation record](milestone-release-rehearsal.md) for verification and validation boundaries. This sequence refines the earlier plan and resumes from the delivered release workspace; broader source analysis, automatic execution and hosting remain separate. The subsequently authorized [live rehearsal evaluation](rehearsal-live-evaluation-report.md) is complete; real-user usefulness remains unvalidated.
 
-The Release Brief and confirmed-requirement workspace is implemented; see [its milestone record](milestone-release-workspace.md). The next product milestone is release-scoped evidence contracts and deterministic assessment before the first AI gap-review workflow. Build the local review -> next-step -> agent-context -> returned-evidence journey before expanding specialist workflows. Code Risk Review is a supporting evidence source. Deployment remains a separate later milestone and is not a prerequisite for local feature development.
+The user selected release-specific, evidence-backed production readiness as the main feature. Follow [the main feature plan](release-readiness-main-feature-plan.md), its [AI workflow catalog](release-readiness-workflows.md), and [agent context contract](release-readiness-agent-context.md) when implementing this direction. The Release Brief, requirement workspace, scoped evidence assessment, optional AI gap reviewer and agent handoff loop are implemented locally.
+
+The Release Brief and confirmed-requirement workspace is implemented; see [its milestone record](milestone-release-workspace.md). The local review -> next-step -> agent-context -> returned-evidence journey is implemented. The corrected prompt passed the initial live synthetic evaluation. Next prepare private-beta hosting and assess usefulness with users before expanding specialist workflows. Code Risk Review is a supporting evidence source. Deployment remains a separate later milestone and is not a prerequisite for local feature development.
 
 ## Current Product State
 
@@ -40,7 +42,7 @@ ProjectOps is a working single-user-owner project command center with:
 ## What Is Ready in the Repository
 
 - The backend container and production entrypoint exist.
-- Alembic migrations are linear through `0017_release_workspace`.
+- Alembic migrations are linear through `0020_rehearsal_handoff`.
 - `render.yaml` declares the API, scheduler, and PostgreSQL database.
 - `frontend/vercel.json` provides SPA rewrites and browser security headers.
 - Production configuration rejects localhost API fallback, wildcard CORS, and
@@ -69,7 +71,7 @@ Required work:
    `PROJECTOPS_CORS_ALLOWED_ORIGINS`.
 3. Configure optional GitHub App and Sentry variables only if those features
    will be exercised in the private beta.
-4. Confirm Alembic reaches `0017_release_workspace` during the Render pre-deploy
+4. Confirm Alembic reaches `0020_rehearsal_handoff` during the Render pre-deploy
    phase.
 5. Confirm `/health` and `/health/db` on the hosted API.
 6. Import `frontend/` into Vercel and set `VITE_API_BASE_URL` to the Render API.

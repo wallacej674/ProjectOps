@@ -1,8 +1,12 @@
+> Local Release Rehearsal is implemented through the evidence-to-decision loop. See [the implementation record](milestone-release-rehearsal.md) and [local guide](release-rehearsal-guide.md) for current status; the broader items below remain roadmap context.
+
 # Release Readiness: Main Feature Implementation Plan
 
 Status: approved implementation plan, 2026-09-07. The first Release Brief/requirement workspace is implemented; see [the milestone record](milestone-release-workspace.md). Evidence assessment and AI workflows remain planned. This is the primary product-development direction. It supersedes Code Risk Review as the standalone next-feature priority; that capability becomes one evidence source. This document does not claim the new workflows are implemented or authorize deployment.
 
 ## Product outcome
+
+Implementation continuation: the user approved [Release Rehearsal M0-M6](release-rehearsal-implementation-plan.md). Follow that sequence and its contracts for remaining work; the Release Brief/requirement workspace below is already delivered. Migration head was `0017_release_workspace` when that continuation began; always inspect the actual head.
 
 ProjectOps helps a developer answer: **For this release, what matters, what evidence do we have, what remains uncertain, and what should a person or coding agent do next?**
 

@@ -4,6 +4,7 @@ This is the selected ProjectOps private-beta hosting architecture:
 
 - Frontend: Vercel, built from `frontend/`.
 - Backend: Render Web Service, built from `backend/Dockerfile`.
+- AI worker: Render background worker for durable Release Rehearsal workflows.
 - Scheduler: Render Cron Job, built from the backend image and run every five minutes.
 - Database: Render Postgres on the same private network and region as the backend.
 - Monitoring: optional Sentry projects for the frontend and backend.
@@ -21,7 +22,7 @@ Browser -> Vercel -> React/Vite SPA
                   FastAPI          private connection
 ```
 
-The root `render.yaml` Blueprint defines the backend, scheduler, and database. Render
+The root `render.yaml` Blueprint defines the backend, AI worker, scheduler, and database. Render
 generates the JWT signing secret, injects the database's private connection
 string, runs Alembic before each deploy, checks `/health`, and keeps the API at
 one instance while rate limiting remains in process memory.
@@ -43,6 +44,7 @@ In Render, create a Blueprint from this repository. Render discovers
 
 - `projectops-api`, a paid Docker Web Service in Ohio.
 - `projectops-health-monitor`, a Docker Cron Job that claims due schedules every five minutes.
+- `projectops-rehearsal-worker`, a paid Docker background worker in Ohio.
 - `projectops-db`, a paid PostgreSQL 16 database in Ohio.
 
 During initial Blueprint creation, set
@@ -97,7 +99,7 @@ cd backend
 
 Both `/health` and `/health/db` must pass.
 
-The cron job runs `python -m app.jobs.run_due_health_checks`. It uses the same
+The cron job first runs `python -m app.jobs.rehearsal_worker_preflight --schema-only`, then `python -m app.jobs.run_due_health_checks`. It uses the same
 private database, claims due schedules transactionally, and advances each next
 run before performing the outbound check. Confirm its first successful run in
 Render logs before enabling a Project schedule.
@@ -179,3 +181,42 @@ Keep `numInstances: 1` until the in-process rate limiter is replaced with a
 shared store. Before broader production use, also complete a real restore drill,
 add uptime alerting, and revisit database and API plan sizing from observed
 metrics.
+
+## Release Rehearsal beta configuration
+
+Start with the approval scope in `private-beta-setup.md`. The API alone runs
+migrations. The required current head is `0020_rehearsal_handoff`. The worker
+runs `python -m app.jobs.run_readiness_workflows`; it and the cron job wait up to
+180 seconds for the schema to match their image. They never migrate the database.
+If initial parallel provisioning times out, confirm the API migration succeeded
+and restart the worker. Keep API, worker, and cron on the same reviewed commit.
+
+During initial Blueprint setup enter `OPENAI_API_KEY` privately for the API.
+The model is pinned to `gpt-5.4-mini-2026-03-17`. Worker key, model, auth, and CORS
+settings reference the API. These references refresh on Blueprint sync; after
+changing source settings, sync and verify the worker deployment too. `sync: false`
+values prompt at initial creation only; add missing values manually on existing
+services. No provider calls occur during startup preflight.
+
+The Blueprint generates a registration invitation code and selects `invite_only`.
+Distribute the code privately only to approved participants. A missing or invalid
+code must return 403. Invalid server invitation configuration blocks startup.
+Set `PROJECTOPS_REGISTRATION_MODE=closed` to stop new enrollment. Rotation or
+closing enrollment does not revoke existing accounts. The shared code is not
+per-person invitation tracking or email verification. Never use a VITE variable
+for the configured code or AI key.
+
+Database storage is fixed at 15 GB with automatic growth disabled. Check storage
+daily during the beta and intervene before capacity is exhausted. Increasing the
+allocation is a separate cost decision. Keep only one API and one worker.
+
+After separate beta AI spend approval, run a synthetic workflow through the hosted
+frontend: preview the exact manifest, request analysis, verify worker completion,
+inspect citations and stored tasks, export a packet, import genuine verification
+results, reassess, and record a human decision. Verify completed work survives a
+worker restart. An interrupted provider request can become unknown; inspect its
+state and cost before any explicit retry. Do not assume retries are free.
+
+Use `private-beta-user-testing.md` only after the hosted smoke and recovery checks
+pass. Keep observations in `private-beta-feedback-template.md`; invitations have
+not been sent and human usefulness results remain unmeasured.

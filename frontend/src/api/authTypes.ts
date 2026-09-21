@@ -15,6 +15,7 @@ export interface AuthSession {
 }
 
 export interface RegisterInput {
+  invitation_code?: string;
   email: string;
   password: string;
   display_name?: string | null;

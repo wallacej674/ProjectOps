@@ -47,3 +47,8 @@ __all__ = [
 from app.models.code_risk import ScanTarget, CodeRiskScan, RiskFinding, FindingOccurrence
 
 from app.models.releases import Release, ReleaseBriefRevision
+from app.models.rehearsal_workflows import RehearsalWorkflow
+from app.models.rehearsal_handoff import RehearsalDecision
+from app.models.rehearsal import RehearsalScope, RehearsalEvidence
+
+from app.models.rehearsal_packets import RehearsalPacket

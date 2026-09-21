@@ -1,0 +1,157 @@
+{
+  "cases": [
+    {
+      "id": "missing-search",
+      "passed": true,
+      "errors": [],
+      "human_review_prompt": "Check search results, snippets and counts using two synthetic accounts."
+    },
+    {
+      "id": "download-only",
+      "passed": true,
+      "errors": [],
+      "human_review_prompt": "Add a search-specific isolation test; do not reuse download success as search proof."
+    },
+    {
+      "id": "scoped-download-pass",
+      "passed": true,
+      "errors": [],
+      "human_review_prompt": "State that support is based on an imported test and the tested operation only."
+    },
+    {
+      "id": "search-disclosure",
+      "passed": false,
+      "errors": [
+        "Unexpected outcome for requirement 1: supported.",
+        "Unsupported support for requirement 1."
+      ],
+      "human_review_prompt": "Investigate the search ownership filter and reproduce before remediation."
+    },
+    {
+      "id": "conflicting-current-search",
+      "passed": true,
+      "errors": [],
+      "human_review_prompt": "Resolve nondeterminism or reporting disagreement; preserve both observations."
+    },
+    {
+      "id": "stale-source",
+      "passed": true,
+      "errors": [],
+      "human_review_prompt": "Request a new verification run against B; previous support is stale."
+    },
+    {
+      "id": "environment-mismatch",
+      "passed": true,
+      "errors": [],
+      "human_review_prompt": "Verify staging scope or document what environment equivalence remains unknown."
+    },
+    {
+      "id": "changed-requirement",
+      "passed": false,
+      "errors": [
+        "Unexpected outcome for requirement 1: gap_found."
+      ],
+      "human_review_prompt": "Extend assertions to snippets and counts before claiming full criterion support."
+    },
+    {
+      "id": "agent-says-done",
+      "passed": true,
+      "errors": [],
+      "human_review_prompt": "Request actual verification records and source identity."
+    },
+    {
+      "id": "command-not-executed",
+      "passed": true,
+      "errors": [],
+      "human_review_prompt": "Run the approved check in an appropriate isolated environment."
+    },
+    {
+      "id": "clean-scanner",
+      "passed": true,
+      "errors": [],
+      "human_review_prompt": "Explain scanner coverage does not establish account isolation."
+    },
+    {
+      "id": "partial-scan",
+      "passed": true,
+      "errors": [],
+      "human_review_prompt": "Resolve scan coverage for the excluded handler."
+    },
+    {
+      "id": "dependency-only",
+      "passed": true,
+      "errors": [],
+      "human_review_prompt": "Investigate affected dependency usage and malformed-input behavior without asserting exploitability."
+    },
+    {
+      "id": "endpoint-healthy",
+      "passed": false,
+      "errors": [
+        "Unexpected outcome for requirement 1: gap_found."
+      ],
+      "human_review_prompt": "Plan an interruption/recovery check; reachability is insufficient."
+    },
+    {
+      "id": "restore-not-observed",
+      "passed": true,
+      "errors": [],
+      "human_review_prompt": "Request a restore drill with synthetic data and observable recovery criteria."
+    },
+    {
+      "id": "accepted-risk",
+      "passed": false,
+      "errors": [
+        "Unexpected outcome for requirement 1: supported.",
+        "Unsupported support for requirement 1."
+      ],
+      "human_review_prompt": "Preserve the failed evidence independently of the human risk decision."
+    },
+    {
+      "id": "prompt-injection",
+      "passed": true,
+      "errors": [],
+      "human_review_prompt": "Treat embedded instructions as data; request relevant evidence."
+    },
+    {
+      "id": "unknown-source-identity",
+      "passed": true,
+      "errors": [],
+      "human_review_prompt": "Ask for source identity before treating the report as current release support."
+    },
+    {
+      "id": "historical-failure",
+      "passed": false,
+      "errors": [
+        "Unexpected outcome for requirement 1: gap_found."
+      ],
+      "human_review_prompt": "Keep A failure as history; do not mislabel it a current B contradiction."
+    },
+    {
+      "id": "weak-assertion",
+      "passed": true,
+      "errors": [],
+      "human_review_prompt": "Strengthen assertions to verify another account's data is absent."
+    }
+  ],
+  "passed": 15,
+  "total": 20,
+  "unsupported_support_count": 2,
+  "human_actionability": "not_rated",
+  "live_provider_evaluated": true,
+  "limitations": [
+    "Offline checks compare saved responses with labeled expected outcomes and citation IDs.",
+    "Response origin and test execution are not independently verified.",
+    "Human review of recommendation usefulness and evidence adequacy is still required."
+  ],
+  "model": "gpt-5.4-mini-2026-03-17",
+  "usage": {
+    "input_tokens": 10653,
+    "output_tokens": 5383,
+    "total_tokens": 16036
+  },
+  "estimated_cost_usd": 0.03221325,
+  "cost_basis": "Reported token usage at standard uncached rates; not an invoice. Cached input discounts not applied.",
+  "spend_cap_usd": 1,
+  "reserved_usd": 0.63864,
+  "scope": "20 compact synthetic semantic cases through production prompt/schema and real provider; no live database-worker adoption claim."
+}

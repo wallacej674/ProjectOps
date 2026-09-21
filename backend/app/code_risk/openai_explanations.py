@@ -55,7 +55,7 @@ def provider_available():
     return bool(get_settings().openai_api_key.get_secret_value().strip())
 
 
-def generate(packet: dict, model: str):
+def generate(packet: dict, model: str, *, request=request_explanation):
     api_key = get_settings().openai_api_key.get_secret_value().strip()
     if not api_key:
         raise RuntimeError('OpenAI runtime access is not configured.')
@@ -67,6 +67,6 @@ def generate(packet: dict, model: str):
             follow_redirects=False,
             trust_env=False,
         ) as client:
-            return await request_explanation(client, packet, model)
+            return await request(client, packet, model)
 
     return asyncio.run(run())

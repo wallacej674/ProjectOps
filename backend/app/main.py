@@ -1,5 +1,9 @@
+from app.api.rehearsal_packets import router as rehearsal_packets_router
 from app.api.code_risk import router as code_risk_router
 from app.api.releases import router as releases_router
+from app.api.rehearsal_workflows import router as rehearsal_workflows_router
+from app.api.rehearsal_handoff import router as rehearsal_handoff_router
+from app.api.rehearsal import router as rehearsal_router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -22,6 +26,7 @@ from app.middleware.request_logging import REQUEST_ID_HEADER, RequestLoggingMidd
 
 def create_app() -> FastAPI:
     settings = get_settings()
+    settings.validate_auth_settings()
     configure_logging(settings.log_level)
     app = FastAPI(title=settings.app_name)
     setattr(app.state, ERROR_MONITORING_ENABLED_STATE_KEY, configure_error_monitoring(settings))
@@ -36,6 +41,10 @@ def create_app() -> FastAPI:
     )
 
     app.include_router(releases_router, prefix="/api/v1")
+    app.include_router(rehearsal_packets_router, prefix="/api/v1")
+    app.include_router(rehearsal_workflows_router, prefix="/api/v1")
+    app.include_router(rehearsal_handoff_router, prefix="/api/v1")
+    app.include_router(rehearsal_router, prefix="/api/v1")
     app.include_router(code_risk_router, prefix="/api/v1")
     app.include_router(health_alerts_router, prefix="/api/v1")
     app.include_router(health_router)

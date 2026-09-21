@@ -6,7 +6,7 @@ and preparing projects for production.
 The primary feature direction is release-specific readiness: connect release goals to
 confirmed requirements, evidence, prioritized next steps, and context for coding
 agents. See [the implementation plan](docs/release-readiness-main-feature-plan.md).
-The initial Release Brief and confirmed-requirement workspace is implemented. Evidence assessment, next-step planning, and agent handoffs remain planned.
+The Release Rehearsal workflow now connects confirmed criteria to evidence, reviewed assessments, verification tasks, agent handoffs, and frozen release decisions. See [the local guide](docs/release-rehearsal-guide.md) for usage and worker setup.
 
 ProjectOps currently lets developers register, sign in, create account-owned
 Projects, read, update, list, archive, view dashboard summaries, attach public
@@ -20,14 +20,14 @@ pages, and scan recent activity across Projects from the app Overview.
 
 ProjectOps is still intentionally staged. It does not yet include teams,
 organizations, roles, OAuth, password reset, refresh tokens, external alert delivery, file
-processing, notifications, OpenTelemetry, or release-specific AI agent workflows.
+processing, notifications, OpenTelemetry, or automatic agent code execution.
 
 ## Current Status
 
 Implemented:
 
 - Release Readiness workspace with versioned briefs, confirmed requirements, immutable supporting artifact snapshots, and active-release navigation.
-- Release Readiness workspace with versioned briefs, confirmed requirements, immutable supporting artifact snapshots, and active-release navigation.
+- Release Rehearsal with scoped evidence, human and optional AI assessment proposals, prioritized verification work, portable assignments/results, and release-decision comparison.
 - FastAPI backend application.
 - PostgreSQL database through Docker Compose.
 - SQLAlchemy and Alembic migrations.

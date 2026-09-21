@@ -13,12 +13,16 @@ operator notes.
 
 | Area | Status | Notes |
 | --- | --- | --- |
-| Provider stack | Selected, pending provider access | Vercel frontend, Render Web Service, Render Cron Job, and Render Postgres are defined. |
-| Backend deploy | CI green; pending provider access | The PostgreSQL-backed suite passes locally and GitHub Actions run 12 passed the Backend job; hosted deploy has not run. |
-| Frontend deploy | CI green; pending provider access | Local frontend checks pass and GitHub Actions run 12 passed the Frontend and Dependency Security Scan jobs; hosted deploy has not run. |
-| Managed database | Pending provider access | Provider backup/PITR settings must be confirmed in provider UI. |
-| Observability | Pending provider access | Sentry config exists; real provider event arrival must be verified. |
-| Request ID correlation | Pending provider access | Local behavior is covered by tests; hosted logs/events must be checked. |
+| Provider stack | Accounts accessible; awaiting cost approval | Vercel frontend, Render API, AI worker, cron, and Postgres. No ProjectOps resources created. |
+| Backend deploy | Pending new commit, CI, and deployment | Current local verification is recorded in private-beta-setup.md. |
+| Frontend deploy | Pending new commit, CI, and deployment | Vercel Hobby account reports incomplete billing address; Pro approval needed. |
+| Managed database | Pending provisioning | Backup retention and restore drill remain unverified. |
+| Observability | Pending hosted configuration | Real event arrival and uptime alerting remain unverified. |
+| Request ID correlation | Pending hosted verification | Local tests do not establish hosted behavior. |
+
+Earlier drill status was "pending provider access". Account access was confirmed
+2026-09-08; no paid services were provisioned. Prior CI run 12 is historical and
+does not verify the current uncommitted Release Rehearsal changes.
 
 ## Provider Stack
 
@@ -29,6 +33,7 @@ Record the chosen provider stack before running the drill:
 | Frontend static host | Vercel selected | Do not paste credentials | Pending deploy |
 | Backend web service host | Render selected | `projectops-api`; do not paste credentials | Pending deploy |
 | Scheduled monitor worker | Render selected | `projectops-health-monitor` cron job | Pending deploy |
+| AI workflow worker | Render selected | `projectops-rehearsal-worker` | Pending deploy |
 | Managed PostgreSQL | Render Postgres selected | `projectops-db`; do not paste database URL | Pending setup |
 | Monitoring | Pending | Do not paste Sentry DSN | Pending |
 
@@ -401,3 +406,11 @@ Hosted follow-up remains pending: pause cron, migrate, release all components,
 resume cron, exercise failure/acknowledgement/recovery on an isolated endpoint,
 and record screenshots or timestamps for paused and overdue monitoring. The
 existing hosted no-go decision remains unchanged.
+
+## Current beta execution
+
+Follow `private-beta-setup.md` for the approval scope and
+`render-vercel-deployment.md` for migration ordering, invitation access, and AI
+worker startup. Record the deployed commit, migration revision, worker completion,
+restart persistence, restore timings, cost settings, and real participant results
+here after execution. None of those hosted outcomes is established yet.

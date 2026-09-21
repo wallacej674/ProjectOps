@@ -6,6 +6,7 @@ import { ReleaseBriefForm } from './ReleaseBriefForm';
 import { ReleaseRequirementForm } from './ReleaseRequirementForm';
 import { ReleaseRevisionHistory } from './ReleaseRevisionHistory';
 import { ReleaseMaterials } from './ReleaseMaterials';
+import { RehearsalWorkspace } from './RehearsalWorkspace';
 import './releaseReadiness.css';
 
 export function ReleaseReadinessPanel({ projectId, projectArchived = false }: { projectId: string; projectArchived?: boolean }) {
@@ -13,6 +14,7 @@ export function ReleaseReadinessPanel({ projectId, projectArchived = false }: { 
   const [creating, setCreating] = useState(false);
   const [adding, setAdding] = useState(false);
   const [selected, setSelected] = useState<number | null>(null);
+  const [rehearsalOpen, setRehearsalOpen] = useState(false);
   const { release } = state;
   const requirement = state.requirements.items.find(r => r.id === selected);
   const disabled = projectArchived || state.busy || state.loading || Boolean(state.error);
@@ -21,7 +23,7 @@ export function ReleaseReadinessPanel({ projectId, projectArchived = false }: { 
   const base = release ? `/${release.id}` : '';
   return <section className="panel release-readiness" aria-labelledby="release-title">
     <div className="eyebrow">Release Readiness</div><h2 id="release-title">Define what ready means</h2>
-    <p>Agree on your release scope and requirements, then collect material to verify them. Confirmation records intent; evidence assessment comes next.</p>
+    <p>Agree on your release scope and requirements, then review supplied evidence in a release rehearsal. Confirmation records intent; assessment records supporting evidence and remaining gaps.</p>
     {state.loading && <p role="status">Loading release workspace…</p>}
     {state.error && <div role="alert">{state.error}<button className="button" onClick={state.reload}>Reload saved records</button></div>}
     {state.notice && <p role="status">{state.notice}</p>}
@@ -43,13 +45,15 @@ export function ReleaseReadinessPanel({ projectId, projectArchived = false }: { 
       </div>
       {!release.archived && <details><summary>Edit release brief</summary><p>Saving creates a draft revision. Requirements must be reviewed against the new scope.</p><ReleaseBriefForm key={release.id} revision={release.brief.revision} initial={release.brief.content} disabled={readOnly} submitLabel="Save brief revision" onSave={brief => void state.act(async () => { await releaseRequest(projectId, `${base}/brief`, { version: release.version, brief }); }, 'New brief revision saved. Confirm it after review.')} /></details>}
       <ReleaseRevisionHistory key={`brief:${release.id}:${release.version}`} projectId={projectId} path={`${base}/brief/history`} title="Brief revision history" />
-      <h3>Release requirements</h3><p>All requirements are not yet verified. Adding supporting material does not change that status.</p>
+      <button className="button" onClick={() => setRehearsalOpen(v => !v)}>{rehearsalOpen ? 'Hide release rehearsal' : 'Open release rehearsal'}</button>
+      {rehearsalOpen && <RehearsalWorkspace key={`${projectId}:${release.id}`} projectId={projectId} releaseId={release.id} readOnly={readOnly} />}
+      <h3>Release requirements</h3><p>Confirmation defines intent. Open the release rehearsal to review evidence and current assessments. Adding supporting material alone does not verify a requirement.</p>
       {needsBrief && <p>Confirm the saved brief before adding or revising requirements.</p>}
       <button className="button" disabled={readOnly || needsBrief} onClick={() => { setAdding(v => !v); setSelected(null); }}>{adding ? 'Cancel requirement' : 'Add requirement'}</button>
       {adding && <ReleaseRequirementForm key={`new:${release.id}`} revision={release.brief.revision} disabled={readOnly || needsBrief} onSave={draft => void state.act(async () => { await releaseRequest(projectId, `${base}/requirements`, { ...draft, brief_revision: release.brief.revision }); setAdding(false); state.setRequirementOffset(0); }, 'Requirement saved as a proposal. Confirm it after review.')} />}
-      <div className="release-grid"><div className="release-requirements">{state.requirements.items.map(r => <button className="release-requirement" key={r.id} aria-pressed={selected === r.id} onClick={() => { setSelected(r.id); setAdding(false); }}><strong>{r.revision.content.title}</strong><span>{r.state} · {r.revision.content.applicability.replaceAll('_', ' ')} · not verified</span>{r.needs_review && <span>Release scope changed: review required</span>}</button>)}{state.requirements.total === 0 && <p>No requirements defined yet.</p>}</div>
+      <div className="release-grid"><div className="release-requirements">{state.requirements.items.map(r => <button className="release-requirement" key={r.id} aria-pressed={selected === r.id} onClick={() => { setSelected(r.id); setAdding(false); }}><strong>{r.revision.content.title}</strong><span>{r.state} · {r.revision.content.applicability.replaceAll('_', ' ')}</span>{r.needs_review && <span>Release scope changed: review required</span>}</button>)}{state.requirements.total === 0 && <p>No requirements defined yet.</p>}</div>
         {requirement && <aside className="release-detail" key={`${release.id}:${requirement.id}`}><h4>{requirement.revision.content.title}</h4><p>{requirement.revision.content.criterion}</p><p><strong>Verification:</strong> {requirement.revision.content.verification_method}</p>
-          <p>Requirement revision {requirement.revision.revision} · {requirement.state} · not verified</p>
+          <p>Requirement revision {requirement.revision.revision} · {requirement.state} · see rehearsal for assessment</p>
           {requirement.needs_review && <p>The release scope changed. Review the criterion and save a new revision before confirming.</p>}
           {requirement.state === 'proposed' && <button className="button" disabled={readOnly || needsBrief || requirement.needs_review} onClick={() => void state.act(async () => { await releaseRequest(projectId, `${base}/requirements/${requirement.id}/confirm`, { version: requirement.version }); }, 'Requirement confirmed. Verification is still outstanding.')}>Confirm saved requirement</button>}
           <details><summary>Revise requirement</summary><ReleaseRequirementForm key={requirement.id} revision={`${requirement.revision.revision}:${release.brief.revision}`} initial={requirement.revision.content} disabled={readOnly || needsBrief} onSave={draft => void state.act(async () => { await releaseRequest(projectId, `${base}/requirements/${requirement.id}`, { ...draft, version: requirement.version, brief_revision: release.brief.revision }, 'PATCH'); }, 'Requirement revision saved for confirmation.')} /></details>

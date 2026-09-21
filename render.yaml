@@ -27,6 +27,14 @@ services:
         generateValue: true
       - key: PROJECTOPS_CORS_ALLOWED_ORIGINS
         sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: PROJECTOPS_CODE_RISK_AI_MODEL
+        value: gpt-5.4-mini-2026-03-17
+      - key: PROJECTOPS_REGISTRATION_MODE
+        value: invite_only
+      - key: PROJECTOPS_REGISTRATION_INVITE_CODE
+        generateValue: true
       - key: PROJECTOPS_HEALTH_CHECK_TIMEOUT_SECONDS
         value: "5"
       - key: PROJECTOPS_ACCESS_TOKEN_EXPIRE_MINUTES
@@ -66,7 +74,7 @@ services:
     rootDir: backend
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    dockerCommand: python -m app.jobs.run_due_health_checks
+    dockerCommand: sh -c "python -m app.jobs.rehearsal_worker_preflight --schema-only && python -m app.jobs.run_due_health_checks"
     schedule: "*/5 * * * *"
     autoDeployTrigger: checksPass
     envVars:
@@ -85,6 +93,48 @@ services:
       - key: PROJECTOPS_LOG_LEVEL
         value: INFO
 
+  - type: worker
+    name: projectops-rehearsal-worker
+    runtime: docker
+    plan: 0.5c-512mb
+    region: ohio
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: python -m app.jobs.run_readiness_workflows
+    autoDeployTrigger: checksPass
+    numInstances: 1
+    maxShutdownDelaySeconds: 60
+    envVars:
+      - key: PROJECTOPS_ENVIRONMENT
+        value: production
+      - key: PROJECTOPS_DATABASE_URL
+        fromDatabase:
+          name: projectops-db
+          property: connectionString
+      - key: OPENAI_API_KEY
+        fromService:
+          type: web
+          name: projectops-api
+          envVarKey: OPENAI_API_KEY
+      - key: PROJECTOPS_CODE_RISK_AI_MODEL
+        fromService:
+          type: web
+          name: projectops-api
+          envVarKey: PROJECTOPS_CODE_RISK_AI_MODEL
+      - key: PROJECTOPS_AUTH_SECRET_KEY
+        fromService:
+          type: web
+          name: projectops-api
+          envVarKey: PROJECTOPS_AUTH_SECRET_KEY
+      - key: PROJECTOPS_CORS_ALLOWED_ORIGINS
+        fromService:
+          type: web
+          name: projectops-api
+          envVarKey: PROJECTOPS_CORS_ALLOWED_ORIGINS
+      - key: PROJECTOPS_LOG_LEVEL
+        value: INFO
+
 databases:
   - name: projectops-db
     databaseName: projectops
@@ -93,7 +143,7 @@ databases:
     region: ohio
     postgresMajorVersion: "16"
     diskSizeGB: 15
-    storageAutoscalingEnabled: true
+    storageAutoscalingEnabled: false
     ipAllowList: []
 
 previews:

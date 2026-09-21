@@ -102,7 +102,15 @@ _Avoid_: Automatic clearance, scanner result
 A human-accepted proposed change associated with Risk Findings and explicit acceptance checks. Marking it done records human intent; rescan evidence remains separate.
 _Avoid_: Applied fix, verified remediation
 
-## Release Readiness Vocabulary (Planned)
+## Release Readiness Vocabulary
+
+**Release Rehearsal**:
+The Release Readiness workflow that connects confirmed requirements to reviewed evidence, verification work, reassessment and a human Release Decision.
+_Avoid_: Automated certification, duplicate Release
+
+**Assessment Scope**:
+The selected release context, source version and environment against which Readiness Evidence is interpreted. Missing source or environment knowledge remains explicit.
+_Avoid_: Deployment, verified repository identity
 
 **Release Readiness**:
 An evidence-backed assessment of a particular Release's confirmed requirements, unresolved gaps, and remaining verification work. It supports a human decision and does not guarantee production safety.

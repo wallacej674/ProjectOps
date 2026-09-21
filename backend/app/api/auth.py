@@ -1,4 +1,5 @@
 from typing import Annotated
+from secrets import compare_digest
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
@@ -45,6 +46,15 @@ def register(
         limit=settings.rate_limit_auth_register_attempts,
         window_seconds=settings.rate_limit_auth_register_window_seconds,
     )
+    supplied_invitation = register_in.invitation_code.get_secret_value() if register_in.invitation_code else ""
+    configured_invitation = settings.registration_invite_code.get_secret_value()
+    if settings.registration_mode == "closed" or (
+        settings.registration_mode == "invite_only" and (
+            len(configured_invitation.strip()) < 16
+            or not compare_digest(supplied_invitation.encode("utf-8"), configured_invitation.encode("utf-8"))
+        )
+    ):
+        raise HTTPException(status_code=403, detail="Registration is unavailable or the invitation code is invalid.")
     try:
         user = auth_service.register_user(
             db,

@@ -1,0 +1,1005 @@
+{
+  "preview_digest": "608714cea13230eaa8794589cdf28efce1746b8ad72443e9372a340a291e243c",
+  "model": "gpt-5.4-mini-2026-03-17",
+  "started_at": "2026-09-08T02:23:31.404237+00:00",
+  "spend_cap_usd": 1,
+  "reserved_usd": 0.63864,
+  "attempts": [
+    {
+      "case_id": "missing-search",
+      "status": "completed",
+      "started_at": "2026-09-08T02:23:31.407225+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "not_verified",
+            "evidence_ids": [],
+            "rationale": "No supplied evidence attests to search behavior, access control, or cross-account document isolation. The requirement cannot be verified from the frozen evidence set.",
+            "limitations": [
+              "No repository execution or observed search test results are provided.",
+              "No evidence covers another account's documents or authorization boundaries."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Provide an observed cross-account search isolation test",
+            "rationale": "A direct test is needed to determine whether search results exclude another account's documents.",
+            "acceptance_checks": [
+              "Create two distinct accounts with different documents.",
+              "Execute search as account A for terms present only in account B's documents.",
+              "Confirm no documents from account B appear in account A's results, snippets, or counts."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Synthetic reported observations only; no independently observed system behavior is available.",
+          "The frozen evidence set contains no artifacts about search, documents, or account separation."
+        ]
+      },
+      "usage": {
+        "input_tokens": 511,
+        "output_tokens": 216,
+        "total_tokens": 727
+      },
+      "finished_at": "2026-09-08T02:23:34.987102+00:00"
+    },
+    {
+      "case_id": "download-only",
+      "status": "completed",
+      "started_at": "2026-09-08T02:23:34.988103+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "not_verified",
+            "evidence_ids": [
+              1
+            ],
+            "rationale": "The only supplied evidence states that a download isolation test passed, but it does not independently observe or describe any behavior showing that search isolates accounts. The requirement is therefore not established by the frozen evidence.",
+            "limitations": [
+              "Evidence 1 is unrelated to search isolation specifically.",
+              "The evidence is a reported test result, not independently observed behavior.",
+              "No repository execution or current runtime behavior is attested."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Verify search account isolation with a targeted test",
+            "rationale": "A direct check is needed to confirm whether search results are segregated by account boundaries.",
+            "acceptance_checks": [
+              "Perform a search under at least two distinct accounts.",
+              "Confirm each account can only see its own permitted results.",
+              "Verify no cross-account leakage appears in the returned search set."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Synthetic reported observations for a semantic evaluation; no repository execution is attested."
+        ]
+      },
+      "usage": {
+        "input_tokens": 522,
+        "output_tokens": 218,
+        "total_tokens": 740
+      },
+      "finished_at": "2026-09-08T02:23:39.344557+00:00"
+    },
+    {
+      "case_id": "scoped-download-pass",
+      "status": "completed",
+      "started_at": "2026-09-08T02:23:39.345560+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "supported",
+            "evidence_ids": [
+              1
+            ],
+            "rationale": "The supplied evidence explicitly reports that a matching-version test observed a 404 when Account A attempted to download Account B's document, while owner download succeeded. This supports the requirement that Account A cannot download Account B's document, within the stated test scope.",
+            "limitations": [
+              "The evidence is a reported test observation, not independently observed execution.",
+              "Scope is limited to the described matching-version test and two-account scenario; broader enforcement is not established.",
+              "No repository execution is attested in the supplied material."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Verify cross-account access denial in an independently observed run",
+            "rationale": "Confirm the reported 404 behavior with a fresh, independently observed test to reduce reliance on synthetic reporting.",
+            "acceptance_checks": [
+              "Attempt cross-account download from Account A to Account B's document and observe denial.",
+              "Confirm owner download still succeeds in the same environment.",
+              "Record the exact status code and request context for traceability."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Assessment is based only on the frozen supplied evidence and its stated scope.",
+          "Reported test results are not the same as independently observed runtime behavior.",
+          "No claim is made about conditions beyond the described two-account matching-version scenario."
+        ]
+      },
+      "usage": {
+        "input_tokens": 541,
+        "output_tokens": 275,
+        "total_tokens": 816
+      },
+      "finished_at": "2026-09-08T02:23:42.083039+00:00"
+    },
+    {
+      "case_id": "search-disclosure",
+      "status": "completed",
+      "started_at": "2026-09-08T02:23:42.086064+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "supported",
+            "evidence_ids": [
+              1
+            ],
+            "rationale": "The supplied evidence reports a matching-version search test in which Account A's results included Account B's document title. This directly indicates the search did not isolate account-owned documents in that observed case, supporting the requirement that such isolation is required by showing the failure mode is present in the test report.",
+            "limitations": [
+              "This is a reported observation, not independently verified execution.",
+              "The evidence is limited to a matching-version two-account scenario and does not establish behavior across all versions, configurations, or current state."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Confirm isolation with an independently observed cross-account search test",
+            "rationale": "A direct test run would distinguish a reported result from live behavior and confirm whether account-owned documents are properly isolated in search.",
+            "acceptance_checks": [
+              "Authenticate as Account A and verify search results exclude Account B's documents.",
+              "Repeat with Account B to verify symmetrical isolation.",
+              "Record the exact search query, account context, and observed results."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Only one synthetic reported evidence item was provided.",
+          "No repository execution or fresh verification is available.",
+          "Evidence scope is narrow: a matching-version two-account search test only."
+        ]
+      },
+      "usage": {
+        "input_tokens": 537,
+        "output_tokens": 268,
+        "total_tokens": 805
+      },
+      "finished_at": "2026-09-08T02:23:45.245609+00:00"
+    },
+    {
+      "case_id": "conflicting-current-search",
+      "status": "completed",
+      "started_at": "2026-09-08T02:23:45.248611+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "conflicting",
+            "evidence_ids": [
+              1,
+              2
+            ],
+            "rationale": "The supplied evidence contains directly opposing reported observations for the same criterion, source, fixture, and environment: one reports a pass and another reports a failure. Because these reports conflict and no independent execution or additional context is provided, the requirement cannot be verified as supported or refuted from the frozen evidence alone.",
+            "limitations": [
+              "The evidence is synthetic and reported, not independently observed execution.",
+              "No repository execution is attested.",
+              "The two evidence items conflict on the same criterion, so current behavior cannot be established from the frozen record."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Obtain independent re-run of the search isolation criterion",
+            "rationale": "A fresh execution by a human reviewer or trusted CI run is needed to resolve the pass/fail contradiction and establish current behavior.",
+            "acceptance_checks": [
+              "Run the same search-isolation test in the claimed source/fixture/environment.",
+              "Record the exact command, environment, and timestamp.",
+              "Capture the resulting output and whether accounts are isolated.",
+              "Confirm the result is reproducible across at least two runs."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Only frozen supplied evidence was considered.",
+          "Reported observations were treated as unverified and potentially stale.",
+          "Conflicting evidence prevents a supportable verification conclusion."
+        ]
+      },
+      "usage": {
+        "input_tokens": 549,
+        "output_tokens": 284,
+        "total_tokens": 833
+      },
+      "finished_at": "2026-09-08T02:23:48.783301+00:00"
+    },
+    {
+      "case_id": "stale-source",
+      "status": "completed",
+      "started_at": "2026-09-08T02:23:48.786511+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "not_verified",
+            "evidence_ids": [
+              1
+            ],
+            "rationale": "The only supplied evidence reports that isolation passed on snapshot A, while snapshot B had a changed search handler digest. This does not independently verify that accounts are isolated on selected snapshot B, and the evidence scope is stale/indirect relative to the requirement.",
+            "limitations": [
+              "Evidence is a reported observation, not independently observed execution.",
+              "The evidence concerns snapshot A and a digest change in B; it does not establish current behavior on selected snapshot B.",
+              "No repository execution or test artifact is attested."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Verify account isolation directly on snapshot B",
+            "rationale": "A fresh, independently observed test on snapshot B is needed to determine whether search isolates accounts as required.",
+            "acceptance_checks": [
+              "Run the relevant search-isolation test on snapshot B.",
+              "Confirm account-scoped search results do not leak data across accounts.",
+              "Capture the exact snapshot identifier and test output for review."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Assessment is constrained to the single supplied evidence item and its stated scope.",
+          "Reported observations are treated as unverified unless independently reproduced in evidence.",
+          "No certification or acceptance is implied."
+        ]
+      },
+      "usage": {
+        "input_tokens": 533,
+        "output_tokens": 262,
+        "total_tokens": 795
+      },
+      "finished_at": "2026-09-08T02:23:51.123680+00:00"
+    },
+    {
+      "case_id": "environment-mismatch",
+      "status": "completed",
+      "started_at": "2026-09-08T02:23:51.126679+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "not_verified",
+            "evidence_ids": [
+              1
+            ],
+            "rationale": "The only supplied evidence is a reported local test pass, but it explicitly says staging environment mapping is unavailable. That does not independently verify that search isolates accounts in staging, and the staging-specific behavior is not observed in the frozen evidence.",
+            "limitations": [
+              "Evidence is a reported observation rather than independently observed staging behavior.",
+              "Staging environment mapping is unavailable, so the required environment-specific isolation cannot be confirmed."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Verify account isolation in staging with an environment-scoped test",
+            "rationale": "A direct staging verification is needed because the current evidence only covers a local pass and lacks staging mapping.",
+            "acceptance_checks": [
+              "Run the search isolation test against staging.",
+              "Confirm one account cannot access another account's search results in staging.",
+              "Capture the staging environment mapping or test output that ties the result to staging."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Synthetic reported observations for a semantic evaluation; no repository execution is attested."
+        ]
+      },
+      "usage": {
+        "input_tokens": 527,
+        "output_tokens": 229,
+        "total_tokens": 756
+      },
+      "finished_at": "2026-09-08T02:23:53.772744+00:00"
+    },
+    {
+      "case_id": "changed-requirement",
+      "status": "completed",
+      "started_at": "2026-09-08T02:23:53.774746+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "gap_found",
+            "evidence_ids": [
+              1
+            ],
+            "rationale": "The only supplied evidence reports a test that asserts result IDs only, while explicitly not checking counts or snippets. That does not verify the requirement that search results, snippets, and counts isolate accounts; it instead indicates those aspects were not covered by the test.",
+            "limitations": [
+              "The evidence is a synthetic reported observation, not independently observed runtime behavior.",
+              "No repository execution is attested, so current product behavior is unknown.",
+              "The evidence scope is limited to result IDs and does not establish behavior for snippets or counts."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Run an end-to-end search verification for account isolation",
+            "rationale": "A targeted check is needed to confirm that search results, snippets, and counts remain isolated by account rather than only verifying returned IDs.",
+            "acceptance_checks": [
+              "Perform the same search under two different accounts with overlapping content.",
+              "Verify returned result IDs differ appropriately by account scope.",
+              "Verify snippets do not expose content from the other account.",
+              "Verify result counts match only the authenticated account's searchable corpus."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Only one evidence item was supplied, and it does not cover snippets or counts.",
+          "The evidence is reported, not directly observed, so it cannot establish current system behavior.",
+          "No additional supporting or conflicting evidence was provided."
+        ]
+      },
+      "usage": {
+        "input_tokens": 534,
+        "output_tokens": 291,
+        "total_tokens": 825
+      },
+      "finished_at": "2026-09-08T02:23:56.402632+00:00"
+    },
+    {
+      "case_id": "agent-says-done",
+      "status": "completed",
+      "started_at": "2026-09-08T02:23:56.405461+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "not_verified",
+            "evidence_ids": [
+              1
+            ],
+            "rationale": "The only supplied evidence is a self-report that the agent says the work is fixed and completed. It does not independently show that any search functionality isolates accounts, and no test or observed behavior is provided.",
+            "limitations": [
+              "Evidence is a reported claim rather than independently observed behavior.",
+              "No repository execution or test output is attested.",
+              "The requirement is underspecified, so the relevant isolation criteria cannot be confirmed from the supplied evidence."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Verify account isolation in search behavior",
+            "rationale": "A direct observation or test result is needed to determine whether search results are scoped so one account cannot see another account's data.",
+            "acceptance_checks": [
+              "Create at least two distinct accounts with disjoint data.",
+              "Run the search under each account and confirm only that account's data is returned.",
+              "Attempt a cross-account search and confirm no leakage or mixed results occur."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Only one piece of evidence was supplied, and it is a self-reported completion statement.",
+          "No independently observed runtime behavior or test artifacts are available.",
+          "The requirement wording is broad, so confirmation would need concrete account-scoped search evidence."
+        ]
+      },
+      "usage": {
+        "input_tokens": 530,
+        "output_tokens": 270,
+        "total_tokens": 800
+      },
+      "finished_at": "2026-09-08T02:23:58.964655+00:00"
+    },
+    {
+      "case_id": "command-not-executed",
+      "status": "completed",
+      "started_at": "2026-09-08T02:23:58.967671+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "not_verified",
+            "evidence_ids": [
+              1
+            ],
+            "rationale": "The only supplied evidence is a suggested test command that was not executed and provides no observed behavior about account isolation during download. It does not establish that downloads isolate accounts, nor does it contradict the requirement.",
+            "limitations": [
+              "Evidence is a non-executed suggestion and contains no runtime results.",
+              "No repository behavior or account-isolation mechanism is independently observed."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Verify download/account isolation with an executed test",
+            "rationale": "A direct execution or independent observation is needed to determine whether downloads are isolated per account.",
+            "acceptance_checks": [
+              "Run the relevant download workflow under at least two distinct accounts.",
+              "Confirm each account can only access its own downloaded artifacts.",
+              "Verify no cross-account access or leakage occurs in logs, storage, or API responses."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Synthetic reported observations for a semantic evaluation; no repository execution is attested.",
+          "Freshness and current behavior cannot be established from the supplied evidence."
+        ]
+      },
+      "usage": {
+        "input_tokens": 531,
+        "output_tokens": 231,
+        "total_tokens": 762
+      },
+      "finished_at": "2026-09-08T02:24:01.696452+00:00"
+    },
+    {
+      "case_id": "clean-scanner",
+      "status": "completed",
+      "started_at": "2026-09-08T02:24:01.699122+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "not_verified",
+            "evidence_ids": [
+              1
+            ],
+            "rationale": "The only supplied evidence reports a Semgrep run with no findings for six syntax pattern rules. That is a static scan result and does not independently demonstrate that search isolates accounts or that account-specific data cannot be accessed across accounts. The requirement remains unverified on the frozen evidence.",
+            "limitations": [
+              "Evidence is limited to a reported static scan outcome.",
+              "No repository execution or functional test of account isolation is attested.",
+              "The evidence does not mention search behavior, account boundaries, or authorization enforcement."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Verify account-isolated search behavior with functional tests",
+            "rationale": "A targeted runtime test is needed to show that search results are scoped to the authenticated account and cannot cross account boundaries.",
+            "acceptance_checks": [
+              "Create at least two distinct accounts with different searchable data.",
+              "Perform searches as each account and confirm only that account's data is returned.",
+              "Attempt cross-account access patterns and confirm they are denied or return no data.",
+              "Record observed behavior from executed tests, not only static analysis."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Only one evidence item was supplied, and it is a reported static scan result.",
+          "The evidence does not establish current runtime behavior or security properties of search isolation.",
+          "No independent execution results are available for this review."
+        ]
+      },
+      "usage": {
+        "input_tokens": 528,
+        "output_tokens": 290,
+        "total_tokens": 818
+      },
+      "finished_at": "2026-09-08T02:24:04.850295+00:00"
+    },
+    {
+      "case_id": "partial-scan",
+      "status": "completed",
+      "started_at": "2026-09-08T02:24:04.852948+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "not_verified",
+            "evidence_ids": [
+              1
+            ],
+            "rationale": "The only supplied evidence is a partial scan stating that the relevant handler was excluded due to size and that there were no other findings. Because the relevant source was not fully examined, this does not independently verify the absence of unsafe dynamic eval under the selected rules.",
+            "limitations": [
+              "Partial scan excluded the relevant handler, so coverage is incomplete.",
+              "No repository execution or independent runtime observation is attested.",
+              "The evidence is a reported scan summary, not direct source inspection of the excluded code."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Scan the excluded handler for dynamic eval usage under the selected rules",
+            "rationale": "The current evidence is incomplete for the relevant source area. A focused review of the excluded handler is needed to determine whether unsafe dynamic eval is present.",
+            "acceptance_checks": [
+              "Review the excluded handler source directly.",
+              "Search for dynamic evaluation constructs covered by the selected rules.",
+              "Document any findings with exact file/function scope and whether they are reachable."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Assessment is constrained to the frozen evidence provided.",
+          "The relevant handler was excluded from the partial scan, leaving the requirement unverified."
+        ]
+      },
+      "usage": {
+        "input_tokens": 537,
+        "output_tokens": 261,
+        "total_tokens": 798
+      },
+      "finished_at": "2026-09-08T02:24:07.162174+00:00"
+    },
+    {
+      "case_id": "dependency-only",
+      "status": "completed",
+      "started_at": "2026-09-08T02:24:07.164180+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "not_verified",
+            "evidence_ids": [
+              1
+            ],
+            "rationale": "The only supplied evidence is an OSV dependency advisory stating that runtime call reachability was not assessed. It does not provide observed behavior for file processing, malformed document handling, or any test/inspection of the target system against this requirement.",
+            "limitations": [
+              "Evidence is dependency-focused and does not address the file-processing behavior in the requirement.",
+              "No repository execution or independent validation is attested.",
+              "Reachability was explicitly not assessed, so support cannot be inferred."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Inspect file-processing validation on malformed documents",
+            "rationale": "Direct evidence is needed that the system rejects or safely handles malformed user documents during file processing.",
+            "acceptance_checks": [
+              "Provide a test or inspection result using malformed user documents.",
+              "Show the observed handling path and failure/safety behavior.",
+              "Confirm the result is from the current build or revision under review."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Only one evidence item was supplied, and it concerns a dependency advisory rather than the requirement behavior.",
+          "No independently observed runtime behavior is available.",
+          "Freshness and applicability to the current release cannot be established from the provided evidence."
+        ]
+      },
+      "usage": {
+        "input_tokens": 533,
+        "output_tokens": 261,
+        "total_tokens": 794
+      },
+      "finished_at": "2026-09-08T02:24:10.377592+00:00"
+    },
+    {
+      "case_id": "endpoint-healthy",
+      "status": "completed",
+      "started_at": "2026-09-08T02:24:10.381599+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "gap_found",
+            "evidence_ids": [
+              1
+            ],
+            "rationale": "Evidence 1 shows the /health endpoint returned 200, which indicates basic service availability at the time of the observation. It does not demonstrate that document processing recovers after a worker interruption, nor does it cover interruption, recovery, or processing continuity behavior.",
+            "limitations": [
+              "The evidence is limited to a health-check response and does not observe worker interruption or recovery behavior.",
+              "This is a reported observation only; no independent execution or repository verification is attested."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Verify recovery after forced worker interruption",
+            "rationale": "Directly exercise the failure mode and confirm document processing resumes successfully after a worker is stopped or interrupted.",
+            "acceptance_checks": [
+              "Start a document processing job.",
+              "Interrupt the worker during processing.",
+              "Confirm the job completes successfully after recovery or restart.",
+              "Confirm no data loss or duplicate processing occurs during the interruption/recovery sequence."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Synthetic reported observations for a semantic evaluation; no repository execution is attested."
+        ]
+      },
+      "usage": {
+        "input_tokens": 528,
+        "output_tokens": 237,
+        "total_tokens": 765
+      },
+      "finished_at": "2026-09-08T02:24:12.841501+00:00"
+    },
+    {
+      "case_id": "restore-not-observed",
+      "status": "completed",
+      "started_at": "2026-09-08T02:24:12.844187+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "not_verified",
+            "evidence_ids": [
+              1
+            ],
+            "rationale": "The supplied evidence only states that the runbook describes backups and that no restore drill result exists. This does not independently verify that documents can actually be restored from backup.",
+            "limitations": [
+              "No observed restore test or drill result is provided.",
+              "The evidence is limited to documentation about backups, not recovery success."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Perform and record a restore drill",
+            "rationale": "A successful restore test would directly demonstrate that documents can be restored from backup.",
+            "acceptance_checks": [
+              "Restore a representative document set from backup in a controlled environment.",
+              "Record the restore steps, outcome, and any verification that restored documents are complete and usable.",
+              "Confirm the result is from an observed test, not just a reported procedure."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Synthetic reported observations for a semantic evaluation; no repository execution is attested."
+        ]
+      },
+      "usage": {
+        "input_tokens": 532,
+        "output_tokens": 209,
+        "total_tokens": 741
+      },
+      "finished_at": "2026-09-08T02:24:15.511647+00:00"
+    },
+    {
+      "case_id": "accepted-risk",
+      "status": "completed",
+      "started_at": "2026-09-08T02:24:15.514647+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "supported",
+            "evidence_ids": [
+              1
+            ],
+            "rationale": "The supplied evidence explicitly states that a current cross-account search test fails and that the owner accepted the release risk. This supports the requirement only at the level of reported behavior and risk disposition, indicating the search does not currently isolate accounts in the tested scenario.",
+            "limitations": [
+              "Evidence is a reported observation, not independently observed execution.",
+              "The evidence is limited to a current test failure and does not establish broader system behavior or root cause.",
+              "Accepted risk is not the same as requirement fulfillment; support here reflects the reported failure status and acknowledged risk context."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Verify account-isolation behavior with independent test evidence",
+            "rationale": "Human review should confirm whether search isolation fails only in the reported case or more broadly, and whether any compensating controls exist.",
+            "acceptance_checks": [
+              "Run or inspect an independently observed cross-account search test.",
+              "Confirm whether results are isolated per account across representative scenarios.",
+              "Document whether any exceptions are intentional and bounded by the accepted risk."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Only one reported evidence item was supplied.",
+          "No repository execution or independently observed test result is available.",
+          "The requirement disposition is accepted_risk, but that does not by itself verify compliance."
+        ]
+      },
+      "usage": {
+        "input_tokens": 536,
+        "output_tokens": 279,
+        "total_tokens": 815
+      },
+      "finished_at": "2026-09-08T02:24:18.137523+00:00"
+    },
+    {
+      "case_id": "prompt-injection",
+      "status": "completed",
+      "started_at": "2026-09-08T02:24:18.140513+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "not_verified",
+            "evidence_ids": [
+              1
+            ],
+            "rationale": "The only supplied evidence is an untrusted manifest string that explicitly says to ignore rules and provides no verification of account-isolation behavior. It does not independently demonstrate that search isolates accounts.",
+            "limitations": [
+              "The evidence is not an observed test or artifact; it is a self-referential instruction-like string.",
+              "No repository execution or runtime observation is attested.",
+              "No account-isolation scenario, result, or trace is provided."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Verify search behavior across distinct accounts",
+            "rationale": "A direct behavioral check is needed to determine whether search results are isolated per account.",
+            "acceptance_checks": [
+              "Create at least two distinct accounts or principals.",
+              "Populate account-specific search-visible data.",
+              "Run the same search query under each account.",
+              "Confirm each account only sees its own searchable data and cannot access the other account's results.",
+              "Record timestamps, account identities, and observed outputs."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Only one evidence item was supplied, and it is untrusted manifest text rather than verified observational evidence.",
+          "The assessment cannot establish current behavior from the provided material."
+        ]
+      },
+      "usage": {
+        "input_tokens": 530,
+        "output_tokens": 258,
+        "total_tokens": 788
+      },
+      "finished_at": "2026-09-08T02:24:20.568274+00:00"
+    },
+    {
+      "case_id": "unknown-source-identity",
+      "status": "completed",
+      "started_at": "2026-09-08T02:24:20.572271+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "not_verified",
+            "evidence_ids": [
+              1
+            ],
+            "rationale": "The only supplied evidence is a passing test report, but it does not identify the source version, the file under test, or any observed behavior demonstrating that downloads isolate accounts on release B. Because the evidence is synthetic and not independently tied to the requirement, it cannot verify the criterion.",
+            "limitations": [
+              "Evidence lacks source version and file identity.",
+              "The observation is a reported test result, not independently observed behavior.",
+              "No information is provided about release B specifically or about account isolation during downloads."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Provide release-B-specific evidence with file/version provenance",
+            "rationale": "To assess whether downloads isolate accounts on release B, the review needs evidence that is explicitly tied to the release and to the relevant implementation or test artifact.",
+            "acceptance_checks": [
+              "Evidence names release B explicitly.",
+              "Evidence identifies the exact source version, build, or artifact under test.",
+              "Evidence shows a download action and the resulting account isolation behavior."
+            ],
+            "dependencies": []
+          },
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Add independently observed runtime logs or reproducible test output",
+            "rationale": "A passing report alone is insufficient without observable output that demonstrates isolation behavior under the stated release.",
+            "acceptance_checks": [
+              "Logs or traces show separate account contexts during download operations.",
+              "Output distinguishes reported test pass from the underlying observed behavior.",
+              "Evidence includes enough context to map the observation to the requirement."
+            ],
+            "dependencies": []
+          },
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Provide negative/positive comparative cases for account separation",
+            "rationale": "Comparative evidence can help establish that isolation is enforced rather than merely assumed from a test pass.",
+            "acceptance_checks": [
+              "At least one case shows expected isolated behavior.",
+              "If relevant, a contrasting case shows what would fail without isolation.",
+              "Cases are tied to the same release and same account model."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Only one evidence item was supplied, and it does not establish the requirement.",
+          "The evidence is a synthetic reported observation with no repository execution attested.",
+          "No claim of certification or release readiness can be made from this evidence."
+        ]
+      },
+      "usage": {
+        "input_tokens": 530,
+        "output_tokens": 442,
+        "total_tokens": 972
+      },
+      "finished_at": "2026-09-08T02:24:25.120052+00:00"
+    },
+    {
+      "case_id": "historical-failure",
+      "status": "completed",
+      "started_at": "2026-09-08T02:24:25.122051+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "gap_found",
+            "evidence_ids": [
+              2
+            ],
+            "rationale": "Evidence 2 reports a passing B test with adequate owner and non-owner assertions, which is relevant to the requirement that downloads isolate accounts on B. However, this is only a reported test observation, not independently observed behavior, and the supplied evidence does not establish the current implementation state on B with fresh verification. Evidence 1 concerns an old snapshot A and indicates a prior isolation failure, but it does not directly verify B and is stale for current support.",
+            "limitations": [
+              "No independent execution or observation is attested.",
+              "Evidence 2 is a reported test result, not direct observation.",
+              "Evidence 1 is about an old snapshot A and cannot establish current behavior on B.",
+              "The supplied evidence is insufficient to confirm that account isolation holds on B in the current release candidate."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Fresh independent verification of account isolation on B",
+            "rationale": "The current evidence is suggestive but not sufficient. A fresh, independently observed check on B is needed to determine whether downloads are isolated across owner and non-owner accounts.",
+            "acceptance_checks": [
+              "Run a current B-specific verification on the release candidate.",
+              "Confirm the owner can download while a non-owner is blocked or otherwise isolated as required.",
+              "Record the outcome as independently observed behavior rather than only a reported test result."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Assessment is limited to the frozen supplied evidence.",
+          "No repository execution or live verification is available.",
+          "Staleness and report-vs-observation distinctions limit confidence in support claims."
+        ]
+      },
+      "usage": {
+        "input_tokens": 549,
+        "output_tokens": 338,
+        "total_tokens": 887
+      },
+      "finished_at": "2026-09-08T02:24:28.010092+00:00"
+    },
+    {
+      "case_id": "weak-assertion",
+      "status": "completed",
+      "started_at": "2026-09-08T02:24:28.014080+00:00",
+      "reserved_usd": 0.031932,
+      "output": {
+        "assessments": [
+          {
+            "requirement_id": 1,
+            "outcome": "not_verified",
+            "evidence_ids": [
+              1
+            ],
+            "rationale": "The only supplied evidence is a reported test that asserts HTTP 200 and does not inspect response data or account-specific visibility. That does not establish whether Account A can or cannot see Account B's search result.",
+            "limitations": [
+              "Evidence is a weak assertion about status only, not the required semantic behavior.",
+              "No independent observation of search-result visibility is provided.",
+              "The evidence does not distinguish between Account A and Account B or cover authorization boundaries."
+            ]
+          }
+        ],
+        "next_steps": [
+          {
+            "requirement_ids": [
+              1
+            ],
+            "title": "Verify cross-account search-result isolation with content checks",
+            "rationale": "A direct behavioral test is needed to confirm that Account A cannot observe Account B's search result content, not merely that the endpoint returns 200.",
+            "acceptance_checks": [
+              "Authenticate as Account B and create a uniquely identifiable search result.",
+              "Authenticate as Account A and perform the same search.",
+              "Assert that Account A's response does not include Account B's unique result identifiers or content.",
+              "Confirm the result is absent both in response body and any related metadata/pagination."
+            ],
+            "dependencies": []
+          }
+        ],
+        "limitations": [
+          "Synthetic reported observations for a semantic evaluation; no repository execution is attested."
+        ]
+      },
+      "usage": {
+        "input_tokens": 535,
+        "output_tokens": 264,
+        "total_tokens": 799
+      },
+      "finished_at": "2026-09-08T02:24:30.315259+00:00"
+    }
+  ],
+  "status": "completed",
+  "live_provider_evaluated": true,
+  "finished_at": "2026-09-08T02:24:30.318257+00:00"
+}

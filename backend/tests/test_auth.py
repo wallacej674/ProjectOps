@@ -185,3 +185,42 @@ def test_change_password_without_token_returns_401(client):
     )
 
     assert response.status_code == 401
+
+
+def test_invite_only_registration_rejects_missing_and_wrong_code_before_account_creation(client, monkeypatch):
+    from pydantic import SecretStr
+    from app.core.config import get_settings
+
+    settings = get_settings()
+    monkeypatch.setattr(settings, "registration_mode", "invite_only", raising=False)
+    monkeypatch.setattr(settings, "registration_invite_code", SecretStr("synthetic-beta-invitation"), raising=False)
+    payload = {"email": "beta@example.com", "password": "synthetic-password"}
+    missing = client.post("/api/v1/auth/register", json=payload)
+    wrong = client.post("/api/v1/auth/register", json={**payload, "invitation_code": "wrong"})
+    assert missing.status_code == wrong.status_code == 403
+    assert missing.json() == wrong.json()
+    assert login_user(client, email=payload["email"], password=payload["password"]).status_code == 401
+    accepted = client.post("/api/v1/auth/register", json={**payload, "invitation_code": "synthetic-beta-invitation"})
+    assert accepted.status_code == 201
+
+
+def test_closed_registration_preserves_existing_login(client, monkeypatch):
+    from app.core.config import get_settings
+
+    assert register_user(client).status_code == 201
+    monkeypatch.setattr(get_settings(), "registration_mode", "closed")
+    assert register_user(client, email="new@example.com").status_code == 403
+    assert login_user(client).status_code == 200
+
+
+def test_invite_only_registration_with_no_configured_code_fails_closed(client, monkeypatch):
+    from pydantic import SecretStr
+    from app.core.config import get_settings
+
+    monkeypatch.setattr(get_settings(), "registration_mode", "invite_only")
+    monkeypatch.setattr(get_settings(), "registration_invite_code", SecretStr(""))
+    payload = {"email": "uninvited@example.com", "password": "synthetic-password", "invitation_code": ""}
+    response = client.post("/api/v1/auth/register", json=payload)
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Registration is unavailable or the invitation code is invalid."
+    assert login_user(client, email=payload["email"], password=payload["password"]).status_code == 401

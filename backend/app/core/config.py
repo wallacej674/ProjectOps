@@ -1,5 +1,5 @@
 from functools import lru_cache
-from typing import ClassVar
+from typing import ClassVar, Literal
 
 from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     sentry_dsn: str = ""
     sentry_environment: str = ""
     auth_secret_key: str = DEVELOPMENT_AUTH_SECRET
+    registration_mode: Literal["open", "invite_only", "closed"] = "open"
+    registration_invite_code: SecretStr = Field(default=SecretStr(""), repr=False, exclude=True)
     access_token_expire_minutes: int = 60
     auth_token_algorithm: str = "HS256"
     rate_limit_auth_login_attempts: int = 5
@@ -86,6 +88,8 @@ class Settings(BaseSettings):
         return origins
 
     def validate_auth_settings(self) -> None:
+        if self.registration_mode == "invite_only" and len(self.registration_invite_code.get_secret_value().strip()) < 16:
+            raise ValueError("Invite-only registration requires an invitation code of at least 16 characters.")
         if self.access_token_expire_minutes <= 0:
             raise ValueError("PROJECTOPS_ACCESS_TOKEN_EXPIRE_MINUTES must be greater than zero.")
         if self.environment.lower() in {"production", "prod"} and (

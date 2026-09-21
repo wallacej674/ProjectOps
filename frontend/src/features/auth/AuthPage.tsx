@@ -18,6 +18,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
   const [email, setEmail] = useState("");
   const [displayName, setDisplayName] = useState("");
   const [password, setPassword] = useState("");
+  const [invitationCode, setInvitationCode] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const isRegister = mode === "register";
@@ -28,7 +29,7 @@ export function AuthPage({ mode }: { mode: Mode }) {
     setPending(true);
     try {
       if (isRegister) {
-        await auth.register({ email, password, display_name: displayName });
+        await auth.register({ email, password, display_name: displayName, invitation_code: invitationCode || undefined });
       } else {
         await auth.login({ email, password });
       }
@@ -71,6 +72,13 @@ export function AuthPage({ mode }: { mode: Mode }) {
             <label htmlFor="auth-password">Password</label>
             <input id="auth-password" name="password" type="password" autoComplete={isRegister ? "new-password" : "current-password"} value={password} onChange={(event) => setPassword(event.target.value)} aria-describedby={error ? "auth-error" : undefined} required />
           </div>
+          {isRegister && (
+            <div className="field">
+              <label htmlFor="auth-invitation-code">Beta invitation code</label>
+              <input id="auth-invitation-code" name="invitation_code" type="password" autoComplete="off" maxLength={256} value={invitationCode} onChange={(event) => setInvitationCode(event.target.value)} aria-describedby="auth-invitation-help" />
+              <small id="auth-invitation-help">Enter the code from your invitation. Leave blank for open registration.</small>
+            </div>
+          )}
           {error && (
             <p className="error-text" role="alert" id="auth-error">
               {error}

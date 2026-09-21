@@ -93,3 +93,22 @@ describe("auth routes", () => {
     expect(window.location.pathname).toBe("/app/overview");
   });
 });
+
+it("submits a masked beta invitation code and displays admission errors", async () => {
+  const user = userEvent.setup();
+  const fetchMock = vi.fn(async () => json({ detail: "Registration is unavailable or the invitation code is invalid." }, 403));
+  vi.stubGlobal("fetch", fetchMock);
+  go("/register");
+  render(<App />);
+  const invitation = screen.getByLabelText("Beta invitation code");
+  expect(invitation).toHaveAttribute("type", "password");
+  await user.type(screen.getByLabelText("Email"), "beta@example.com");
+  await user.type(screen.getByLabelText("Password"), "synthetic-password");
+  await user.type(invitation, "synthetic-beta-code");
+  await user.click(screen.getByRole("button", { name: "Create account" }));
+  expect(await screen.findByRole("alert")).toHaveTextContent("invitation code is invalid");
+  expect(fetchMock).toHaveBeenCalledWith(expect.stringContaining("/auth/register"), expect.objectContaining({
+    body: JSON.stringify({ email: "beta@example.com", password: "synthetic-password", display_name: "", invitation_code: "synthetic-beta-code" }),
+  }));
+  expect(localStorage.getItem("projectops.auth.token")).toBeNull();
+});

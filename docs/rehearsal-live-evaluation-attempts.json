@@ -1,0 +1,11 @@
+{
+  "preview_digest": "608714cea13230eaa8794589cdf28efce1746b8ad72443e9372a340a291e243c",
+  "model": "gpt-5.4-mini-2026-03-17",
+  "started_at": "2026-09-08T02:22:54.349346+00:00",
+  "spend_cap_usd": 1,
+  "reserved_usd": 0,
+  "attempts": [],
+  "status": "stopped_before_dispatch",
+  "live_provider_evaluated": false,
+  "reason": "Local journal replacement failed before provider invocation; completed run is in rehearsal-live-evaluation-results.json."
+}
