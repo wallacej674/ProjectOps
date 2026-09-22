@@ -853,3 +853,10 @@
 .health-alerts .history-list > li { padding: 1rem 0; }
 .health-alerts button { margin: .25rem .25rem .25rem 0; }
 .health-alerts section[aria-label] { margin-top: 1rem; padding: .75rem; border: 1px solid var(--border); border-radius: .5rem; }
+.status-page-public { max-width: 760px; }
+.status-page-header { margin-bottom: 24px; }
+.status-page-footnote { margin-top: 24px; }
+.status-page-link { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--border); display: grid; gap: 8px; }
+.status-page-settings { display: grid; gap: 16px; }
+.status-page-badge { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); display: grid; gap: 8px; }
+.status-page-badge-markdown { overflow-wrap: anywhere; }

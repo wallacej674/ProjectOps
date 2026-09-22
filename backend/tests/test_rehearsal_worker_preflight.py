@@ -30,7 +30,7 @@ def test_worker_preflight_waits_for_exact_schema_head_without_applying_migration
     db.commit()
     assert check().returncode == 1
     assert db.scalar(text('SELECT version_num FROM alembic_version')) == '0017_release_workspace'
-    db.execute(text("UPDATE alembic_version SET version_num='0022_ci_evidence'"))
+    db.execute(text("UPDATE alembic_version SET version_num='0023_project_status_pages'"))
     db.commit()
     ready = check()
     assert ready.returncode == 0, ready.stderr

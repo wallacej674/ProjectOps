@@ -15,6 +15,7 @@ import { EditProjectPage } from "../features/projects/pages/EditProjectPage";
 import { ProjectDetailPage } from "../features/projects/pages/ProjectDetailPage";
 import { ProjectsPage } from "../features/projects/pages/ProjectsPage";
 import { GitHubAppCallbackPage } from "../features/projects/pages/GitHubAppCallbackPage";
+import { StatusPage } from "../features/statusPage/StatusPage";
 
 /** Top-level route map for ProjectOps. */
 export function AppRouter() {
@@ -26,6 +27,7 @@ export function AppRouter() {
             <Route path="/" element={<LandingPage />} />
             <Route path="/login" element={<PublicOnlyRoute><AuthPage mode="login" /></PublicOnlyRoute>} />
             <Route path="/register" element={<PublicOnlyRoute><AuthPage mode="register" /></PublicOnlyRoute>} />
+            <Route path="/status/:slug" element={<StatusPage />} />
             <Route path="/app" element={<ProtectedRoute><Navigate to="/app/overview" replace /></ProtectedRoute>} />
             <Route path="/app/overview" element={<ProtectedRoute><OverviewPage /></ProtectedRoute>} />
             <Route path="/app/health" element={<ProtectedRoute><HealthMonitoringPage /></ProtectedRoute>} />

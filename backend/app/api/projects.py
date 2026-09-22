@@ -14,6 +14,7 @@ from app.schemas.health_check import HealthCheckRead, HealthCheckRunRequest
 from app.schemas.health_monitor_schedule import HealthMonitorScheduleRead, HealthMonitorScheduleUpdate
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
 from app.schemas.project_activity import ProjectActivityEventRead
+from app.schemas.project_status_page import ProjectStatusPageRead, ProjectStatusPageUpdate
 from app.schemas.project_artifact import ProjectArtifactCreate, ProjectArtifactRead, ProjectArtifactUpdate
 from app.schemas.repo_analysis import RepoAnalysisRead
 from app.schemas.repo_integration import RepoIntegrationCreate, RepoIntegrationRead
@@ -49,6 +50,10 @@ from app.services.health_checks import (
 from app.services.health_monitor_schedules import (
     HealthMonitorScheduleValidationError,
     health_monitor_schedule_service,
+)
+from app.services.project_status_pages import (
+    ProjectStatusPageValidationError,
+    project_status_page_service,
 )
 from app.services.url_validator import HealthCheckUrlSafetyError
 from app.services.projects import ProjectNotFoundError, project_service
@@ -102,6 +107,10 @@ def _ci_status_not_found(error: CiStatusNotFoundError) -> HTTPException:
 
 
 def _ci_monitor_validation_error(error: CiStatusMonitorScheduleValidationError) -> HTTPException:
+    return HTTPException(status_code=422, detail=str(error))
+
+
+def _status_page_validation_error(error: ProjectStatusPageValidationError) -> HTTPException:
     return HTTPException(status_code=422, detail=str(error))
 
 
@@ -534,6 +543,63 @@ def pause_project_ci_monitor(
         return ci_status_monitor_schedule_service.pause_for_project(db, project_id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
+
+
+@router.get("/{project_id}/status-page", response_model=ProjectStatusPageRead)
+def get_project_status_page(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ProjectStatusPageRead:
+    try:
+        _ensure_owned_project(db, project_id, current_user)
+        return project_status_page_service.get_for_project(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+
+
+@router.put("/{project_id}/status-page", response_model=ProjectStatusPageRead)
+def update_project_status_page(
+    project_id: int,
+    update: ProjectStatusPageUpdate,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ProjectStatusPageRead:
+    try:
+        _ensure_owned_project(db, project_id, current_user)
+        return project_status_page_service.update_for_project(db, project_id, update)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+    except ProjectStatusPageValidationError as error:
+        raise _status_page_validation_error(error) from error
+
+
+@router.delete("/{project_id}/status-page", response_model=ProjectStatusPageRead)
+def pause_project_status_page(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ProjectStatusPageRead:
+    try:
+        _ensure_owned_project(db, project_id, current_user)
+        return project_status_page_service.pause_for_project(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+
+
+@router.post("/{project_id}/status-page/rotate-slug", response_model=ProjectStatusPageRead)
+def rotate_project_status_page_slug(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ProjectStatusPageRead:
+    try:
+        _ensure_owned_project(db, project_id, current_user)
+        return project_status_page_service.rotate_slug_for_project(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+    except ProjectStatusPageValidationError as error:
+        raise _status_page_validation_error(error) from error
 
 
 @router.post("/{project_id}/artifacts", response_model=ProjectArtifactRead, status_code=status.HTTP_201_CREATED)

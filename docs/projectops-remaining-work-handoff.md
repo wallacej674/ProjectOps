@@ -28,6 +28,7 @@ ProjectOps is a working single-user-owner project command center with:
 - Manual and scheduled Health Checks. Scheduled checks support 15-minute,
   hourly, 6-hour, and daily cadences through a Render cron worker.
 - In-app Health Alerts with acknowledgement, evidence, recovery, and monitoring-overdue warnings.
+- Public Status Page: opt-in, per-Project page at an unguessable link showing current Health Check status, bounded recent history, and any active alert. Owner-controlled publish/unpublish and link rotation; not an uptime guarantee. Also exposes an embeddable SVG status badge (`/api/v1/public/status-pages/{slug}/badge.svg`) that always returns a valid image, even for a disabled or unknown slug.
 - CI Build Status: manual and scheduled GitHub Actions run tracking for GitHub App-connected repositories, selectable as Release Rehearsal readiness evidence (same evidence pattern as Health Checks). Requires the GitHub App's Actions read permission; installations created before that permission existed need to re-authorize, or `/ci-status/sync` returns `needs_reauthorization`.
 - Advisory project-level Production Readiness evaluation and manual review items.
 - Local Code Risk Review with scan evidence, human review, work items, and OpenAI explanation runtime configured through backend `OPENAI_API_KEY`; live model evaluation and source excerpts remain outstanding.
@@ -145,7 +146,7 @@ DataForge document processing and Deployment Operations provider integrations ar
 ### Health checking
 
 - The real HTTP client now uses bounded streaming. Continue preserving URL safety and response limits.
-- Scheduled monitoring now has in-app alerts; external delivery, uptime SLA, incident management, and public status pages remain future work.
+- Scheduled monitoring now has in-app alerts and a per-Project Public Status Page (current status, bounded recent history, active alert); external alert delivery, uptime SLA, and incident management remain future work.
 - Add worker-level metrics and alerting before depending on the scheduler for
   operational paging.
 
@@ -192,7 +193,7 @@ DataForge document processing and Deployment Operations provider integrations ar
 - Password reset, email verification, refresh tokens, and OAuth login.
 - GitHub webhooks or automatic repository synchronization.
 - General-purpose job queues or workflow orchestration.
-- External health alert delivery, incident management, uptime percentages, or status pages.
+- External health alert delivery, incident management, or uptime percentages/SLA. A Public Status Page (current status, bounded history, active alert) is implemented; see Health checking above.
 - File uploads, OCR, document processing, embeddings, or semantic search.
 - Release-specific AI assessment workflows, automatic next-step planning, and agent context/result exchange. Finding-level OpenAI explanation wiring exists; live evaluation is outstanding.
 - Compliance certification or guaranteed production readiness.

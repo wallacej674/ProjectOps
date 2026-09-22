@@ -30,6 +30,10 @@ def _settings(**overrides) -> Settings:
         rate_limit_codemap_run_window_seconds=overrides.get("codemap_window", 300),
         rate_limit_health_check_run_attempts=overrides.get("health_attempts", 50),
         rate_limit_health_check_run_window_seconds=overrides.get("health_window", 300),
+        rate_limit_public_status_view_attempts=overrides.get("public_status_attempts", 50),
+        rate_limit_public_status_view_window_seconds=overrides.get("public_status_window", 60),
+        rate_limit_public_status_badge_attempts=overrides.get("public_status_badge_attempts", 50),
+        rate_limit_public_status_badge_window_seconds=overrides.get("public_status_badge_window", 60),
     )
 
 
@@ -177,4 +181,48 @@ def test_health_check_run_rate_limit_is_per_user_project(client, monkeypatch):
         health_check_service.http_client = None
 
     assert first_response.status_code == 201
+    assert second_response.status_code == 429
+
+
+def test_public_status_view_rate_limit_is_per_ip(client):
+    token = _register(client, "status-owner@example.com")
+    project = _create_project(client, token)
+    enabled = client.put(
+        f"/api/v1/projects/{project['id']}/status-page",
+        headers=_headers(token),
+        json={"enabled": True, "label": None},
+    )
+    assert enabled.status_code == 200
+    slug = enabled.json()["slug"]
+
+    app.dependency_overrides[get_settings] = lambda: _settings(public_status_attempts=1)
+    try:
+        first_response = client.get(f"/api/v1/public/status-pages/{slug}")
+        second_response = client.get(f"/api/v1/public/status-pages/{slug}")
+    finally:
+        app.dependency_overrides.pop(get_settings, None)
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 429
+
+
+def test_public_status_badge_rate_limit_is_per_ip(client):
+    token = _register(client, "badge-owner@example.com")
+    project = _create_project(client, token)
+    enabled = client.put(
+        f"/api/v1/projects/{project['id']}/status-page",
+        headers=_headers(token),
+        json={"enabled": True, "label": None},
+    )
+    assert enabled.status_code == 200
+    slug = enabled.json()["slug"]
+
+    app.dependency_overrides[get_settings] = lambda: _settings(public_status_badge_attempts=1)
+    try:
+        first_response = client.get(f"/api/v1/public/status-pages/{slug}/badge.svg")
+        second_response = client.get(f"/api/v1/public/status-pages/{slug}/badge.svg")
+    finally:
+        app.dependency_overrides.pop(get_settings, None)
+
+    assert first_response.status_code == 200
     assert second_response.status_code == 429

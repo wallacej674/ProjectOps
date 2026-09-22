@@ -4,6 +4,7 @@ from app.models.health_check import HealthCheck, HealthCheckExecutionSource, Hea
 from app.models.health_alert import HealthAlert, HealthAlertEvidence
 from app.models.health_monitor_schedule import HealthMonitorSchedule
 from app.models.project import Project, ProjectStatus
+from app.models.project_status_page import ProjectStatusPage
 from app.models.project_activity import (
     ProjectActivityCategory,
     ProjectActivityEvent,
@@ -36,6 +37,7 @@ __all__ = [
     "ProjectArtifactStatus",
     "ProjectArtifactType",
     "ProjectStatus",
+    "ProjectStatusPage",
     "ProjectReadinessItem",
     "ProjectReadinessArtifactEvidence",
     "ReadinessItem",

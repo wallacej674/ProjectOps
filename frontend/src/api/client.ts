@@ -40,7 +40,10 @@ const UNAUTHENTICATED_AUTH_PATHS = ["/api/v1/auth/register", "/api/v1/auth/login
 
 function shouldAttachAuth(path: string): boolean {
   return (
-    !UNAUTHENTICATED_AUTH_PATHS.includes(path) && path !== "/api/v1/demo-data/status" && !path.startsWith("/health")
+    !UNAUTHENTICATED_AUTH_PATHS.includes(path) &&
+    path !== "/api/v1/demo-data/status" &&
+    !path.startsWith("/health") &&
+    !path.startsWith("/api/v1/public/")
   );
 }
 

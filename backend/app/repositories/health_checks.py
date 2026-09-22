@@ -28,6 +28,15 @@ class HealthCheckRepository:
         )
         return list(db.scalars(statement).all())
 
+    def list_recent_by_project_id(self, db: Session, project_id: int, limit: int) -> list[HealthCheck]:
+        statement = (
+            select(HealthCheck)
+            .where(HealthCheck.project_id == project_id)
+            .order_by(HealthCheck.checked_at.desc(), HealthCheck.id.desc())
+            .limit(limit)
+        )
+        return list(db.scalars(statement).all())
+
     def get_latest_by_project_ids(self, db: Session, project_ids: list[int]) -> dict[int, HealthCheck]:
         if not project_ids:
             return {}

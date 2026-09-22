@@ -36,6 +36,10 @@ class Settings(BaseSettings):
     rate_limit_health_check_run_window_seconds: int = 300
     rate_limit_ci_status_sync_attempts: int = 5
     rate_limit_ci_status_sync_window_seconds: int = 300
+    rate_limit_public_status_view_attempts: int = 60
+    rate_limit_public_status_view_window_seconds: int = 60
+    rate_limit_public_status_badge_attempts: int = 120
+    rate_limit_public_status_badge_window_seconds: int = 60
     github_app_client_id: str = ""
     github_app_client_secret: str = ""
     github_app_id: str = ""
@@ -122,6 +126,10 @@ class Settings(BaseSettings):
             "PROJECTOPS_RATE_LIMIT_HEALTH_CHECK_RUN_WINDOW_SECONDS": self.rate_limit_health_check_run_window_seconds,
             "PROJECTOPS_RATE_LIMIT_CI_STATUS_SYNC_ATTEMPTS": self.rate_limit_ci_status_sync_attempts,
             "PROJECTOPS_RATE_LIMIT_CI_STATUS_SYNC_WINDOW_SECONDS": self.rate_limit_ci_status_sync_window_seconds,
+            "PROJECTOPS_RATE_LIMIT_PUBLIC_STATUS_VIEW_ATTEMPTS": self.rate_limit_public_status_view_attempts,
+            "PROJECTOPS_RATE_LIMIT_PUBLIC_STATUS_VIEW_WINDOW_SECONDS": self.rate_limit_public_status_view_window_seconds,
+            "PROJECTOPS_RATE_LIMIT_PUBLIC_STATUS_BADGE_ATTEMPTS": self.rate_limit_public_status_badge_attempts,
+            "PROJECTOPS_RATE_LIMIT_PUBLIC_STATUS_BADGE_WINDOW_SECONDS": self.rate_limit_public_status_badge_window_seconds,
         }
         for name, value in values.items():
             if value <= 0:

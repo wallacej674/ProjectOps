@@ -42,6 +42,7 @@ Implemented:
 - Scheduled Health Monitoring at supported cadences through a Render cron worker.
 - In-app Health Alerts with acknowledgement, evidence history, confirmed recovery, and separate monitoring-overdue warnings.
 - CI Build Status: manual and scheduled GitHub Actions run tracking for GitHub App-connected repositories, selectable as Release Rehearsal readiness evidence. Requires the GitHub App's Actions read permission and installation re-authorization; see `docs/github-app-private-repositories.md`.
+- Public Status Page: an opt-in, unguessable-link page per Project showing current Health Check status, bounded recent history, and any active Health Alert, with owner-controlled publish/unpublish and link rotation, plus an embeddable SVG status badge for READMEs.
 - Advisory Production Readiness checklist.
 - Launch Report and Guided Launch Checklist APIs.
 - Launch Decision UI that records go/no-go/defer decisions as Project Artifacts.

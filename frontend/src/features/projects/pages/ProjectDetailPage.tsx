@@ -25,6 +25,7 @@ import type {
 } from "../../../types/readiness";
 import type { RepoAnalysis } from "../../../types/repoAnalysis";
 import type { RepoIntegration } from "../../../types/repoIntegration";
+import type { ProjectStatusPage } from "../../../types/projectStatusPage";
 import { getLatestProjectAnalysis, listProjectAnalyses, runProjectAnalysis } from "../api/projectAnalyses";
 import { listProjectActivity } from "../api/projectActivity";
 import {
@@ -45,6 +46,12 @@ import {
   updateProjectHealthMonitor,
 } from "../api/projectHealthChecks";
 import { getProjectLaunchChecklist, getProjectLaunchReport } from "../api/projectLaunchReport";
+import {
+  getProjectStatusPage,
+  pauseProjectStatusPage,
+  rotateProjectStatusPageSlug,
+  updateProjectStatusPage,
+} from "../api/projectStatusPage";
 import { evaluateProjectReadiness, getProjectReadiness, updateProjectReadinessItem } from "../api/projectReadiness";
 import {
   getReadinessEvidenceCoverage,
@@ -57,6 +64,7 @@ import { ArchiveProjectModal } from "../components/ArchiveProjectModal";
 import { BuildStatusCard } from "../components/BuildStatusCard";
 import { CodeMapAnalysisCard } from "../components/CodeMapAnalysisCard";
 import { HealthMonitoringCard } from "../components/HealthMonitoringCard";
+import { StatusPageCard } from "../components/StatusPageCard";
 import { LaunchChecklistCard } from "../components/LaunchChecklistCard";
 import { LaunchDecisionCard, type LaunchDecisionValue } from "../components/LaunchDecisionCard";
 import { LaunchReportCard } from "../components/LaunchReportCard";
@@ -327,6 +335,10 @@ export function ProjectDetailPage() {
   const { data: healthMonitor, setData: setHealthMonitor, loading: healthMonitorLoading,
     error: healthMonitorError, setError: setHealthMonitorError, refresh: refreshMonitor } = usePolledResource(loadMonitor, Boolean(project));
   const [healthMonitorPending, setHealthMonitorPending] = useState(false);
+  const [statusPage, setStatusPage] = useState<ProjectStatusPage | null>(null);
+  const [statusPageLoading, setStatusPageLoading] = useState(false);
+  const [statusPageError, setStatusPageError] = useState("");
+  const [statusPagePending, setStatusPagePending] = useState(false);
   const [readiness, setReadiness] = useState<ProjectReadinessSummary | null>(null);
   const [readinessLoading, setReadinessLoading] = useState(false);
   const [readinessError, setReadinessError] = useState("");
@@ -619,6 +631,21 @@ export function ProjectDetailPage() {
   }, [healthMonitor?.last_completed_at, projectId]);
 
   useEffect(() => {
+    setStatusPageLoading(true);
+    setStatusPageError("");
+    getProjectStatusPage(projectId)
+      .then((page) => {
+        setStatusPage(page);
+        setStatusPageError("");
+      })
+      .catch((e: unknown) => {
+        setStatusPage(null);
+        setStatusPageError(e instanceof Error ? e.message : "Status page settings could not load.");
+      })
+      .finally(() => setStatusPageLoading(false));
+  }, [projectId]);
+
+  useEffect(() => {
     setReadinessLoading(true);
     setReadinessError("");
     getProjectReadiness(projectId)
@@ -877,6 +904,42 @@ export function ProjectDetailPage() {
     }
   }
 
+  async function enableStatusPage(label: string | null) {
+    setStatusPagePending(true);
+    setStatusPageError("");
+    try {
+      setStatusPage(await updateProjectStatusPage(projectId, { enabled: true, label }));
+    } catch (e) {
+      setStatusPageError(e instanceof Error ? e.message : "Status page could not be published.");
+    } finally {
+      setStatusPagePending(false);
+    }
+  }
+
+  async function pauseStatusPage() {
+    setStatusPagePending(true);
+    setStatusPageError("");
+    try {
+      setStatusPage(await pauseProjectStatusPage(projectId));
+    } catch (e) {
+      setStatusPageError(e instanceof Error ? e.message : "Status page could not be unpublished.");
+    } finally {
+      setStatusPagePending(false);
+    }
+  }
+
+  async function rotateStatusPageSlug() {
+    setStatusPagePending(true);
+    setStatusPageError("");
+    try {
+      setStatusPage(await rotateProjectStatusPageSlug(projectId));
+    } catch (e) {
+      setStatusPageError(e instanceof Error ? e.message : "Status page link could not be rotated.");
+    } finally {
+      setStatusPagePending(false);
+    }
+  }
+
   async function attachGitHubAppRepo(installationId: number, repositoryId: number) {
     setRepoPending(true);
     setRepoError("");
@@ -1128,6 +1191,21 @@ export function ProjectDetailPage() {
               onRunHealthCheck={runHealthCheck}
               onUpdateMonitor={saveHealthMonitor}
               onPauseMonitor={pauseHealthMonitor}
+            />
+          </div>
+          )}
+          {workspace.view === "monitoring" && (
+          <div id="status-page" className="section-anchor">
+            <StatusPageCard
+              projectId={project.id}
+              page={statusPage}
+              loading={statusPageLoading}
+              error={statusPageError}
+              pending={statusPagePending}
+              productionUrl={project.production_url}
+              onEnable={enableStatusPage}
+              onPause={pauseStatusPage}
+              onRotateSlug={rotateStatusPageSlug}
             />
           </div>
           )}
