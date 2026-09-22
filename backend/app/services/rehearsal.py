@@ -14,6 +14,7 @@ from app.models.code_risk import FindingOccurrence, CodeRiskScan, ScanTarget
 from app.models.health_check import HealthCheck
 from app.models.readiness import ProjectReadinessItem
 from app.models.repo_analysis import RepoAnalysis
+from app.models.ci_pipeline_run import CiPipelineRun
 from fastapi.encoders import jsonable_encoder
 from app.repositories import releases as repository
 from app.services import releases
@@ -119,7 +120,7 @@ def create_evidence(db, project_id, release_id, user_id, data, commit=True):
     row = RehearsalEvidence(release_id=release_id, request_key=str(data.request_key), input_digest=input_digest,
         requirement_revision_id=rev.id, digest=prepared['digest'], created_by=user_id, **prepared['evidence'])
     field = {'material': 'material_id', 'scan': 'occurrence_id', 'health': 'health_check_id',
-        'readiness': 'readiness_id', 'analysis': 'analysis_id'}.get(data.kind)
+        'readiness': 'readiness_id', 'analysis': 'analysis_id', 'ci': 'ci_run_id'}.get(data.kind)
     if field:
         setattr(row, field, data.source_id)
     db.add(row)
@@ -168,7 +169,7 @@ def read_scoped_evidence(db, release, row):
     scope = scope_for(db, release.id, row.scope_id)
     revision = db.get(RequirementRevision, row.requirement_revision_id)
     state, reasons = freshness(db, release, scope, revision)
-    if row.kind in ('health', 'readiness', 'analysis') and state == 'current':
+    if row.kind in ('health', 'readiness', 'analysis', 'ci') and state == 'current':
         state = 'unknown'
         reasons.append('This observation has no verified source snapshot or environment association.')
     if row.kind == 'scan' and row.payload.get('source_snapshot') != scope.source.get('snapshot'):
@@ -419,7 +420,7 @@ def source_query(kind, project_id, revision):
         return select(RequirementMaterial).where(RequirementMaterial.requirement_revision_id == revision.id)
     if kind == 'scan':
         return select(FindingOccurrence).join(CodeRiskScan).join(ScanTarget).where(ScanTarget.project_id == project_id)
-    model = {'health': HealthCheck, 'readiness': ProjectReadinessItem, 'analysis': RepoAnalysis}.get(kind)
+    model = {'health': HealthCheck, 'readiness': ProjectReadinessItem, 'analysis': RepoAnalysis, 'ci': CiPipelineRun}.get(kind)
     if model is None:
         raise HTTPException(422, 'Unsupported evidence source.')
     return select(model).where(model.project_id == project_id)
@@ -451,11 +452,13 @@ def source_payload(db, project_id, release_id, requirement_id, revision, kind, s
         return payload, 'user_imported', ['Imported scanner observation; tool coverage is not behavioral coverage or proof of exploitability.']
     fields = {'health': ('target_url', 'status', 'execution_source', 'http_status_code', 'response_time_ms', 'checked_at'),
         'readiness': ('status', 'source', 'evidence', 'notes', 'evaluated_at', 'updated_at'),
-        'analysis': ('status', 'summary', 'analysis_version', 'detected_stack', 'signals', 'warnings', 'insights', 'evidence_files', 'created_at')}
+        'analysis': ('status', 'summary', 'analysis_version', 'detected_stack', 'signals', 'warnings', 'insights', 'evidence_files', 'created_at'),
+        'ci': ('workflow_name', 'status', 'conclusion', 'branch', 'commit_sha', 'run_started_at', 'run_completed_at', 'html_url')}
     snapshot = jsonable_encoder({key: getattr(source, key) for key in fields[kind]})
     limitation = {'health': 'Endpoint reachability does not verify a customer journey; deployed code identity is unknown.',
         'readiness': 'Baseline checklist observation does not establish release-specific behavior; source identity is unknown.',
-        'analysis': 'Bounded repository configuration observations do not establish behavior or a verified source snapshot.'}[kind]
+        'analysis': 'Bounded repository configuration observations do not establish behavior or a verified source snapshot.',
+        'ci': 'A CI run result supports buildability of the observed commit; it does not verify deployment, runtime behavior, or business correctness.'}[kind]
     origin = 'manual_assertion' if kind == 'readiness' and source.source == 'manual' else 'projectops_observation'
     return {'source_id': source_id, 'source_snapshot': None, 'snapshot': snapshot}, origin, [limitation]
 
@@ -475,6 +478,8 @@ def source_options(db, project_id, release_id, user_id, kind, requirement_id, of
             return f"{row.status}: {row.target_url}"
         if kind == 'readiness':
             return f"{row.item.label}: {row.status}"
+        if kind == 'ci':
+            return f"{row.conclusion or row.status}: {row.workflow_name} #{row.run_number}"
         return f"Repository observations #{row.id}: {row.status}"
     return {'items': [{'id': row.id, 'title': title(row)} for row in rows], 'total': total}
 

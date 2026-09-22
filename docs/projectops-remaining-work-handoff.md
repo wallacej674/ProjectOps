@@ -28,6 +28,7 @@ ProjectOps is a working single-user-owner project command center with:
 - Manual and scheduled Health Checks. Scheduled checks support 15-minute,
   hourly, 6-hour, and daily cadences through a Render cron worker.
 - In-app Health Alerts with acknowledgement, evidence, recovery, and monitoring-overdue warnings.
+- CI Build Status: manual and scheduled GitHub Actions run tracking for GitHub App-connected repositories, selectable as Release Rehearsal readiness evidence (same evidence pattern as Health Checks). Requires the GitHub App's Actions read permission; installations created before that permission existed need to re-authorize, or `/ci-status/sync` returns `needs_reauthorization`.
 - Advisory project-level Production Readiness evaluation and manual review items.
 - Local Code Risk Review with scan evidence, human review, work items, and OpenAI explanation runtime configured through backend `OPENAI_API_KEY`; live model evaluation and source excerpts remain outstanding.
 - Project Artifacts, evidence links, coverage, and traceability.

@@ -58,6 +58,10 @@ _Avoid_: Uptime metric, incident, readiness score
 The workflow that runs and stores an on-demand Health Check for a Project. Manual Health Monitor is not scheduled monitoring.
 _Avoid_: Scheduled uptime monitoring, alerting, status page
 
+**CI Build Status**:
+A stored observation of one GitHub Actions workflow run for a Project's connected repository, synced manually or on a schedule through the GitHub App installation. It records workflow, run, status, conclusion, branch, commit, and timing; it requires the GitHub App's Actions read permission and re-authorization after that permission is granted. A CI Build Status observation is selectable Readiness Evidence supporting buildability of the observed commit; it does not verify deployment, runtime behavior, or business correctness.
+_Avoid_: Deployment confirmation, test coverage proof, uptime
+
 **Scheduled Health Monitor**:
 An opt-in Project schedule that periodically runs the same safe URL check against the saved production URL. It records individual observations and schedule state; it is not an uptime guarantee, alerting system, or incident manager.
 _Avoid_: Guaranteed uptime, active incident, paging

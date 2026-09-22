@@ -27,6 +27,7 @@ The distinctive journey is: release goal -> confirmed requirement -> relevant ev
 | Code Risk Review | Immutable finding occurrences, coverage, snapshots | Imported reports are user-supplied; scanner success does not establish exploitability or readiness |
 | OpenAI explanation adapter and request records | Reuse bounded structured responses, consent, provenance, deduplication | Backend `OPENAI_API_KEY` is supported; live evaluation and source excerpts are still outstanding |
 | Health Checks/Alerts | Runtime observations when available | A successful HTTP check does not prove authentication, recovery, or business correctness |
+| CI Build Status | Runtime observation of the observed commit's GitHub Actions run, same evidence pattern as Health Checks | A passing build supports buildability, not user isolation or deployment; requires the GitHub App's Actions permission and per-installation re-authorization |
 | Launch Report and Launch Decision | Human decision surface and historical artifacts | Preserve existing project-level meaning; add explicitly release-scoped summaries |
 | Risk Work Items | Link security remediation to a next step | Do not force every release task to have a scanner finding |
 

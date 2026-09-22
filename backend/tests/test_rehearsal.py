@@ -175,11 +175,13 @@ def test_existing_observations_keep_their_limits_when_selected_as_release_eviden
     from test_code_risk import sample_report
     from test_health_checks import FakeHttpClient, FakeResponse
     from test_repo_analyses import FakeTreeFetcher
+    from test_ci_pipeline_status import attach_github_app_repo, install_fake_client, workflow_run_payload
     from app.services.health_checks import health_check_service
     from app.services.repo_analyses import repo_analysis_service
     path, requirements = rehearsal(client)
     scope = client.post(path + '/scope', json=scope_input()).json()
     project_path = path.split('/releases/')[0]
+    project_id = int(project_path.rsplit('/', 1)[1])
     target = client.post(project_path + '/code-risk/targets', json={'name': 'Synthetic code'}).json()
     report = sample_report(target['id'])
     report['tools'][0]['outcome'] = 'partial'
@@ -191,8 +193,14 @@ def test_existing_observations_keep_their_limits_when_selected_as_release_eviden
     client.post(project_path + '/repo', json={'repo_url': 'https://github.com/openai/codex'})
     monkeypatch.setattr(repo_analysis_service, 'tree_fetcher', FakeTreeFetcher())
     analysis = client.post(project_path + '/analyses/run').json()
+    attach_github_app_repo(project_id)
+    install_fake_client(monkeypatch, [workflow_run_payload()])
+    ci_sync = client.post(project_path + '/ci-status/sync')
+    assert ci_sync.status_code == 200, ci_sync.text
+    ci_run = ci_sync.json()['latest_run']
     for kind, identity, origin in [('scan', occurrence['id'], 'user_imported'), ('health', health['id'], 'projectops_observation'),
-                                   ('readiness', readiness['id'], 'projectops_observation'), ('analysis', analysis['id'], 'projectops_observation')]:
+                                   ('readiness', readiness['id'], 'projectops_observation'), ('analysis', analysis['id'], 'projectops_observation'),
+                                   ('ci', ci_run['id'], 'projectops_observation')]:
         sources = client.get(path + '/evidence/sources', params={'kind': kind, 'requirement_id': requirements[0]['id']})
         assert sources.status_code == 200, sources.text
         assert identity in [row['id'] for row in sources.json()['items']]
@@ -212,7 +220,7 @@ def test_existing_observations_keep_their_limits_when_selected_as_release_eviden
             assert assessed.json()['freshness'] == 'unknown'
     assert client.get(path + '/summary').json()['requirements'][0]['state'] == 'not_verified'
     assert client.delete(project_path + '/repo').status_code == 204
-    assert client.get(path + '/evidence').json()['total'] == 4
+    assert client.get(path + '/evidence').json()['total'] == 5
 
 
 def test_new_contradictory_evidence_invalidates_old_support_and_unknown_scope_cannot_support(client):

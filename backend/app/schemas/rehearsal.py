@@ -72,7 +72,7 @@ class EvidenceInput(Contract):
     requirement_id: int = Field(gt=0)
     requirement_revision: int = Field(ge=1)
     scope_id: int = Field(gt=0)
-    kind: Literal['verification', 'material', 'scan', 'health', 'readiness', 'analysis']
+    kind: Literal['verification', 'material', 'scan', 'health', 'readiness', 'analysis', 'ci']
     source_id: int | None = Field(default=None, gt=0)
     verification: Verification | None = None
 

@@ -42,6 +42,7 @@ class RehearsalEvidence(Base):
     health_check_id: Mapped[int | None] = mapped_column(ForeignKey('health_checks.id'))
     readiness_id: Mapped[int | None] = mapped_column(ForeignKey('project_readiness_items.id'))
     analysis_id: Mapped[int | None] = mapped_column(ForeignKey('repo_analyses.id', ondelete='SET NULL'))
+    ci_run_id: Mapped[int | None] = mapped_column(ForeignKey('ci_pipeline_runs.id', ondelete='SET NULL'))
     created_by: Mapped[int] = mapped_column(ForeignKey('users.id'))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
