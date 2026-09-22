@@ -1,5 +1,6 @@
 import { productionCheck } from "../../health/productionHealth";
 import type { ProjectArtifactOverview } from "../../../types/projectArtifact";
+import type { ProjectCiStatusSummary } from "../../../types/ciPipelineRun";
 import type { ProjectHealthSummary } from "../../../types/healthCheck";
 import type { ProjectReadinessOverview } from "../../../types/readiness";
 import type { ProjectRepoAnalysisOverview } from "../../../types/repoAnalysis";
@@ -73,6 +74,27 @@ export function summarizeRepoAnalysisSignal(rows: ProjectRepoAnalysisOverview[])
     { label: "completed", tone: "success", count: completed },
     { label: "failed", tone: "danger", count: failed },
     { label: "not connected", tone: "neutral", count: notConnected },
+  ]);
+}
+
+export function summarizeCiStatusSignal(rows: ProjectCiStatusSummary[]): SignalSummary {
+  let passing = 0;
+  let failing = 0;
+  let notConnected = 0;
+  let unchecked = 0;
+  rows.forEach((row) => {
+    if (!row.ci_available) notConnected += 1;
+    else if (row.needs_reauthorization) failing += 1;
+    else if (!row.latest_run) unchecked += 1;
+    else if (row.latest_run.conclusion === "success") passing += 1;
+    else if (row.latest_run.conclusion === "failure" || row.latest_run.conclusion === "timed_out") failing += 1;
+    else unchecked += 1;
+  });
+  return summary([
+    { label: "passing", tone: "success", count: passing },
+    { label: "failing", tone: "danger", count: failing },
+    { label: "not connected", tone: "neutral", count: notConnected },
+    { label: "unchecked", tone: "neutral", count: unchecked },
   ]);
 }
 

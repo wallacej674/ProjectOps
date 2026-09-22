@@ -34,6 +34,8 @@ class Settings(BaseSettings):
     rate_limit_codemap_run_window_seconds: int = 300
     rate_limit_health_check_run_attempts: int = 10
     rate_limit_health_check_run_window_seconds: int = 300
+    rate_limit_ci_status_sync_attempts: int = 5
+    rate_limit_ci_status_sync_window_seconds: int = 300
     github_app_client_id: str = ""
     github_app_client_secret: str = ""
     github_app_id: str = ""
@@ -118,6 +120,8 @@ class Settings(BaseSettings):
             "PROJECTOPS_RATE_LIMIT_CODEMAP_RUN_WINDOW_SECONDS": self.rate_limit_codemap_run_window_seconds,
             "PROJECTOPS_RATE_LIMIT_HEALTH_CHECK_RUN_ATTEMPTS": self.rate_limit_health_check_run_attempts,
             "PROJECTOPS_RATE_LIMIT_HEALTH_CHECK_RUN_WINDOW_SECONDS": self.rate_limit_health_check_run_window_seconds,
+            "PROJECTOPS_RATE_LIMIT_CI_STATUS_SYNC_ATTEMPTS": self.rate_limit_ci_status_sync_attempts,
+            "PROJECTOPS_RATE_LIMIT_CI_STATUS_SYNC_WINDOW_SECONDS": self.rate_limit_ci_status_sync_window_seconds,
         }
         for name, value in values.items():
             if value <= 0:

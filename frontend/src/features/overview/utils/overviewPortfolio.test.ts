@@ -1,3 +1,4 @@
+import type { ProjectCiStatusSummary } from "../../../types/ciPipelineRun";
 import type { ProjectHealthSummary } from "../../../types/healthCheck";
 import { makeProject } from "../../../test/mockApi";
 import { buildProjectOperationalSnapshots } from "../../projects/utils/projectPortfolio";
@@ -73,5 +74,29 @@ describe("buildOverviewPortfolio", () => {
     const model = buildOverviewPortfolio(projects, snapshots, healthRows, [], [], [], events);
 
     expect(model.recentProjects.map((row) => row.project.name)).toEqual(["Recent", "Older"]);
+  });
+
+  it("flags a healthy project with a failing build as needing attention", () => {
+    const projects = [
+      makeProject({ id: 1, name: "Failing Build", repo_url: "https://github.com/a/b", production_url: "https://a.test" }),
+    ];
+    const healthRows = [health(1)];
+    const snapshots = buildProjectOperationalSnapshots(projects, healthRows, []);
+    const ciRows: ProjectCiStatusSummary[] = [{
+      project_id: 1, project_name: "Failing Build", project_status: "production", repo_owner: "a", repo_name: "b",
+      ci_available: true, needs_reauthorization: false,
+      latest_run: {
+        id: 1, project_id: 1, repo_integration_id: 1, github_run_id: 1, github_workflow_id: null,
+        workflow_name: "CI", run_number: 1, status: "completed", conclusion: "failure", branch: "main",
+        commit_sha: null, commit_message: null, event: "push", html_url: null, run_started_at: null,
+        run_completed_at: null, duration_seconds: null, observed_at: "2026-01-01T00:00:00Z", created_at: "2026-01-01T00:00:00Z",
+      },
+      monitor: { project_id: 1, enabled: false, cadence_minutes: 60, next_run_at: null, last_started_at: null,
+        last_completed_at: null, last_outcome: null, consecutive_sync_failures: 0, created_at: null, updated_at: null },
+    }];
+
+    const model = buildOverviewPortfolio(projects, snapshots, healthRows, [], [], [], [], ciRows);
+
+    expect(model.attentionItems).toMatchObject([{ reason: "Latest build failed.", actionLabel: "Review build" }]);
   });
 });

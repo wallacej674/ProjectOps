@@ -65,6 +65,22 @@ services:
         value: "10"
       - key: PROJECTOPS_RATE_LIMIT_HEALTH_CHECK_RUN_WINDOW_SECONDS
         value: "300"
+      - key: PROJECTOPS_RATE_LIMIT_CI_STATUS_SYNC_ATTEMPTS
+        value: "5"
+      - key: PROJECTOPS_RATE_LIMIT_CI_STATUS_SYNC_WINDOW_SECONDS
+        value: "300"
+      - key: PROJECTOPS_GITHUB_APP_CLIENT_ID
+        sync: false
+      - key: PROJECTOPS_GITHUB_APP_CLIENT_SECRET
+        sync: false
+      - key: PROJECTOPS_GITHUB_APP_ID
+        sync: false
+      - key: PROJECTOPS_GITHUB_APP_SLUG
+        sync: false
+      - key: PROJECTOPS_GITHUB_APP_PRIVATE_KEY
+        sync: false
+      - key: PROJECTOPS_GITHUB_APP_CALLBACK_URL
+        sync: false
 
   - type: cron
     name: projectops-health-monitor
@@ -90,6 +106,67 @@ services:
         sync: false
       - key: PROJECTOPS_HEALTH_CHECK_TIMEOUT_SECONDS
         value: "5"
+      - key: PROJECTOPS_LOG_LEVEL
+        value: INFO
+
+  - type: cron
+    name: projectops-ci-status-monitor
+    runtime: docker
+    plan: 0.5c-512mb
+    region: ohio
+    rootDir: backend
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    dockerCommand: sh -c "python -m app.jobs.rehearsal_worker_preflight --schema-only && python -m app.jobs.run_due_ci_status_checks"
+    schedule: "*/10 * * * *"
+    autoDeployTrigger: checksPass
+    envVars:
+      - key: PROJECTOPS_ENVIRONMENT
+        value: production
+      - key: PROJECTOPS_DATABASE_URL
+        fromDatabase:
+          name: projectops-db
+          property: connectionString
+      - key: PROJECTOPS_AUTH_SECRET_KEY
+        fromService:
+          type: web
+          name: projectops-api
+          envVarKey: PROJECTOPS_AUTH_SECRET_KEY
+      - key: PROJECTOPS_CORS_ALLOWED_ORIGINS
+        fromService:
+          type: web
+          name: projectops-api
+          envVarKey: PROJECTOPS_CORS_ALLOWED_ORIGINS
+      - key: PROJECTOPS_GITHUB_APP_CLIENT_ID
+        fromService:
+          type: web
+          name: projectops-api
+          envVarKey: PROJECTOPS_GITHUB_APP_CLIENT_ID
+      - key: PROJECTOPS_GITHUB_APP_CLIENT_SECRET
+        fromService:
+          type: web
+          name: projectops-api
+          envVarKey: PROJECTOPS_GITHUB_APP_CLIENT_SECRET
+      - key: PROJECTOPS_GITHUB_APP_ID
+        fromService:
+          type: web
+          name: projectops-api
+          envVarKey: PROJECTOPS_GITHUB_APP_ID
+      - key: PROJECTOPS_GITHUB_APP_SLUG
+        fromService:
+          type: web
+          name: projectops-api
+          envVarKey: PROJECTOPS_GITHUB_APP_SLUG
+      - key: PROJECTOPS_GITHUB_APP_PRIVATE_KEY
+        fromService:
+          type: web
+          name: projectops-api
+          envVarKey: PROJECTOPS_GITHUB_APP_PRIVATE_KEY
+      - key: PROJECTOPS_GITHUB_APP_CALLBACK_URL
+        fromService:
+          type: web
+          name: projectops-api
+          envVarKey: PROJECTOPS_GITHUB_APP_CALLBACK_URL
       - key: PROJECTOPS_LOG_LEVEL
         value: INFO
 

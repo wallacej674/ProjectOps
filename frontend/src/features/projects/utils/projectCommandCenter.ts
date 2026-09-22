@@ -1,3 +1,4 @@
+import type { CiPipelineRun } from "../../../types/ciPipelineRun";
 import type { HealthMonitorSchedule } from "../../../types/healthCheck";
 import type { HealthCheck, HealthCheckStatus } from "../../../types/healthCheck";
 import type { Project } from "../../../types/project";
@@ -29,6 +30,7 @@ export type ProjectSectionId =
   | "overview"
   | "repository"
   | "codemap"
+  | "ci-status"
   | "health"
   | "readiness"
   | "launch-report"
@@ -177,6 +179,103 @@ export function getCodeMapSummary(repo: RepoIntegration | null, latestAnalysis: 
     timestamp: latestAnalysis.created_at,
     tone: "success",
     targetId: "codemap",
+  };
+}
+
+export function getCiStatusSummary(
+  repo: RepoIntegration | null,
+  latestRun: CiPipelineRun | null,
+  needsReauthorization?: boolean,
+): CommandCenterSummary {
+  if (!repo) {
+    return {
+      state: "no_repository",
+      label: "Not ready",
+      title: "Repository required",
+      detail: "Connect a repository before checking build status.",
+      tone: "neutral",
+      targetId: "ci-status",
+    };
+  }
+
+  if (!repo.github_installation_id) {
+    return {
+      state: "no_github_app",
+      label: "Not connected",
+      title: "GitHub App required",
+      detail: "Connect via GitHub App to see build status.",
+      tone: "neutral",
+      targetId: "ci-status",
+    };
+  }
+
+  if (needsReauthorization) {
+    return {
+      state: "needs_reauthorization",
+      label: "Needs re-auth",
+      title: "GitHub App needs updated permissions",
+      detail: "Re-authorize the GitHub App installation to see build status.",
+      tone: "warning",
+      targetId: "ci-status",
+    };
+  }
+
+  if (!latestRun) {
+    return {
+      state: "not_synced",
+      label: "Not synced",
+      title: "Ready to sync",
+      detail: "Repository connected, but build status has not been synced yet.",
+      tone: "warning",
+      targetId: "ci-status",
+    };
+  }
+
+  if (latestRun.conclusion === "success") {
+    return {
+      state: "passing",
+      label: "Passing",
+      title: "Latest build passed",
+      detail: `${latestRun.workflow_name} on ${latestRun.branch || "unknown branch"} succeeded.`,
+      metric: latestRun.duration_seconds !== null ? `${latestRun.duration_seconds}s` : undefined,
+      timestamp: latestRun.observed_at,
+      tone: "success",
+      targetId: "ci-status",
+    };
+  }
+
+  if (latestRun.conclusion === "failure" || latestRun.conclusion === "timed_out") {
+    return {
+      state: "failing",
+      label: "Failing",
+      title: "Latest build failed",
+      detail: `${latestRun.workflow_name} on ${latestRun.branch || "unknown branch"} did not succeed.`,
+      timestamp: latestRun.observed_at,
+      tone: "danger",
+      targetId: "ci-status",
+    };
+  }
+
+  if (!latestRun.conclusion) {
+    return {
+      state: "running",
+      label: "Running",
+      title: "Build in progress",
+      detail: `${latestRun.workflow_name} on ${latestRun.branch || "unknown branch"} is still running.`,
+      timestamp: latestRun.observed_at,
+      tone: "info",
+      targetId: "ci-status",
+    };
+  }
+
+  return {
+    state: latestRun.conclusion,
+    label: latestRun.conclusion.replaceAll("_", " "),
+    title: "Latest build finished",
+    detail: `${latestRun.workflow_name} on ${latestRun.branch || "unknown branch"} finished as ${latestRun.conclusion}.`,
+    timestamp: latestRun.observed_at,
+    tone: "warning",
+    targetId: "ci-status",
   };
 }
 

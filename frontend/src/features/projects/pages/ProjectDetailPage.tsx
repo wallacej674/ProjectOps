@@ -15,6 +15,7 @@ import { formatDate } from "../../../utils/formatDate";
 import type { Project } from "../../../types/project";
 import type { ProjectActivityCategory, ProjectActivityEvent } from "../../../types/projectActivity";
 import type { ProjectArtifact, ProjectArtifactCreate, ProjectArtifactUpdate } from "../../../types/projectArtifact";
+import type { CiMonitorCadence, CiPipelineRun, CiStatusMonitorSchedule } from "../../../types/ciPipelineRun";
 import type { HealthCheck, HealthMonitorCadence } from "../../../types/healthCheck";
 import type { ProjectLaunchChecklist, ProjectLaunchReport } from "../../../types/launchReport";
 import type {
@@ -26,6 +27,14 @@ import type { RepoAnalysis } from "../../../types/repoAnalysis";
 import type { RepoIntegration } from "../../../types/repoIntegration";
 import { getLatestProjectAnalysis, listProjectAnalyses, runProjectAnalysis } from "../api/projectAnalyses";
 import { listProjectActivity } from "../api/projectActivity";
+import {
+  getLatestProjectCiRun,
+  getProjectCiMonitor,
+  listProjectCiRuns,
+  pauseProjectCiMonitor,
+  syncProjectCiStatus,
+  updateProjectCiMonitor,
+} from "../api/projectCiStatus";
 import { listProjectArtifacts } from "../api/projectArtifacts";
 import {
   getLatestProjectHealthCheck,
@@ -45,6 +54,7 @@ import {
 import { attachProjectRepo, getProjectRepo, removeProjectRepo } from "../api/projectRepo";
 import { attachGitHubAppRepository } from "../api/githubApp";
 import { ArchiveProjectModal } from "../components/ArchiveProjectModal";
+import { BuildStatusCard } from "../components/BuildStatusCard";
 import { CodeMapAnalysisCard } from "../components/CodeMapAnalysisCard";
 import { HealthMonitoringCard } from "../components/HealthMonitoringCard";
 import { LaunchChecklistCard } from "../components/LaunchChecklistCard";
@@ -66,6 +76,7 @@ import { RepositoryRemoveModal } from "../components/RepositoryRemoveModal";
 import { useProjectArtifacts } from "../hooks/useProjectArtifacts";
 import {
   getCodeMapSummary,
+  getCiStatusSummary,
   getActivitySummary,
   getArtifactsSummary,
   getHealthSummary,
@@ -109,6 +120,16 @@ function readinessErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : "Readiness assessment could not load.";
 }
 
+function ciErrorMessage(error: unknown) {
+  if (error instanceof ApiError && error.kind === "not-found") return "";
+  if (error instanceof ApiError && isNeedsReauthorization(error.detail)) return "";
+  return error instanceof Error ? error.message : "Build status could not load.";
+}
+
+function isNeedsReauthorization(detail: unknown): boolean {
+  return isRecord(detail) && detail.needs_reauthorization === true;
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
 }
@@ -141,6 +162,20 @@ function isHealthCheck(value: unknown): value is HealthCheck {
     (typeof value.http_status_code === "number" || value.http_status_code === null) &&
     (typeof value.response_time_ms === "number" || value.response_time_ms === null)
   );
+}
+
+function isCiPipelineRun(value: unknown): value is CiPipelineRun {
+  return (
+    isRecord(value) &&
+    typeof value.github_run_id === "number" &&
+    typeof value.workflow_name === "string" &&
+    typeof value.status === "string" &&
+    typeof value.observed_at === "string"
+  );
+}
+
+function isCiStatusMonitorSchedule(value: unknown): value is CiStatusMonitorSchedule {
+  return isRecord(value) && typeof value.project_id === "number" && typeof value.enabled === "boolean";
 }
 
 function isReadinessSummary(value: unknown): value is ProjectReadinessSummary {
@@ -270,6 +305,17 @@ export function ProjectDetailPage() {
   const [analysisHistory, setAnalysisHistory] = useState<RepoAnalysis[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState("");
+  const [latestCiRun, setLatestCiRun] = useState<CiPipelineRun | null>(null);
+  const [ciRunLoading, setCiRunLoading] = useState(false);
+  const [ciRunError, setCiRunError] = useState("");
+  const [ciNeedsReauthorization, setCiNeedsReauthorization] = useState(false);
+  const [ciSyncing, setCiSyncing] = useState(false);
+  const [ciHistory, setCiHistory] = useState<CiPipelineRun[]>([]);
+  const [ciHistoryLoading, setCiHistoryLoading] = useState(false);
+  const [ciHistoryError, setCiHistoryError] = useState("");
+  const [ciMonitor, setCiMonitor] = useState<CiStatusMonitorSchedule | null>(null);
+  const [ciMonitorLoading, setCiMonitorLoading] = useState(false);
+  const [ciMonitorPending, setCiMonitorPending] = useState(false);
   const [latestHealthCheck, setLatestHealthCheck] = useState<HealthCheck | null>(null);
   const [healthLoading, setHealthLoading] = useState(false);
   const [healthError, setHealthError] = useState("");
@@ -471,6 +517,56 @@ export function ProjectDetailPage() {
   }, [projectId, repo, repoLoading]);
 
   useEffect(() => {
+    if (repoLoading) return;
+    if (!repo || repo.github_installation_id == null) {
+      setLatestCiRun(null);
+      setCiHistory([]);
+      setCiRunError("");
+      setCiHistoryError("");
+      setCiNeedsReauthorization(false);
+      setCiRunLoading(false);
+      setCiHistoryLoading(false);
+      setCiMonitor(null);
+      setCiMonitorLoading(false);
+      return;
+    }
+
+    setCiRunLoading(true);
+    setCiRunError("");
+    setCiNeedsReauthorization(false);
+    getLatestProjectCiRun(projectId)
+      .then((run) => {
+        setLatestCiRun(isCiPipelineRun(run) ? run : null);
+        setCiRunError("");
+      })
+      .catch((e: unknown) => {
+        setLatestCiRun(null);
+        setCiNeedsReauthorization(e instanceof ApiError && isNeedsReauthorization(e.detail));
+        setCiRunError(ciErrorMessage(e));
+      })
+      .finally(() => setCiRunLoading(false));
+
+    setCiHistoryLoading(true);
+    setCiHistoryError("");
+    listProjectCiRuns(projectId)
+      .then((runs) => {
+        setCiHistory(Array.isArray(runs) ? runs.filter(isCiPipelineRun) : []);
+        setCiHistoryError("");
+      })
+      .catch((e: unknown) => {
+        setCiHistory([]);
+        setCiHistoryError(e instanceof Error ? e.message : "Build history could not load.");
+      })
+      .finally(() => setCiHistoryLoading(false));
+
+    setCiMonitorLoading(true);
+    getProjectCiMonitor(projectId)
+      .then((schedule) => setCiMonitor(isCiStatusMonitorSchedule(schedule) ? schedule : null))
+      .catch(() => setCiMonitor(null))
+      .finally(() => setCiMonitorLoading(false));
+  }, [projectId, repo, repoLoading]);
+
+  useEffect(() => {
     if (!project?.production_url) {
       setLatestHealthCheck(null);
       setHealthHistory([]);
@@ -557,6 +653,52 @@ export function ProjectDetailPage() {
       setAnalysisError(e instanceof Error ? e.message : "CodeMap Lite analysis could not run.");
     } finally {
       setAnalysisRunning(false);
+    }
+  }
+
+  async function syncCiStatus() {
+    setCiSyncing(true);
+    setCiRunError("");
+    setCiNeedsReauthorization(false);
+    try {
+      const result = await syncProjectCiStatus(projectId);
+      setLatestCiRun(result.latest_run);
+      if (result.latest_run) {
+        setCiHistory((currentHistory) => [
+          result.latest_run as CiPipelineRun,
+          ...currentHistory.filter((item) => item.id !== result.latest_run?.id),
+        ]);
+      }
+      await Promise.all([refreshActivity(), refreshLaunchReview()]);
+    } catch (e) {
+      setCiNeedsReauthorization(e instanceof ApiError && isNeedsReauthorization(e.detail));
+      setCiRunError(ciErrorMessage(e) || (e instanceof Error ? e.message : "Build status could not sync."));
+    } finally {
+      setCiSyncing(false);
+    }
+  }
+
+  async function updateCiMonitor(cadence: CiMonitorCadence) {
+    setCiMonitorPending(true);
+    try {
+      const schedule = await updateProjectCiMonitor(projectId, { enabled: true, cadence_minutes: cadence });
+      setCiMonitor(schedule);
+    } catch (e) {
+      setCiRunError(e instanceof Error ? e.message : "Scheduled build checks could not be updated.");
+    } finally {
+      setCiMonitorPending(false);
+    }
+  }
+
+  async function pauseCiMonitor() {
+    setCiMonitorPending(true);
+    try {
+      const schedule = await pauseProjectCiMonitor(projectId);
+      setCiMonitor(schedule);
+    } catch (e) {
+      setCiRunError(e instanceof Error ? e.message : "Scheduled build checks could not be paused.");
+    } finally {
+      setCiMonitorPending(false);
     }
   }
 
@@ -824,6 +966,7 @@ export function ProjectDetailPage() {
 
   const repositorySummary = getRepositorySummary(repo);
   const codeMapSummary = getCodeMapSummary(repo, latestAnalysis);
+  const ciStatusSummary = getCiStatusSummary(repo, latestCiRun, ciNeedsReauthorization);
   const healthSummary = getHealthSummary(project, latestHealthCheck, healthMonitor);
   const readinessSummary = getReadinessSummary(readiness);
   const artifactsSummary = getArtifactsSummary(projectArtifacts.artifacts);
@@ -848,7 +991,7 @@ export function ProjectDetailPage() {
         if (event.defaultPrevented || event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
         const link = (event.target as HTMLElement).closest("a");
         const href = link?.getAttribute("href");
-        if (!href || !/^#(overview|repository|codemap|repo-connection-title|health|readiness|launch-report|launch-decision|artifacts|activity|details)$/.test(href)) return;
+        if (!href || !/^#(overview|repository|codemap|ci-status|repo-connection-title|health|readiness|launch-report|launch-decision|artifacts|activity|details)$/.test(href)) return;
         event.preventDefault();
         const target = projectWorkspaceLocation("", href);
         navigate(workspaceHref(target.view, target.view === "launch" ? target.launch : undefined));
@@ -880,6 +1023,7 @@ export function ProjectDetailPage() {
             signals={{
               repository: repositorySummary,
               codemap: codeMapSummary,
+              ciStatus: ciStatusSummary,
               health: healthSummary,
               readiness: readinessSummary,
               launchDecision: launchDecisionSummary,
@@ -940,6 +1084,28 @@ export function ProjectDetailPage() {
               historyLoading={historyLoading}
               historyError={historyError}
               onRunAnalysis={runAnalysis}
+            />
+          </div>
+          )}
+          {workspace.view === "repository" && new URLSearchParams(location.search).get("section") !== "risks" && (
+          <div id="ci-status" className="section-anchor">
+            <BuildStatusCard
+              repo={repo}
+              repoLoading={repoLoading}
+              latestRun={latestCiRun}
+              runLoading={ciRunLoading}
+              runError={ciRunError}
+              needsReauthorization={ciNeedsReauthorization}
+              runHistory={ciHistory}
+              historyLoading={ciHistoryLoading}
+              historyError={ciHistoryError}
+              monitor={ciMonitor}
+              monitorLoading={ciMonitorLoading}
+              monitorPending={ciMonitorPending}
+              syncing={ciSyncing}
+              onSyncNow={syncCiStatus}
+              onUpdateMonitor={updateCiMonitor}
+              onPauseMonitor={pauseCiMonitor}
             />
           </div>
           )}

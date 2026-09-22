@@ -19,6 +19,7 @@ class ProjectActivityCategory(str, Enum):
     readiness = "readiness"
     artifact = "artifact"
     evidence = "evidence"
+    ci = "ci"
 
 
 class ProjectActivityEventType(str, Enum):
@@ -46,13 +47,18 @@ class ProjectActivityEventType(str, Enum):
     artifact_archived = "artifact_archived"
     readiness_artifact_linked = "readiness_artifact_linked"
     readiness_artifact_unlinked = "readiness_artifact_unlinked"
+    ci_run_succeeded = "ci_run_succeeded"
+    ci_run_failed = "ci_run_failed"
+    ci_run_other_conclusion = "ci_run_other_conclusion"
+    ci_sync_failed = "ci_sync_failed"
 
 
 class ProjectActivityEvent(Base):
     __tablename__ = "project_activity_events"
     __table_args__ = (
         CheckConstraint(
-            "event_category in ('project', 'repository', 'codemap', 'health', 'readiness', 'artifact', 'evidence')",
+            "event_category in "
+            "('project', 'repository', 'codemap', 'health', 'readiness', 'artifact', 'evidence', 'ci')",
             name="ck_project_activity_events_category",
         ),
         CheckConstraint(
@@ -64,7 +70,8 @@ class ProjectActivityEvent(Base):
             "'health_check_healthy', 'health_check_unhealthy', 'health_check_timeout', 'health_check_error', "
             "'readiness_evaluated', 'readiness_manual_item_updated', "
             "'artifact_created', 'artifact_updated', 'artifact_archived', "
-            "'readiness_artifact_linked', 'readiness_artifact_unlinked'"
+            "'readiness_artifact_linked', 'readiness_artifact_unlinked', "
+            "'ci_run_succeeded', 'ci_run_failed', 'ci_run_other_conclusion', 'ci_sync_failed'"
             ")",
             name="ck_project_activity_events_type",
         ),

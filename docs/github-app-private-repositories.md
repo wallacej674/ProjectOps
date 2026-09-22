@@ -17,6 +17,11 @@ Create a GitHub App and configure:
 - Request user authorization during installation: enabled.
 - Repository contents permission: read-only.
 - Repository metadata permission: read-only.
+- Actions permission: read-only. Required for the Build Status feature to read
+  GitHub Actions workflow runs; installations created before this permission
+  was added must re-authorize (accept the updated permission prompt) before
+  Build Status works for their repositories. Until they do, sync attempts
+  surface a "needs re-authorization" state rather than failing silently.
 - No write permissions.
 - No webhook events are required for this release.
 

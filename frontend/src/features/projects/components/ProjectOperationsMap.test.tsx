@@ -16,6 +16,7 @@ function summary(
 const signals: ProjectOperationsMapSignals = {
   repository: summary("repository", "Connected", "openai/codex", "GitHub repository connected."),
   codemap: { ...summary("codemap", "Completed", "Latest analysis stored", "Analysis completed."), metric: "42 files" },
+  ciStatus: { ...summary("ci-status", "Passing", "Latest build passed", "CI on main succeeded."), metric: "128s" },
   health: {
     ...summary("health", "Healthy", "Healthy latest result", "HTTP 200"),
     metric: "184 ms",

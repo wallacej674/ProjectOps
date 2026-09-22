@@ -2,6 +2,7 @@ export type ProjectActivityCategory =
   | "project"
   | "repository"
   | "codemap"
+  | "ci"
   | "health"
   | "readiness"
   | "artifact"
@@ -31,7 +32,11 @@ export type ProjectActivityEventType =
   | "artifact_updated"
   | "artifact_archived"
   | "readiness_artifact_linked"
-  | "readiness_artifact_unlinked";
+  | "readiness_artifact_unlinked"
+  | "ci_run_succeeded"
+  | "ci_run_failed"
+  | "ci_run_other_conclusion"
+  | "ci_sync_failed";
 
 export type ProjectActivityMetadata = Record<string, unknown>;
 

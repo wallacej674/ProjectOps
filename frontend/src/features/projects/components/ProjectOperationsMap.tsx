@@ -5,6 +5,7 @@ import type { CommandCenterSummary } from "../utils/projectCommandCenter";
 type OperationsMapKey =
   | "repository"
   | "codemap"
+  | "ciStatus"
   | "health"
   | "readiness"
   | "launchDecision"
@@ -16,6 +17,7 @@ type OperationsMapSummary = CommandCenterSummary & { scoreLabel?: string };
 export interface ProjectOperationsMapSignals {
   repository: OperationsMapSummary;
   codemap: OperationsMapSummary;
+  ciStatus: OperationsMapSummary;
   health: OperationsMapSummary;
   readiness: OperationsMapSummary;
   launchDecision: OperationsMapSummary;
@@ -81,6 +83,7 @@ export function ProjectOperationsMap({ signals }: { signals: ProjectOperationsMa
   const primaryNodes = [
     node("repository", "Repository", "Source", signals.repository),
     node("codemap", "CodeMap", "Analysis", signals.codemap),
+    node("ciStatus", "Build status", "CI/CD", signals.ciStatus),
     node("health", "Production health", "Runtime", signals.health),
     node("readiness", "Readiness", "Review", signals.readiness),
     node("launchDecision", "Launch decision", "Decision", signals.launchDecision),

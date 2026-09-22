@@ -1,9 +1,11 @@
 import {
   summarizeArtifactsSignal,
+  summarizeCiStatusSignal,
   summarizeHealthSignal,
   summarizeReadinessSignal,
   summarizeRepoAnalysisSignal,
 } from "./signalBoard";
+import type { ProjectCiStatusSummary } from "../../../types/ciPipelineRun";
 import type { ProjectHealthSummary } from "../../../types/healthCheck";
 import type { ProjectReadinessOverview } from "../../../types/readiness";
 import type { ProjectRepoAnalysisOverview } from "../../../types/repoAnalysis";
@@ -89,6 +91,48 @@ describe("summarizeRepoAnalysisSignal", () => {
         { label: "not connected", tone: "neutral", count: 1 },
       ],
     });
+  });
+});
+
+describe("summarizeCiStatusSignal", () => {
+  it("buckets passing, failing, not-connected, and unchecked projects", () => {
+    const baseMonitor = {
+      project_id: 1, enabled: false, cadence_minutes: 60 as const, next_run_at: null,
+      last_started_at: null, last_completed_at: null, last_outcome: null,
+      consecutive_sync_failures: 0, created_at: null, updated_at: null,
+    };
+    const baseRun = {
+      id: 1, project_id: 1, repo_integration_id: 1, github_run_id: 1, github_workflow_id: null,
+      workflow_name: "CI", run_number: 1, status: "completed", branch: "main", commit_sha: null,
+      commit_message: null, event: "push", html_url: null, run_started_at: null,
+      run_completed_at: null, duration_seconds: null, observed_at: "2026-01-01T00:00:00Z",
+      created_at: "2026-01-01T00:00:00Z",
+    };
+    const rows: ProjectCiStatusSummary[] = [
+      { project_id: 1, project_name: "A", project_status: "development", repo_owner: "o", repo_name: "r", ci_available: true, needs_reauthorization: false, latest_run: { ...baseRun, conclusion: "success" }, monitor: baseMonitor },
+      { project_id: 2, project_name: "B", project_status: "development", repo_owner: "o", repo_name: "r", ci_available: true, needs_reauthorization: false, latest_run: { ...baseRun, conclusion: "failure" }, monitor: baseMonitor },
+      { project_id: 3, project_name: "C", project_status: "development", repo_owner: null, repo_name: null, ci_available: false, needs_reauthorization: false, latest_run: null, monitor: baseMonitor },
+      { project_id: 4, project_name: "D", project_status: "development", repo_owner: "o", repo_name: "r", ci_available: true, needs_reauthorization: false, latest_run: null, monitor: baseMonitor },
+    ];
+    expect(summarizeCiStatusSignal(rows)).toEqual({
+      total: 4,
+      buckets: [
+        { label: "passing", tone: "success", count: 1 },
+        { label: "failing", tone: "danger", count: 1 },
+        { label: "not connected", tone: "neutral", count: 1 },
+        { label: "unchecked", tone: "neutral", count: 1 },
+      ],
+    });
+  });
+
+  it("buckets a needs-reauthorization project as failing", () => {
+    const rows: ProjectCiStatusSummary[] = [{
+      project_id: 1, project_name: "A", project_status: "development", repo_owner: "o", repo_name: "r",
+      ci_available: true, needs_reauthorization: true, latest_run: null,
+      monitor: { project_id: 1, enabled: true, cadence_minutes: 60, next_run_at: null, last_started_at: null,
+        last_completed_at: null, last_outcome: "permission_missing", consecutive_sync_failures: 1, created_at: null, updated_at: null },
+    }];
+    expect(summarizeCiStatusSignal(rows).buckets).toContainEqual({ label: "failing", tone: "danger", count: 1 });
   });
 });
 

@@ -7,6 +7,8 @@ from app.core.config import Settings, get_settings
 from app.core.database import get_db
 from app.dependencies import enforce_rate_limit, get_current_user
 from app.models.user import User
+from app.schemas.ci_pipeline_run import CiPipelineRunRead, CiSyncResultRead
+from app.schemas.ci_status_monitor_schedule import CiStatusMonitorScheduleRead, CiStatusMonitorScheduleUpdate
 from app.schemas.dashboard import ProjectDashboardRead
 from app.schemas.health_check import HealthCheckRead, HealthCheckRunRequest
 from app.schemas.health_monitor_schedule import HealthMonitorScheduleRead, HealthMonitorScheduleUpdate
@@ -25,6 +27,19 @@ from app.services.github_app import (
 )
 from app.services.dashboard import dashboard_service
 from app.services.activity import activity_service
+from app.services.ci_pipeline_status import (
+    CiActionsPermissionMissingError,
+    CiGitHubAppRequiredError,
+    CiRepoNotConnectedError,
+    CiRepositoryAccessRevokedError,
+    CiStatusNotFoundError,
+    CiSyncFailedError,
+    ci_pipeline_status_service,
+)
+from app.services.ci_status_monitor_schedules import (
+    CiStatusMonitorScheduleValidationError,
+    ci_status_monitor_schedule_service,
+)
 from app.services.github_repo_parser import InvalidGitHubRepoUrlError
 from app.services.health_checks import (
     HealthCheckNotFoundError,
@@ -79,6 +94,14 @@ def _bad_request(error: HealthCheckTargetUrlMissingError) -> HTTPException:
 
 
 def _monitor_validation_error(error: HealthMonitorScheduleValidationError) -> HTTPException:
+    return HTTPException(status_code=422, detail=str(error))
+
+
+def _ci_status_not_found(error: CiStatusNotFoundError) -> HTTPException:
+    return HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(error))
+
+
+def _ci_monitor_validation_error(error: CiStatusMonitorScheduleValidationError) -> HTTPException:
     return HTTPException(status_code=422, detail=str(error))
 
 
@@ -409,6 +432,106 @@ def pause_project_health_monitor(
     try:
         _ensure_owned_project(db, project_id, current_user)
         return health_monitor_schedule_service.pause_for_project(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+
+
+@router.post("/{project_id}/ci-status/sync", response_model=CiSyncResultRead)
+def sync_project_ci_status(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> CiSyncResultRead:
+    try:
+        _ensure_owned_project(db, project_id, current_user)
+        enforce_rate_limit(
+            scope="ci_status.sync.user_project",
+            identifier=f"{current_user.id}:{project_id}",
+            limit=settings.rate_limit_ci_status_sync_attempts,
+            window_seconds=settings.rate_limit_ci_status_sync_window_seconds,
+        )
+        return ci_pipeline_status_service.sync_project_ci_status(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+    except CiRepoNotConnectedError as error:
+        raise _repo_not_found(RepoIntegrationNotFoundError(str(error))) from error
+    except CiGitHubAppRequiredError as error:
+        raise HTTPException(status_code=422, detail=str(error)) from error
+    except CiActionsPermissionMissingError as error:
+        raise HTTPException(status_code=409, detail={"message": str(error), "needs_reauthorization": True}) from error
+    except CiRepositoryAccessRevokedError as error:
+        raise HTTPException(status_code=409, detail={"message": str(error), "needs_reauthorization": True}) from error
+    except CiSyncFailedError as error:
+        raise HTTPException(status_code=502, detail=str(error)) from error
+
+
+@router.get("/{project_id}/ci-status/latest", response_model=CiPipelineRunRead)
+def get_latest_project_ci_status(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> CiPipelineRunRead:
+    try:
+        _ensure_owned_project(db, project_id, current_user)
+        return ci_pipeline_status_service.get_latest_project_ci_run(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+    except CiStatusNotFoundError as error:
+        raise _ci_status_not_found(error) from error
+
+
+@router.get("/{project_id}/ci-status/runs", response_model=list[CiPipelineRunRead])
+def list_project_ci_status_runs(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> list[CiPipelineRunRead]:
+    try:
+        _ensure_owned_project(db, project_id, current_user)
+        return ci_pipeline_status_service.list_project_ci_runs(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+
+
+@router.get("/{project_id}/ci-monitor", response_model=CiStatusMonitorScheduleRead)
+def get_project_ci_monitor(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> CiStatusMonitorScheduleRead:
+    try:
+        _ensure_owned_project(db, project_id, current_user)
+        return ci_status_monitor_schedule_service.get_for_project(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+
+
+@router.put("/{project_id}/ci-monitor", response_model=CiStatusMonitorScheduleRead)
+def update_project_ci_monitor(
+    project_id: int,
+    update: CiStatusMonitorScheduleUpdate,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> CiStatusMonitorScheduleRead:
+    try:
+        _ensure_owned_project(db, project_id, current_user)
+        return ci_status_monitor_schedule_service.update_for_project(db, project_id, update)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+    except CiStatusMonitorScheduleValidationError as error:
+        raise _ci_monitor_validation_error(error) from error
+
+
+@router.delete("/{project_id}/ci-monitor", response_model=CiStatusMonitorScheduleRead)
+def pause_project_ci_monitor(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> CiStatusMonitorScheduleRead:
+    try:
+        _ensure_owned_project(db, project_id, current_user)
+        return ci_status_monitor_schedule_service.pause_for_project(db, project_id)
     except ProjectNotFoundError as error:
         raise _not_found(error) from error
 

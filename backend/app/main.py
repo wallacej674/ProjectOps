@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.api.activity import router as activity_router
 from app.api.auth import router as auth_router
+from app.api.ci_status_overview import router as ci_status_overview_router
 from app.api.demo_data import router as demo_data_router
 from app.api.health_alerts import router as health_alerts_router
 from app.api.health import router as health_router
@@ -52,6 +53,7 @@ def create_app() -> FastAPI:
     app.include_router(auth_router, prefix="/api/v1")
     app.include_router(demo_data_router, prefix="/api/v1")
     app.include_router(health_checks_router, prefix="/api/v1")
+    app.include_router(ci_status_overview_router, prefix="/api/v1")
     app.include_router(projects_router, prefix="/api/v1")
     app.include_router(readiness_router)
     app.include_router(readiness_cross_project_router, prefix="/api/v1")

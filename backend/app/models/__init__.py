@@ -1,3 +1,5 @@
+from app.models.ci_pipeline_run import CiPipelineRun
+from app.models.ci_status_monitor_schedule import CiStatusMonitorSchedule
 from app.models.health_check import HealthCheck, HealthCheckExecutionSource, HealthCheckStatus
 from app.models.health_alert import HealthAlert, HealthAlertEvidence
 from app.models.health_monitor_schedule import HealthMonitorSchedule
@@ -19,6 +21,8 @@ from app.models.repo_integration import GitHubInstallation, RepoIntegration, Rep
 from app.models.user import User, UserStatus
 
 __all__ = [
+    "CiPipelineRun",
+    "CiStatusMonitorSchedule",
     "HealthCheck",
     "HealthCheckExecutionSource",
     "HealthCheckStatus",

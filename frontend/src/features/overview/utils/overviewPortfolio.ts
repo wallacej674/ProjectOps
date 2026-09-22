@@ -1,4 +1,5 @@
 import { productionCheck } from "../../health/productionHealth";
+import type { ProjectCiStatusSummary } from "../../../types/ciPipelineRun";
 import type { ProjectHealthSummary } from "../../../types/healthCheck";
 import type { Project } from "../../../types/project";
 import type { ProjectArtifactOverview } from "../../../types/projectArtifact";
@@ -43,6 +44,7 @@ function attentionForProject(
   health: ProjectHealthSummary | undefined,
   readiness: ProjectReadinessOverview | undefined,
   repository: ProjectRepoAnalysisOverview | undefined,
+  ci: ProjectCiStatusSummary | undefined,
 ): AttentionItem | null {
   const healthStatus = productionCheck(health)?.status;
   const base = { projectId: project.id, projectName: project.name, updatedAt: project.updated_at };
@@ -101,6 +103,24 @@ function attentionForProject(
       to: `/app/projects/${project.id}#codemap`,
     };
   }
+  if (ci?.ci_available && ci.needs_reauthorization) {
+    return {
+      ...base,
+      severity: "warning",
+      reason: "GitHub App needs updated permissions for build status.",
+      actionLabel: "Re-authorize",
+      to: `/app/projects/${project.id}#ci-status`,
+    };
+  }
+  if (ci?.ci_available && (ci.latest_run?.conclusion === "failure" || ci.latest_run?.conclusion === "timed_out")) {
+    return {
+      ...base,
+      severity: "warning",
+      reason: "Latest build failed.",
+      actionLabel: "Review build",
+      to: `/app/projects/${project.id}#ci-status`,
+    };
+  }
   if (readiness?.status === "needs_work") {
     return {
       ...base,
@@ -131,11 +151,13 @@ export function buildOverviewPortfolio(
   repoRows: ProjectRepoAnalysisOverview[],
   artifactRows: ProjectArtifactOverview[],
   activityEvents: CrossProjectActivityEvent[],
+  ciRows: ProjectCiStatusSummary[] = [],
 ): OverviewPortfolioModel {
   const healthByProject = new Map(healthRows.map((row) => [row.project_id, row]));
   const readinessByProject = new Map(readinessRows.map((row) => [row.project_id, row]));
   const repoByProject = new Map(repoRows.map((row) => [row.project_id, row]));
   const artifactsByProject = new Map(artifactRows.map((row) => [row.project_id, row]));
+  const ciByProject = new Map(ciRows.map((row) => [row.project_id, row]));
   const activityByProject = latestActivityByProject(activityEvents);
   const active = projects.filter((project) => project.status !== "archived");
 
@@ -167,6 +189,7 @@ export function buildOverviewPortfolio(
         healthByProject.get(project.id),
         readinessByProject.get(project.id),
         repoByProject.get(project.id),
+        ciByProject.get(project.id),
       ),
     )
     .filter((item): item is AttentionItem => Boolean(item))

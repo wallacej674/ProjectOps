@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { CiPipelineRun } from "../../../types/ciPipelineRun";
 import type { HealthCheck } from "../../../types/healthCheck";
 import type { Project } from "../../../types/project";
 import type { ProjectArtifact } from "../../../types/projectArtifact";
@@ -8,6 +9,7 @@ import type { RepoAnalysis } from "../../../types/repoAnalysis";
 import type { RepoIntegration } from "../../../types/repoIntegration";
 import {
   getCodeMapSummary,
+  getCiStatusSummary,
   getArtifactsSummary,
   getActivitySummary,
   getHealthSummary,
@@ -188,6 +190,50 @@ describe("project command-center summaries", () => {
       state: "failed",
       label: "Failed",
       detail: "GitHub tree request failed.",
+    });
+  });
+
+  it("summarizes Build Status states from repository connection, sync state, and conclusion", () => {
+    const githubAppRepo: RepoIntegration = { ...repo, connection_mode: "github_app", github_installation_id: 42 };
+    const passingRun: CiPipelineRun = {
+      id: 1,
+      project_id: 7,
+      repo_integration_id: 3,
+      github_run_id: 100,
+      github_workflow_id: 5,
+      workflow_name: "CI",
+      run_number: 12,
+      status: "completed",
+      conclusion: "success",
+      branch: "main",
+      commit_sha: "abc1234",
+      commit_message: "Fix the thing",
+      event: "push",
+      html_url: "https://github.com/openai/codex/actions/runs/100",
+      run_started_at: "2026-01-03T00:00:00Z",
+      run_completed_at: "2026-01-03T00:05:00Z",
+      duration_seconds: 300,
+      observed_at: "2026-01-03T00:05:00Z",
+      created_at: "2026-01-03T00:05:00Z",
+    };
+
+    expect(getCiStatusSummary(null, null)).toMatchObject({ state: "no_repository" });
+    expect(getCiStatusSummary(repo, null)).toMatchObject({ state: "no_github_app" });
+    expect(getCiStatusSummary(githubAppRepo, null)).toMatchObject({ state: "not_synced" });
+    expect(getCiStatusSummary(githubAppRepo, null, true)).toMatchObject({ state: "needs_reauthorization" });
+    expect(getCiStatusSummary(githubAppRepo, passingRun)).toMatchObject({
+      state: "passing",
+      label: "Passing",
+      metric: "300s",
+    });
+    expect(getCiStatusSummary(githubAppRepo, { ...passingRun, conclusion: "failure" })).toMatchObject({
+      state: "failing",
+      label: "Failing",
+      tone: "danger",
+    });
+    expect(getCiStatusSummary(githubAppRepo, { ...passingRun, status: "in_progress", conclusion: null })).toMatchObject({
+      state: "running",
+      label: "Running",
     });
   });
 

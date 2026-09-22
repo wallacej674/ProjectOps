@@ -8,11 +8,13 @@ import { AppShell } from "../../components/layout/AppShell";
 import { ErrorState } from "../../components/ui/ErrorState";
 import type { Project } from "../../types/project";
 import type { ProjectArtifactOverview } from "../../types/projectArtifact";
+import type { ProjectCiStatusSummary } from "../../types/ciPipelineRun";
 import type { CrossProjectActivityEvent, ProjectActivityCategory } from "../../types/projectActivity";
 import type { ProjectReadinessOverview } from "../../types/readiness";
 import type { ProjectRepoAnalysisOverview } from "../../types/repoAnalysis";
 import { formatDate } from "../../utils/formatDate";
 import { listCrossProjectArtifactsOverview } from "../artifactsOverview/api/crossProjectArtifacts";
+import { listCrossProjectCiStatus } from "../ciStatus/api/crossProjectCiStatus";
 import { listCrossProjectHealth } from "../health/api/crossProjectHealth";
 import { buildProjectOperationalSnapshots } from "../projects/utils/projectPortfolio";
 import { listActivity } from "../projects/api/projectActivity";
@@ -25,6 +27,7 @@ import { SignalBoard } from "./components/SignalBoard";
 import { buildOverviewPortfolio } from "./utils/overviewPortfolio";
 import {
   summarizeArtifactsSignal,
+  summarizeCiStatusSignal,
   summarizeHealthSignal,
   summarizeReadinessSignal,
   summarizeRepoAnalysisSignal,
@@ -35,6 +38,7 @@ const categoryOptions: { value: ProjectActivityCategory | ""; label: string }[] 
   { value: "project", label: "Project" },
   { value: "repository", label: "Repository" },
   { value: "codemap", label: "CodeMap" },
+  { value: "ci", label: "CI" },
   { value: "health", label: "Health" },
   { value: "readiness", label: "Readiness" },
   { value: "artifact", label: "Artifacts" },
@@ -51,6 +55,7 @@ export function OverviewPage() {
   const [readinessRows, setReadinessRows] = useState<ProjectReadinessOverview[]>([]);
   const [repoRows, setRepoRows] = useState<ProjectRepoAnalysisOverview[]>([]);
   const [artifactRows, setArtifactRows] = useState<ProjectArtifactOverview[]>([]);
+  const [ciRows, setCiRows] = useState<ProjectCiStatusSummary[]>([]);
   const [activityEvents, setActivityEvents] = useState<CrossProjectActivityEvent[]>([]);
   const [activityLoading, setActivityLoading] = useState(true);
   const [activityError, setActivityError] = useState("");
@@ -72,14 +77,16 @@ export function OverviewPage() {
   }, []);
 
   const loadSignals = useCallback(async () => {
-    const [readiness, repositories, artifacts] = await Promise.allSettled([
+    const [readiness, repositories, artifacts, ciStatus] = await Promise.allSettled([
       listCrossProjectReadiness(),
       listCrossProjectRepoAnalysis(),
       listCrossProjectArtifactsOverview(),
+      listCrossProjectCiStatus(),
     ]);
     if (readiness.status === "fulfilled") setReadinessRows(Array.isArray(readiness.value) ? readiness.value : []);
     if (repositories.status === "fulfilled") setRepoRows(Array.isArray(repositories.value) ? repositories.value : []);
     if (artifacts.status === "fulfilled") setArtifactRows(Array.isArray(artifacts.value) ? artifacts.value : []);
+    if (ciStatus.status === "fulfilled") setCiRows(Array.isArray(ciStatus.value) ? ciStatus.value : []);
   }, []);
 
   const loadActivity = useCallback(async () => {
@@ -132,8 +139,9 @@ export function OverviewPage() {
         repoRows,
         artifactRows,
         activityEvents,
+        ciRows,
       ),
-    [projects, snapshots, healthRows, readinessRows, repoRows, artifactRows, activityEvents],
+    [projects, snapshots, healthRows, readinessRows, repoRows, artifactRows, activityEvents, ciRows],
   );
   const visibleActivity = activityEvents.slice(0, 8);
   const hasActiveActivityFilters = Boolean(activityCategoryFilter);
@@ -141,6 +149,7 @@ export function OverviewPage() {
   const readinessSignal = summarizeReadinessSignal(readinessRows);
   const repoAnalysisSignal = summarizeRepoAnalysisSignal(repoRows);
   const artifactsSignal = summarizeArtifactsSignal(artifactRows);
+  const ciStatusSignal = summarizeCiStatusSignal(ciRows);
 
   async function refreshOverview() {
     setOverviewRefreshing(true);
@@ -287,6 +296,7 @@ export function OverviewPage() {
                 <SignalBoard
                   items={[
                     { label: "Health", to: "/app/health", summary: healthSignal },
+                    { label: "Build Status", to: "/app/projects", summary: ciStatusSignal },
                     { label: "Readiness", to: "/app/readiness", summary: readinessSignal },
                     { label: "Repository Analysis", to: "/app/repository-analysis", summary: repoAnalysisSignal },
                     { label: "Artifacts", to: "/app/artifacts", summary: artifactsSignal },
