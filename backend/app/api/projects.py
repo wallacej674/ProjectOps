@@ -15,6 +15,7 @@ from app.schemas.health_monitor_schedule import HealthMonitorScheduleRead, Healt
 from app.schemas.project import ProjectCreate, ProjectRead, ProjectUpdate
 from app.schemas.project_activity import ProjectActivityEventRead
 from app.schemas.project_status_page import ProjectStatusPageRead, ProjectStatusPageUpdate
+from app.schemas.project_alert_webhook import ProjectAlertWebhookRead, ProjectAlertWebhookUpdate
 from app.schemas.project_artifact import ProjectArtifactCreate, ProjectArtifactRead, ProjectArtifactUpdate
 from app.schemas.repo_analysis import RepoAnalysisRead
 from app.schemas.repo_integration import RepoIntegrationCreate, RepoIntegrationRead
@@ -54,6 +55,10 @@ from app.services.health_monitor_schedules import (
 from app.services.project_status_pages import (
     ProjectStatusPageValidationError,
     project_status_page_service,
+)
+from app.services.alert_webhooks import (
+    ProjectAlertWebhookValidationError,
+    alert_webhook_service,
 )
 from app.services.url_validator import HealthCheckUrlSafetyError
 from app.services.projects import ProjectNotFoundError, project_service
@@ -111,6 +116,14 @@ def _ci_monitor_validation_error(error: CiStatusMonitorScheduleValidationError) 
 
 
 def _status_page_validation_error(error: ProjectStatusPageValidationError) -> HTTPException:
+    return HTTPException(status_code=422, detail=str(error))
+
+
+def _alert_webhook_validation_error(error: ProjectAlertWebhookValidationError) -> HTTPException:
+    return HTTPException(status_code=422, detail=str(error))
+
+
+def _alert_webhook_unsafe_url(error: HealthCheckUrlSafetyError) -> HTTPException:
     return HTTPException(status_code=422, detail=str(error))
 
 
@@ -600,6 +613,72 @@ def rotate_project_status_page_slug(
         raise _not_found(error) from error
     except ProjectStatusPageValidationError as error:
         raise _status_page_validation_error(error) from error
+
+
+@router.get("/{project_id}/alert-webhook", response_model=ProjectAlertWebhookRead)
+def get_project_alert_webhook(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ProjectAlertWebhookRead:
+    try:
+        _ensure_owned_project(db, project_id, current_user)
+        return alert_webhook_service.get_for_project(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+
+
+@router.put("/{project_id}/alert-webhook", response_model=ProjectAlertWebhookRead)
+def update_project_alert_webhook(
+    project_id: int,
+    update: ProjectAlertWebhookUpdate,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ProjectAlertWebhookRead:
+    try:
+        _ensure_owned_project(db, project_id, current_user)
+        return alert_webhook_service.update_for_project(db, project_id, update)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+    except ProjectAlertWebhookValidationError as error:
+        raise _alert_webhook_validation_error(error) from error
+
+
+@router.delete("/{project_id}/alert-webhook", response_model=ProjectAlertWebhookRead)
+def pause_project_alert_webhook(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+) -> ProjectAlertWebhookRead:
+    try:
+        _ensure_owned_project(db, project_id, current_user)
+        return alert_webhook_service.pause_for_project(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+
+
+@router.post("/{project_id}/alert-webhook/test", response_model=ProjectAlertWebhookRead)
+def send_project_alert_webhook_test(
+    project_id: int,
+    db: Annotated[Session, Depends(get_db)],
+    current_user: Annotated[User, Depends(get_current_user)],
+    settings: Annotated[Settings, Depends(get_settings)],
+) -> ProjectAlertWebhookRead:
+    try:
+        _ensure_owned_project(db, project_id, current_user)
+        enforce_rate_limit(
+            scope="alert_webhook.test.user_project",
+            identifier=f"{current_user.id}:{project_id}",
+            limit=settings.rate_limit_alert_webhook_test_attempts,
+            window_seconds=settings.rate_limit_alert_webhook_test_window_seconds,
+        )
+        return alert_webhook_service.send_test(db, project_id)
+    except ProjectNotFoundError as error:
+        raise _not_found(error) from error
+    except ProjectAlertWebhookValidationError as error:
+        raise _alert_webhook_validation_error(error) from error
+    except HealthCheckUrlSafetyError as error:
+        raise _alert_webhook_unsafe_url(error) from error
 
 
 @router.post("/{project_id}/artifacts", response_model=ProjectArtifactRead, status_code=status.HTTP_201_CREATED)

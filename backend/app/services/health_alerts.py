@@ -8,6 +8,7 @@ from app.models.health_alert import HealthAlert, HealthAlertEvidence
 from app.models.health_check import HealthCheck
 from app.models.health_monitor_schedule import HealthMonitorSchedule
 from app.models.project_activity import ProjectActivityEvent
+from app.services.alert_webhooks import deliver_alert_transition
 
 logger = logging.getLogger("projectops.health_monitor")
 
@@ -16,14 +17,16 @@ def active_alert(db: Session, project_id: int) -> HealthAlert | None:
     return db.scalar(select(HealthAlert).where(HealthAlert.project_id == project_id, HealthAlert.status == "active"))
 
 
-def record_transition(db: Session, alert: HealthAlert, transition: str) -> None:
-    db.add(ProjectActivityEvent(
+def record_transition(db: Session, alert: HealthAlert, transition: str) -> ProjectActivityEvent:
+    event = ProjectActivityEvent(
         project_id=alert.project_id, event_type=f"health_alert_{transition}", event_category="health",
         message=f"Health alert {transition}.", related_resource_type="health_alert", related_resource_id=alert.id,
         metadata_json={"alert_id": alert.id, "closure_reason": alert.closure_reason,
                        "acknowledged_by_user_id": alert.acknowledged_by_user_id},
-    ))
+    )
+    db.add(event)
     logger.info("health_alert_%s project_id=%s alert_id=%s", transition, alert.project_id, alert.id)
+    return event
 
 
 def apply_observation(db: Session, schedule: HealthMonitorSchedule, check: HealthCheck) -> None:
@@ -48,7 +51,8 @@ def apply_observation(db: Session, schedule: HealthMonitorSchedule, check: Healt
         db.add(alert)
         db.flush()
         db.add(HealthAlertEvidence(alert_id=alert.id, health_check_id=first.id))
-        record_transition(db, alert, "opened")
+        event = record_transition(db, alert, "opened")
+        deliver_alert_transition(db, alert, "opened", event)
     elif alert is not None and not healthy:
         alert.failure_count += 1
     if alert is not None:
@@ -59,7 +63,8 @@ def apply_observation(db: Session, schedule: HealthMonitorSchedule, check: Healt
             alert.status = "recovered"
             alert.recovered_at = check.checked_at
             alert.recovery_check_id = check.id
-            record_transition(db, alert, "recovered")
+            event = record_transition(db, alert, "recovered")
+            deliver_alert_transition(db, alert, "recovered", event)
 
 
 def close_alert(db: Session, project_id: int, reason: str) -> None:

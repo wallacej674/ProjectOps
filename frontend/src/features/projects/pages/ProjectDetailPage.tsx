@@ -26,6 +26,7 @@ import type {
 import type { RepoAnalysis } from "../../../types/repoAnalysis";
 import type { RepoIntegration } from "../../../types/repoIntegration";
 import type { ProjectStatusPage } from "../../../types/projectStatusPage";
+import type { ProjectAlertWebhook } from "../../../types/projectAlertWebhook";
 import { getLatestProjectAnalysis, listProjectAnalyses, runProjectAnalysis } from "../api/projectAnalyses";
 import { listProjectActivity } from "../api/projectActivity";
 import {
@@ -52,6 +53,12 @@ import {
   rotateProjectStatusPageSlug,
   updateProjectStatusPage,
 } from "../api/projectStatusPage";
+import {
+  getProjectAlertWebhook,
+  pauseProjectAlertWebhook,
+  testProjectAlertWebhook,
+  updateProjectAlertWebhook,
+} from "../api/projectAlertWebhook";
 import { evaluateProjectReadiness, getProjectReadiness, updateProjectReadinessItem } from "../api/projectReadiness";
 import {
   getReadinessEvidenceCoverage,
@@ -64,6 +71,7 @@ import { ArchiveProjectModal } from "../components/ArchiveProjectModal";
 import { BuildStatusCard } from "../components/BuildStatusCard";
 import { CodeMapAnalysisCard } from "../components/CodeMapAnalysisCard";
 import { HealthMonitoringCard } from "../components/HealthMonitoringCard";
+import { HealthAlertWebhookCard } from "../components/HealthAlertWebhookCard";
 import { StatusPageCard } from "../components/StatusPageCard";
 import { LaunchChecklistCard } from "../components/LaunchChecklistCard";
 import { LaunchDecisionCard, type LaunchDecisionValue } from "../components/LaunchDecisionCard";
@@ -339,6 +347,13 @@ export function ProjectDetailPage() {
   const [statusPageLoading, setStatusPageLoading] = useState(false);
   const [statusPageError, setStatusPageError] = useState("");
   const [statusPagePending, setStatusPagePending] = useState(false);
+  const [alertWebhook, setAlertWebhook] = useState<ProjectAlertWebhook | null>(null);
+  const [alertWebhookLoading, setAlertWebhookLoading] = useState(false);
+  const [alertWebhookError, setAlertWebhookError] = useState("");
+  const [alertWebhookPending, setAlertWebhookPending] = useState(false);
+  const [alertWebhookTestPending, setAlertWebhookTestPending] = useState(false);
+  const [alertWebhookTestResult, setAlertWebhookTestResult] = useState<ProjectAlertWebhook | null>(null);
+  const [alertWebhookTestError, setAlertWebhookTestError] = useState("");
   const [readiness, setReadiness] = useState<ProjectReadinessSummary | null>(null);
   const [readinessLoading, setReadinessLoading] = useState(false);
   const [readinessError, setReadinessError] = useState("");
@@ -646,6 +661,21 @@ export function ProjectDetailPage() {
   }, [projectId]);
 
   useEffect(() => {
+    setAlertWebhookLoading(true);
+    setAlertWebhookError("");
+    getProjectAlertWebhook(projectId)
+      .then((webhook) => {
+        setAlertWebhook(webhook);
+        setAlertWebhookError("");
+      })
+      .catch((e: unknown) => {
+        setAlertWebhook(null);
+        setAlertWebhookError(e instanceof Error ? e.message : "Alert webhook settings could not load.");
+      })
+      .finally(() => setAlertWebhookLoading(false));
+  }, [projectId]);
+
+  useEffect(() => {
     setReadinessLoading(true);
     setReadinessError("");
     getProjectReadiness(projectId)
@@ -940,6 +970,45 @@ export function ProjectDetailPage() {
     }
   }
 
+  async function saveAlertWebhook(url: string) {
+    setAlertWebhookPending(true);
+    setAlertWebhookError("");
+    try {
+      setAlertWebhook(await updateProjectAlertWebhook(projectId, { enabled: true, url }));
+    } catch (e) {
+      setAlertWebhookError(e instanceof Error ? e.message : "Alert webhook could not be saved.");
+    } finally {
+      setAlertWebhookPending(false);
+    }
+  }
+
+  async function pauseAlertWebhook() {
+    setAlertWebhookPending(true);
+    setAlertWebhookError("");
+    try {
+      setAlertWebhook(await pauseProjectAlertWebhook(projectId));
+    } catch (e) {
+      setAlertWebhookError(e instanceof Error ? e.message : "Alert webhook could not be paused.");
+    } finally {
+      setAlertWebhookPending(false);
+    }
+  }
+
+  async function sendTestAlertWebhook() {
+    setAlertWebhookTestPending(true);
+    setAlertWebhookTestError("");
+    setAlertWebhookTestResult(null);
+    try {
+      const result = await testProjectAlertWebhook(projectId);
+      setAlertWebhookTestResult(result);
+      setAlertWebhook(result);
+    } catch (e) {
+      setAlertWebhookTestError(e instanceof Error ? e.message : "Test notification could not be sent.");
+    } finally {
+      setAlertWebhookTestPending(false);
+    }
+  }
+
   async function attachGitHubAppRepo(installationId: number, repositoryId: number) {
     setRepoPending(true);
     setRepoError("");
@@ -1191,6 +1260,22 @@ export function ProjectDetailPage() {
               onRunHealthCheck={runHealthCheck}
               onUpdateMonitor={saveHealthMonitor}
               onPauseMonitor={pauseHealthMonitor}
+            />
+          </div>
+          )}
+          {workspace.view === "monitoring" && (
+          <div id="alert-webhook" className="section-anchor">
+            <HealthAlertWebhookCard
+              webhook={alertWebhook}
+              loading={alertWebhookLoading}
+              error={alertWebhookError}
+              pending={alertWebhookPending}
+              testPending={alertWebhookTestPending}
+              testResult={alertWebhookTestResult}
+              testError={alertWebhookTestError}
+              onSave={saveAlertWebhook}
+              onPause={pauseAlertWebhook}
+              onSendTest={sendTestAlertWebhook}
             />
           </div>
           )}

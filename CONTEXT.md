@@ -70,6 +70,10 @@ _Avoid_: Deployment confirmation, test coverage proof, uptime
 An opt-in Project schedule that periodically runs the same safe URL check against the saved production URL. It records individual observations and schedule state; it is not an uptime guarantee, alerting system, or incident manager.
 _Avoid_: Guaranteed uptime, active incident, paging
 
+**Health Alert Webhook**:
+An opt-in, owner-configured URL that ProjectOps POSTs a JSON notification to when a Project's Health Alert opens or recovers, not on acknowledgement or closure. The payload includes a top-level `text` field compatible with Slack incoming webhooks alongside structured fields for other receivers. Delivery is a single best-effort HTTP attempt with its outcome recorded on the webhook's own settings; it is not signed, retried, or guaranteed, and a delivery failure never blocks or reverts the underlying Health Alert transition.
+_Avoid_: Signed webhook, guaranteed delivery, retry queue, notification inbox
+
 **Project Artifact**:
 A Project-scoped metadata record for an important note, link, runbook, decision, requirement, risk, incident note, or evidence reference. Project Artifacts store registry metadata and optional text/URL references; they do not upload, parse, preview, or analyze document files yet.
 _Avoid_: Uploaded file, AI document analysis, vector document, evidence proof

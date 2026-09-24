@@ -34,6 +34,8 @@ def _settings(**overrides) -> Settings:
         rate_limit_public_status_view_window_seconds=overrides.get("public_status_window", 60),
         rate_limit_public_status_badge_attempts=overrides.get("public_status_badge_attempts", 50),
         rate_limit_public_status_badge_window_seconds=overrides.get("public_status_badge_window", 60),
+        rate_limit_alert_webhook_test_attempts=overrides.get("alert_webhook_test_attempts", 50),
+        rate_limit_alert_webhook_test_window_seconds=overrides.get("alert_webhook_test_window", 300),
     )
 
 
@@ -199,6 +201,26 @@ def test_public_status_view_rate_limit_is_per_ip(client):
     try:
         first_response = client.get(f"/api/v1/public/status-pages/{slug}")
         second_response = client.get(f"/api/v1/public/status-pages/{slug}")
+    finally:
+        app.dependency_overrides.pop(get_settings, None)
+
+    assert first_response.status_code == 200
+    assert second_response.status_code == 429
+
+
+def test_alert_webhook_test_send_rate_limit_is_per_user_project(client, monkeypatch):
+    from app.services.alert_webhook_client import alert_webhook_client
+    from tests.test_project_alert_webhooks import FakeWebhookHttpClient, FakeWebhookResponse
+
+    monkeypatch.setattr(alert_webhook_client, "http_client", FakeWebhookHttpClient(FakeWebhookResponse(200)))
+    app.dependency_overrides[get_settings] = lambda: _settings(alert_webhook_test_attempts=1)
+    try:
+        token = _register(client, "webhook-tester@example.com")
+        project = _create_project(client, token)
+        client.put(f"/api/v1/projects/{project['id']}/alert-webhook", headers=_headers(token),
+            json={"enabled": True, "url": "https://hooks.slack.com/services/T000/B000/XXXX"})
+        first_response = client.post(f"/api/v1/projects/{project['id']}/alert-webhook/test", headers=_headers(token))
+        second_response = client.post(f"/api/v1/projects/{project['id']}/alert-webhook/test", headers=_headers(token))
     finally:
         app.dependency_overrides.pop(get_settings, None)
 

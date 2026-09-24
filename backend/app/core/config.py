@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     rate_limit_public_status_view_window_seconds: int = 60
     rate_limit_public_status_badge_attempts: int = 120
     rate_limit_public_status_badge_window_seconds: int = 60
+    rate_limit_alert_webhook_test_attempts: int = 5
+    rate_limit_alert_webhook_test_window_seconds: int = 300
+    alert_webhook_timeout_seconds: float = 5.0
+    app_base_url: str = ""
     github_app_client_id: str = ""
     github_app_client_secret: str = ""
     github_app_id: str = ""
@@ -130,6 +134,8 @@ class Settings(BaseSettings):
             "PROJECTOPS_RATE_LIMIT_PUBLIC_STATUS_VIEW_WINDOW_SECONDS": self.rate_limit_public_status_view_window_seconds,
             "PROJECTOPS_RATE_LIMIT_PUBLIC_STATUS_BADGE_ATTEMPTS": self.rate_limit_public_status_badge_attempts,
             "PROJECTOPS_RATE_LIMIT_PUBLIC_STATUS_BADGE_WINDOW_SECONDS": self.rate_limit_public_status_badge_window_seconds,
+            "PROJECTOPS_RATE_LIMIT_ALERT_WEBHOOK_TEST_ATTEMPTS": self.rate_limit_alert_webhook_test_attempts,
+            "PROJECTOPS_RATE_LIMIT_ALERT_WEBHOOK_TEST_WINDOW_SECONDS": self.rate_limit_alert_webhook_test_window_seconds,
         }
         for name, value in values.items():
             if value <= 0:

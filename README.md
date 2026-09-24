@@ -19,7 +19,7 @@ coverage and artifact usage, review recent Project activity from Project detail
 pages, and scan recent activity across Projects from the app Overview.
 
 ProjectOps is still intentionally staged. It does not yet include teams,
-organizations, roles, OAuth, password reset, refresh tokens, external alert delivery, file
+organizations, roles, OAuth, password reset, refresh tokens, file
 processing, notifications, OpenTelemetry, or automatic agent code execution.
 
 ## Current Status
@@ -43,6 +43,7 @@ Implemented:
 - In-app Health Alerts with acknowledgement, evidence history, confirmed recovery, and separate monitoring-overdue warnings.
 - CI Build Status: manual and scheduled GitHub Actions run tracking for GitHub App-connected repositories, selectable as Release Rehearsal readiness evidence. Requires the GitHub App's Actions read permission and installation re-authorization; see `docs/github-app-private-repositories.md`.
 - Public Status Page: an opt-in, unguessable-link page per Project showing current Health Check status, bounded recent history, and any active Health Alert, with owner-controlled publish/unpublish and link rotation, plus an embeddable SVG status badge for READMEs.
+- Health Alert Webhook: an opt-in, per-Project webhook URL notified with a Slack-compatible JSON payload when a Health Alert opens or recovers; single best-effort delivery per transition, owner-visible outcome, no signing or retries.
 - Advisory Production Readiness checklist.
 - Launch Report and Guided Launch Checklist APIs.
 - Launch Decision UI that records go/no-go/defer decisions as Project Artifacts.
@@ -76,8 +77,10 @@ Not implemented yet:
 - Deep repository analysis, file content fetching, language percentages, AST
   parsing, or dependency graph analysis.
 - File upload storage, OCR, document preview, embeddings, semantic search, LLM
-  extraction, general-purpose background jobs, external alert delivery, notification
-  inboxes, or AI summaries.
+  extraction, general-purpose background jobs, notification
+  inboxes, or AI summaries. A single best-effort Health Alert webhook is implemented
+  (see Current Status); HMAC signing, retries/queueing, and general incident
+  management remain future work.
 - Terraform, Kubernetes, Docker image publishing, or full CI/CD deployment
   automation.
 
